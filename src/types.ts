@@ -54,6 +54,22 @@ export interface OctomilOptions {
 
   /** Called during model download with progress information. */
   onProgress?: (progress: DownloadProgress) => void;
+
+  /**
+   * Routing configuration. When set, the SDK calls the routing API
+   * before each inference to decide between on-device and cloud execution.
+   * If omitted, all inference runs locally (current default behavior).
+   */
+  routing?: {
+    /** Routing preference. @default "fastest" */
+    prefer?: RoutingPreference;
+    /** Cache TTL in milliseconds. @default 300_000 (5 minutes) */
+    cacheTtlMs?: number;
+    /** Number of model parameters (used by routing heuristics). */
+    modelParams?: number;
+    /** Model size in MB (used by routing heuristics). */
+    modelSizeMb?: number;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -330,6 +346,71 @@ export interface Experiment {
   status: "draft" | "active" | "paused" | "completed";
   variants: ExperimentVariant[];
   createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Routing
+// ---------------------------------------------------------------------------
+
+/** Device capability info sent to the routing API. */
+export interface DeviceCapabilities {
+  platform: "web";
+  model: string;
+  total_memory_mb: number;
+  gpu_available: boolean;
+  npu_available: boolean;
+  supported_runtimes: string[];
+}
+
+/** Routing preference for execution target. */
+export type RoutingPreference = "device" | "cloud" | "cheapest" | "fastest";
+
+/** Request body for POST /api/v1/route. */
+export interface RoutingRequest {
+  model_id: string;
+  model_params: number;
+  model_size_mb: number;
+  device_capabilities: DeviceCapabilities;
+  prefer: RoutingPreference;
+}
+
+/** Fallback target returned by routing when cloud is primary. */
+export interface RoutingFallbackTarget {
+  endpoint: string;
+  [key: string]: unknown;
+}
+
+/** Response from POST /api/v1/route. */
+export interface RoutingDecision {
+  id: string;
+  target: "device" | "cloud";
+  format: string;
+  engine: string;
+  fallback_target: RoutingFallbackTarget | null;
+}
+
+/** Request body for POST /api/v1/inference. */
+export interface CloudInferenceRequest {
+  model_id: string;
+  input_data: unknown;
+  parameters: Record<string, unknown>;
+}
+
+/** Response from POST /api/v1/inference. */
+export interface CloudInferenceResponse {
+  output: unknown;
+  latency_ms: number;
+  provider: string;
+}
+
+/** Configuration for the routing client. */
+export interface RoutingConfig {
+  serverUrl: string;
+  apiKey: string;
+  /** Cache TTL in milliseconds. @default 300_000 (5 minutes) */
+  cacheTtlMs?: number;
+  /** Routing preference. @default "fastest" */
+  prefer?: RoutingPreference;
 }
 
 // ---------------------------------------------------------------------------
