@@ -400,6 +400,10 @@ export interface RoutingDecision {
   format: string;
   engine: string;
   fallback_target: RoutingFallbackTarget | null;
+  /** `true` when loaded from persistent cache (server was unreachable). */
+  cached?: boolean;
+  /** `true` when this is a synthetic offline-default decision. */
+  offline?: boolean;
 }
 
 /** Request body for POST /api/v1/inference. */
