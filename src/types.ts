@@ -263,6 +263,19 @@ export interface ChatChunk {
 }
 
 // ---------------------------------------------------------------------------
+// Cloud Streaming Inference (SSE)
+// ---------------------------------------------------------------------------
+
+/** A single token from the cloud streaming inference endpoint. */
+export interface StreamToken {
+  token: string;
+  done: boolean;
+  provider?: string;
+  latencyMs?: number;
+  sessionId?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Federated Training
 // ---------------------------------------------------------------------------
 

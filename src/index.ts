@@ -93,6 +93,7 @@ export type {
   StreamingOptions,
   StreamingChunk,
   StreamingResult,
+  StreamToken,
   WeightMap,
   TrainingConfig,
   TrainStepResult,

@@ -32,10 +32,12 @@ import type {
   ChatMessage,
   ChatOptions,
   ChatResponse,
+  DeviceCapabilities,
   OctomilOptions,
   NamedTensors,
   PredictInput,
   PredictOutput,
+  StreamToken,
   TelemetryEvent,
 } from "./types.js";
 import { OctomilError } from "./types.js";
@@ -266,6 +268,121 @@ export class Octomil {
         done: chunk.done,
         role: "assistant",
       };
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Cloud Streaming Inference (SSE)
+  // -----------------------------------------------------------------------
+
+  /**
+   * Stream tokens from the cloud inference endpoint via SSE.
+   *
+   * Consumes `POST /api/v1/inference/stream` and yields `StreamToken`
+   * objects as they arrive. Requires `serverUrl` and `apiKey` to be
+   * configured.
+   *
+   * @param modelId - Model identifier (e.g. `"phi-4-mini"`).
+   * @param input - Plain string prompt or chat-style messages.
+   * @param parameters - Generation parameters (temperature, max_tokens, etc.).
+   * @param signal - Optional AbortSignal for cancellation.
+   */
+  async *streamPredict(
+    modelId: string,
+    input: string | { role: string; content: string }[],
+    parameters?: Record<string, unknown>,
+    signal?: AbortSignal,
+  ): AsyncGenerator<StreamToken> {
+    if (!this.options.serverUrl || !this.options.apiKey) {
+      throw new OctomilError(
+        "INFERENCE_FAILED",
+        "streamPredict() requires serverUrl and apiKey to be configured.",
+      );
+    }
+
+    const url = `${this.options.serverUrl.replace(/\/+$/, "")}/api/v1/inference/stream`;
+    const body: Record<string, unknown> = { model_id: modelId };
+    if (typeof input === "string") {
+      body.input_data = input;
+    } else {
+      body.messages = input;
+    }
+    if (parameters) {
+      body.parameters = parameters;
+    }
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+      Authorization: `Bearer ${this.options.apiKey}`,
+    };
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+        signal,
+      });
+    } catch (err) {
+      throw new OctomilError(
+        "NETWORK_ERROR",
+        `streamPredict request failed: ${String(err)}`,
+        err,
+      );
+    }
+
+    if (!response.ok) {
+      throw new OctomilError(
+        "INFERENCE_FAILED",
+        `streamPredict failed: HTTP ${response.status}`,
+      );
+    }
+
+    if (!response.body) {
+      throw new OctomilError(
+        "INFERENCE_FAILED",
+        "Server did not return a streaming body.",
+      );
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data:")) continue;
+          const data = line.slice(5).trim();
+          if (!data) continue;
+
+          let parsed: Record<string, unknown>;
+          try {
+            parsed = JSON.parse(data) as Record<string, unknown>;
+          } catch {
+            continue;
+          }
+
+          yield {
+            token: (parsed.token as string) ?? "",
+            done: (parsed.done as boolean) ?? false,
+            provider: parsed.provider as string | undefined,
+            latencyMs: parsed.latency_ms as number | undefined,
+            sessionId: parsed.session_id as string | undefined,
+          };
+        }
+      }
+    } finally {
+      reader.releaseLock();
     }
   }
 
