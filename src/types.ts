@@ -427,6 +427,30 @@ export interface RoutingConfig {
 }
 
 // ---------------------------------------------------------------------------
+// Embeddings
+// ---------------------------------------------------------------------------
+
+/** Raw response from POST /api/v1/embeddings. */
+export interface EmbeddingResponse {
+  data: Array<{ embedding: number[]; index: number }>;
+  model: string;
+  usage: { prompt_tokens: number; total_tokens: number };
+}
+
+/** Parsed result returned by `embed()`. */
+export interface EmbeddingResult {
+  embeddings: number[][];
+  model: string;
+  usage: EmbeddingUsage;
+}
+
+/** Token usage statistics from the embeddings endpoint. */
+export interface EmbeddingUsage {
+  promptTokens: number;
+  totalTokens: number;
+}
+
+// ---------------------------------------------------------------------------
 // Errors
 // ---------------------------------------------------------------------------
 
