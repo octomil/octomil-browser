@@ -21,6 +21,7 @@
  */
 
 import { createModelCache, type ModelCache } from "./cache.js";
+import { embed as embedFn } from "./embeddings.js";
 import { InferenceEngine } from "./inference.js";
 import { ModelLoader } from "./model-loader.js";
 import { RoutingClient, detectDeviceCapabilities } from "./routing.js";
@@ -34,6 +35,7 @@ import type {
   ChatOptions,
   ChatResponse,
   DeviceCapabilities,
+  EmbeddingResult,
   OctomilOptions,
   NamedTensors,
   PredictInput,
@@ -233,12 +235,16 @@ export class Octomil {
     const start = performance.now();
     let content = "";
 
-    const generator = streaming.stream(this.options.model, {
-      messages,
-      temperature: options.temperature,
-      max_tokens: options.maxTokens,
-      top_p: options.topP,
-    }, { modality: "text", signal: options.signal });
+    const generator = streaming.stream(
+      this.options.model,
+      {
+        messages,
+        temperature: options.temperature,
+        max_tokens: options.maxTokens,
+        top_p: options.topP,
+      },
+      { modality: "text", signal: options.signal },
+    );
 
     for await (const chunk of generator) {
       if (typeof chunk.data === "string") {
@@ -274,17 +280,24 @@ export class Octomil {
       onTelemetry: (e) => this.trackEvent(e),
     });
 
-    const generator = streaming.stream(this.options.model, {
-      messages,
-      temperature: options.temperature,
-      max_tokens: options.maxTokens,
-      top_p: options.topP,
-    }, { modality: "text", signal: options.signal });
+    const generator = streaming.stream(
+      this.options.model,
+      {
+        messages,
+        temperature: options.temperature,
+        max_tokens: options.maxTokens,
+        top_p: options.topP,
+      },
+      { modality: "text", signal: options.signal },
+    );
 
     for await (const chunk of generator) {
       yield {
         index: chunk.index,
-        content: typeof chunk.data === "string" ? chunk.data : JSON.stringify(chunk.data),
+        content:
+          typeof chunk.data === "string"
+            ? chunk.data
+            : JSON.stringify(chunk.data),
         done: chunk.done,
         role: "assistant",
       };
@@ -404,6 +417,40 @@ export class Octomil {
     } finally {
       reader.releaseLock();
     }
+  }
+
+  // -----------------------------------------------------------------------
+  // Embeddings
+  // -----------------------------------------------------------------------
+
+  /**
+   * Generate embeddings via the Octomil cloud endpoint.
+   *
+   * Requires `serverUrl` and `apiKey` to be configured.
+   *
+   * @param modelId - Embedding model identifier (e.g. `"nomic-embed-text"`).
+   * @param input - A single string or array of strings to embed.
+   * @param signal - Optional AbortSignal for cancellation.
+   */
+  async embed(
+    modelId: string,
+    input: string | string[],
+    signal?: AbortSignal,
+  ): Promise<EmbeddingResult> {
+    if (!this.options.serverUrl || !this.options.apiKey) {
+      throw new OctomilError(
+        "NETWORK_ERROR",
+        "embed() requires serverUrl and apiKey to be configured.",
+      );
+    }
+
+    return embedFn(
+      this.options.serverUrl,
+      this.options.apiKey,
+      modelId,
+      input,
+      signal,
+    );
   }
 
   // -----------------------------------------------------------------------
@@ -596,8 +643,8 @@ export class Octomil {
 
     // RGBA → CHW (R plane, G plane, B plane), normalised 0–1.
     for (let i = 0; i < pixels; i++) {
-      float[i] = rgba[i * 4]! / 255;               // R
-      float[pixels + i] = rgba[i * 4 + 1]! / 255;  // G
+      float[i] = rgba[i * 4]! / 255; // R
+      float[pixels + i] = rgba[i * 4 + 1]! / 255; // G
       float[2 * pixels + i] = rgba[i * 4 + 2]! / 255; // B
     }
 
