@@ -67,6 +67,9 @@ export { RolloutsManager } from "./rollouts.js";
 // Experiments / A/B testing
 export { ExperimentsClient } from "./experiments.js";
 
+// Routing
+export { RoutingClient, detectDeviceCapabilities } from "./routing.js";
+
 // Types
 export type {
   OctomilOptions,
@@ -102,6 +105,14 @@ export type {
   RolloutConfig,
   Experiment,
   ExperimentVariant,
+  DeviceCapabilities,
+  RoutingPreference,
+  RoutingRequest,
+  RoutingDecision,
+  RoutingFallbackTarget,
+  RoutingConfig,
+  CloudInferenceRequest,
+  CloudInferenceResponse,
 } from "./types.js";
 
 export type { QuantizedWeightMap } from "./privacy.js";

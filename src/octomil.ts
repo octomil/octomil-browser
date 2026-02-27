@@ -23,6 +23,7 @@
 import { createModelCache, type ModelCache } from "./cache.js";
 import { InferenceEngine } from "./inference.js";
 import { ModelLoader } from "./model-loader.js";
+import { RoutingClient, detectDeviceCapabilities } from "./routing.js";
 import { TelemetryReporter } from "./telemetry.js";
 import { StreamingInferenceEngine } from "./streaming.js";
 import type {
@@ -32,6 +33,7 @@ import type {
   ChatMessage,
   ChatOptions,
   ChatResponse,
+  DeviceCapabilities,
   OctomilOptions,
   NamedTensors,
   PredictInput,
@@ -53,7 +55,9 @@ export class Octomil {
   private readonly cache: ModelCache;
   private readonly loader: ModelLoader;
   private readonly engine: InferenceEngine;
+  private readonly routingClient: RoutingClient | null = null;
   private telemetry: TelemetryReporter | null = null;
+  private deviceCaps: DeviceCapabilities | null = null;
 
   private loaded = false;
   private disposed = false;
@@ -68,6 +72,16 @@ export class Octomil {
     this.cache = createModelCache(this.options.cacheStrategy);
     this.loader = new ModelLoader(this.options, this.cache);
     this.engine = new InferenceEngine();
+
+    // Routing is opt-in: only enabled when serverUrl + apiKey + routing are set.
+    if (this.options.serverUrl && this.options.apiKey && this.options.routing) {
+      this.routingClient = new RoutingClient({
+        serverUrl: this.options.serverUrl,
+        apiKey: this.options.apiKey,
+        cacheTtlMs: this.options.routing.cacheTtlMs,
+        prefer: this.options.routing.prefer,
+      });
+    }
 
     if (this.options.telemetry) {
       this.telemetry = new TelemetryReporter({
@@ -137,6 +151,13 @@ export class Octomil {
   async predict(input: PredictInput): Promise<PredictOutput> {
     this.ensureReady();
 
+    // Attempt cloud routing if configured.
+    if (this.routingClient) {
+      const cloudResult = await this.tryCloudInference(input);
+      if (cloudResult) return cloudResult;
+    }
+
+    // Local inference (default path).
     const tensors = this.prepareTensors(input);
     const result = await this.engine.run(tensors);
 
@@ -144,7 +165,7 @@ export class Octomil {
       type: "inference",
       model: this.options.model,
       durationMs: result.latencyMs,
-      metadata: { backend: this.engine.activeBackend },
+      metadata: { backend: this.engine.activeBackend, target: "device" },
       timestamp: Date.now(),
     });
 
@@ -478,6 +499,65 @@ export class Octomil {
         dims: [1, 3, height, width],
       },
     };
+  }
+
+  /**
+   * Attempt routing + cloud inference. Returns a PredictOutput if the
+   * routing decision is "cloud" and the cloud call succeeds, or `null`
+   * to fall back to local inference.
+   */
+  private async tryCloudInference(
+    input: PredictInput,
+  ): Promise<PredictOutput | null> {
+    try {
+      if (!this.deviceCaps) {
+        this.deviceCaps = await detectDeviceCapabilities();
+      }
+
+      const routing = this.options.routing!;
+      const decision = await this.routingClient!.route(
+        this.options.model,
+        routing.modelParams ?? 0,
+        routing.modelSizeMb ?? 0,
+        this.deviceCaps,
+      );
+
+      if (!decision || decision.target !== "cloud") {
+        return null;
+      }
+
+      const start = performance.now();
+      const cloudResponse = await this.routingClient!.cloudInfer(
+        this.options.model,
+        input,
+      );
+      const latencyMs = performance.now() - start;
+
+      this.trackEvent({
+        type: "inference",
+        model: this.options.model,
+        durationMs: latencyMs,
+        metadata: {
+          target: "cloud",
+          provider: cloudResponse.provider,
+          routingId: decision.id,
+        },
+        timestamp: Date.now(),
+      });
+
+      // Wrap the cloud output in PredictOutput shape.
+      return {
+        tensors: {},
+        latencyMs,
+        ...(typeof cloudResponse.output === "object" &&
+        cloudResponse.output !== null
+          ? (cloudResponse.output as Record<string, unknown>)
+          : { label: String(cloudResponse.output) }),
+      };
+    } catch {
+      // Any failure in routing/cloud → fall back to local inference silently.
+      return null;
+    }
   }
 
   private trackEvent(event: TelemetryEvent): void {
