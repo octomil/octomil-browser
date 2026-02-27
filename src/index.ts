@@ -37,10 +37,17 @@ export {
 export { DeviceAuthManager } from "./device-auth.js";
 
 // Model integrity
-export { computeHash, verifyModelIntegrity, assertModelIntegrity } from "./integrity.js";
+export {
+  computeHash,
+  verifyModelIntegrity,
+  assertModelIntegrity,
+} from "./integrity.js";
 
 // Streaming inference
 export { StreamingInferenceEngine } from "./streaming.js";
+
+// Embeddings
+export { embed } from "./embeddings.js";
 
 // Federated training
 export { FederatedClient, WeightExtractor } from "./federated.js";
@@ -114,6 +121,9 @@ export type {
   RoutingConfig,
   CloudInferenceRequest,
   CloudInferenceResponse,
+  EmbeddingResult,
+  EmbeddingUsage,
+  EmbeddingResponse,
 } from "./types.js";
 
 export type { QuantizedWeightMap } from "./privacy.js";
