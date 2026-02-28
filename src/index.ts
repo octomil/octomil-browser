@@ -46,7 +46,8 @@ export {
 // Streaming inference
 export { StreamingInferenceEngine } from "./streaming.js";
 
-// Engine plugin interface
+// Engine registry & plugin interface
+export { EngineRegistry } from "./engine-registry.js";
 export type { EnginePlugin } from "./engine-plugin.js";
 
 // Embeddings
