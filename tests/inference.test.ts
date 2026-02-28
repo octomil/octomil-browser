@@ -151,6 +151,56 @@ describe("InferenceEngine", () => {
     });
   });
 
+  describe("extractConvenience — in-graph sampling", () => {
+    it("returns scalar token ID directly when model output has one element (Float32Array)", async () => {
+      mockSession.run.mockResolvedValueOnce({
+        output: {
+          data: new Float32Array([42]),
+          dims: [1],
+        },
+      });
+
+      await engine.createSession(new ArrayBuffer(64), "wasm");
+      const result = await engine.run({
+        input: { data: new Float32Array([1]), dims: [1, 1] },
+      });
+
+      expect(result.label).toBe("42");
+      expect(result.score).toBe(1.0);
+      expect(result.scores).toBeUndefined();
+    });
+
+    it("returns scalar token ID directly when model output is BigInt64Array", async () => {
+      mockSession.run.mockResolvedValueOnce({
+        output: {
+          data: new BigInt64Array([BigInt(99)]),
+          dims: [1],
+        },
+      });
+
+      await engine.createSession(new ArrayBuffer(64), "wasm");
+      const result = await engine.run({
+        input: { data: new Float32Array([1]), dims: [1, 1] },
+      });
+
+      expect(result.label).toBe("99");
+      expect(result.score).toBe(1.0);
+      expect(result.scores).toBeUndefined();
+    });
+
+    it("still performs argmax for multi-element classification output", async () => {
+      // Default mock returns [0.1, 0.7, 0.2] — argmax is index 1
+      await engine.createSession(new ArrayBuffer(64), "wasm");
+      const result = await engine.run({
+        input: { data: new Float32Array([1]), dims: [1, 1] },
+      });
+
+      expect(result.label).toBe("1");
+      expect(result.score).toBeCloseTo(0.7);
+      expect(result.scores).toHaveLength(3);
+    });
+  });
+
   describe("dispose", () => {
     it("releases the session", async () => {
       await engine.createSession(new ArrayBuffer(64), "wasm");
