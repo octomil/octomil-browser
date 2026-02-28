@@ -1,5 +1,5 @@
 /**
- * @octomil/browser — Model loader
+ * @octomil/browser — Model manager
  *
  * Downloads an ONNX model from a URL or the Octomil model registry,
  * caches it locally, and returns the raw `ArrayBuffer` for the
@@ -22,10 +22,10 @@ const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1_000;
 
 // ---------------------------------------------------------------------------
-// ModelLoader
+// ModelManager
 // ---------------------------------------------------------------------------
 
-export class ModelLoader {
+export class ModelManager {
   private readonly modelId: string;
   private readonly serverUrl: string | undefined;
   private readonly apiKey: string | undefined;

@@ -1,7 +1,7 @@
 /**
  * Tests for the OctomilClient main class.
  *
- * We mock the sub-modules (ModelLoader, InferenceEngine, cache) so
+ * We mock the sub-modules (ModelManager, InferenceEngine, cache) so
  * these tests verify orchestration logic rather than I/O.
  */
 
@@ -84,7 +84,7 @@ describe("OctomilClient", () => {
       });
       expect(ml).toBeInstanceOf(OctomilClient);
       expect(ml.isLoaded).toBe(false);
-      ml.dispose();
+      ml.close();
     });
 
     it("defaults telemetry to false — no telemetry beacon calls during lifecycle", async () => {
@@ -103,7 +103,7 @@ describe("OctomilClient", () => {
       const fetchUrl = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0];
       expect(fetchUrl).toContain("test.onnx");
 
-      ml.dispose();
+      ml.close();
     });
   });
 
@@ -118,17 +118,17 @@ describe("OctomilClient", () => {
       await ml.load();
       expect(ml.isLoaded).toBe(true);
       expect(ml.activeBackend).toBe("wasm");
-      ml.dispose();
+      ml.close();
     });
 
-    it("throws SESSION_DISPOSED if called after dispose", async () => {
+    it("throws SESSION_CLOSED if called after close", async () => {
       const ml = new OctomilClient({
         model: "https://models.octomil.io/test.onnx",
         cacheStrategy: "none",
       });
 
-      ml.dispose();
-      await expect(ml.load()).rejects.toThrow("disposed");
+      ml.close();
+      await expect(ml.load()).rejects.toThrow("closed");
     });
   });
 
@@ -146,7 +146,7 @@ describe("OctomilClient", () => {
         expect(err).toBeInstanceOf(OctomilError);
         expect((err as OctomilError).code).toBe("NOT_LOADED");
       }
-      ml.dispose();
+      ml.close();
     });
 
     it("runs inference with raw input", async () => {
@@ -166,7 +166,7 @@ describe("OctomilClient", () => {
       expect(result.latencyMs).toBeGreaterThanOrEqual(0);
       expect(result.label).toBe("1"); // argmax of [0.2, 0.8]
       expect(result.score).toBeCloseTo(0.8);
-      ml.dispose();
+      ml.close();
     });
 
     it("runs inference with named tensors", async () => {
@@ -182,7 +182,7 @@ describe("OctomilClient", () => {
       });
 
       expect(result.tensors["output"]).toBeDefined();
-      ml.dispose();
+      ml.close();
     });
 
     it("runs inference with text input", async () => {
@@ -196,7 +196,7 @@ describe("OctomilClient", () => {
       const result = await ml.predict({ text: "hello" });
 
       expect(result.tensors).toBeDefined();
-      ml.dispose();
+      ml.close();
     });
   });
 
@@ -212,7 +212,7 @@ describe("OctomilClient", () => {
       await expect(
         ml.chat([{ role: "user", content: "Hi" }]),
       ).rejects.toThrow("requires serverUrl");
-      ml.dispose();
+      ml.close();
     });
   });
 
@@ -226,7 +226,7 @@ describe("OctomilClient", () => {
       expect(await ml.isCached()).toBe(false);
       const info = await ml.cacheInfo();
       expect(info.cached).toBe(false);
-      ml.dispose();
+      ml.close();
     });
 
     it("clearCache does not throw when nothing is cached", async () => {
@@ -236,11 +236,11 @@ describe("OctomilClient", () => {
       });
 
       await expect(ml.clearCache()).resolves.toBeUndefined();
-      ml.dispose();
+      ml.close();
     });
   });
 
-  describe("dispose", () => {
+  describe("close", () => {
     it("marks instance as not loaded", async () => {
       const ml = new OctomilClient({
         model: "https://models.octomil.io/test.onnx",
@@ -251,7 +251,7 @@ describe("OctomilClient", () => {
       await ml.load();
       expect(ml.isLoaded).toBe(true);
 
-      ml.dispose();
+      ml.close();
       expect(ml.isLoaded).toBe(false);
     });
 
@@ -261,8 +261,8 @@ describe("OctomilClient", () => {
         cacheStrategy: "none",
       });
 
-      ml.dispose();
-      ml.dispose(); // No error.
+      ml.close();
+      ml.close(); // No error.
     });
 
     it("prevents further operations", async () => {
@@ -271,7 +271,7 @@ describe("OctomilClient", () => {
         cacheStrategy: "none",
       });
 
-      ml.dispose();
+      ml.close();
       await expect(ml.load()).rejects.toThrow(OctomilError);
       await expect(ml.isCached()).rejects.toThrow(OctomilError);
     });

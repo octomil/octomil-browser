@@ -7,7 +7,7 @@ import {
   TelemetryReporter,
   initTelemetry,
   getTelemetry,
-  disposeTelemetry,
+  closeTelemetry,
 } from "../src/telemetry.js";
 import type { TelemetryEvent } from "../src/types.js";
 
@@ -48,7 +48,7 @@ describe("TelemetryReporter", () => {
     const reporter = new TelemetryReporter({ flushIntervalMs: 60_000 });
     reporter.track(makeEvent());
     expect(fetchSpy).not.toHaveBeenCalled();
-    reporter.dispose();
+    reporter.close();
   });
 
   it("flushes events on manual flush()", async () => {
@@ -68,7 +68,7 @@ describe("TelemetryReporter", () => {
     expect(body.events[0].name).toBe("deploy.started");
     expect(body.events[1].name).toBe("inference.completed");
 
-    reporter.dispose();
+    reporter.close();
   });
 
   it("auto-flushes on timer interval", async () => {
@@ -80,7 +80,7 @@ describe("TelemetryReporter", () => {
     await vi.advanceTimersByTimeAsync(5_001);
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    reporter.dispose();
+    reporter.close();
   });
 
   it("auto-flushes when batch size limit is reached", async () => {
@@ -97,7 +97,7 @@ describe("TelemetryReporter", () => {
     await Promise.resolve();
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    reporter.dispose();
+    reporter.close();
   });
 
   it("includes Authorization header when apiKey is set", async () => {
@@ -114,7 +114,7 @@ describe("TelemetryReporter", () => {
       string
     >;
     expect(headers["Authorization"]).toBe("Bearer sk-test-123");
-    reporter.dispose();
+    reporter.close();
   });
 
   it("does not throw on fetch failure", async () => {
@@ -125,12 +125,12 @@ describe("TelemetryReporter", () => {
 
     // Should not throw.
     await expect(reporter.flush()).resolves.toBeUndefined();
-    reporter.dispose();
+    reporter.close();
   });
 
-  it("does not track events after dispose", () => {
+  it("does not track events after close", () => {
     const reporter = new TelemetryReporter({ flushIntervalMs: 60_000 });
-    reporter.dispose();
+    reporter.close();
     reporter.track(makeEvent());
     // No error, but event is silently dropped.
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -140,7 +140,7 @@ describe("TelemetryReporter", () => {
     const reporter = new TelemetryReporter({ flushIntervalMs: 60_000 });
     await reporter.flush();
     expect(fetchSpy).not.toHaveBeenCalled();
-    reporter.dispose();
+    reporter.close();
   });
 
   // -----------------------------------------------------------------------
@@ -156,7 +156,7 @@ describe("TelemetryReporter", () => {
     expect(body.events[0].name).toBe("inference.started");
     expect(body.events[0].attributes.modelId).toBe("test-model");
     expect(body.events[0].attributes.target).toBe("device");
-    reporter.dispose();
+    reporter.close();
   });
 
   it("reportInferenceCompleted enqueues inference.completed event", async () => {
@@ -167,7 +167,7 @@ describe("TelemetryReporter", () => {
     const body = JSON.parse(fetchSpy.mock.calls[0]![1]!.body as string);
     expect(body.events[0].name).toBe("inference.completed");
     expect(body.events[0].attributes.durationMs).toBe(42.5);
-    reporter.dispose();
+    reporter.close();
   });
 
   it("reportDeployStarted/Completed enqueues deploy events", async () => {
@@ -179,7 +179,7 @@ describe("TelemetryReporter", () => {
     const body = JSON.parse(fetchSpy.mock.calls[0]![1]!.body as string);
     expect(body.events[0].name).toBe("deploy.started");
     expect(body.events[1].name).toBe("deploy.completed");
-    reporter.dispose();
+    reporter.close();
   });
 
   it("reportExperimentMetric enqueues experiment.metric event", async () => {
@@ -190,7 +190,7 @@ describe("TelemetryReporter", () => {
     const body = JSON.parse(fetchSpy.mock.calls[0]![1]!.body as string);
     expect(body.events[0].name).toBe("experiment.metric");
     expect(body.events[0].attributes.metricValue).toBe(0.95);
-    reporter.dispose();
+    reporter.close();
   });
 
   it("reportTrainingStarted/Completed enqueues training events", async () => {
@@ -203,7 +203,7 @@ describe("TelemetryReporter", () => {
     expect(body.events[0].name).toBe("training.started");
     expect(body.events[1].name).toBe("training.completed");
     expect(body.events[1].attributes.durationMs).toBe(5000);
-    reporter.dispose();
+    reporter.close();
   });
 });
 
@@ -218,7 +218,7 @@ describe("telemetry singletons", () => {
   });
 
   afterEach(() => {
-    disposeTelemetry();
+    closeTelemetry();
     vi.useRealTimers();
   });
 
@@ -231,10 +231,10 @@ describe("telemetry singletons", () => {
     expect(getTelemetry()).not.toBe(t1);
   });
 
-  it("disposeTelemetry clears singleton", () => {
+  it("closeTelemetry clears singleton", () => {
     initTelemetry();
     expect(getTelemetry()).not.toBeNull();
-    disposeTelemetry();
+    closeTelemetry();
     expect(getTelemetry()).toBeNull();
   });
 });

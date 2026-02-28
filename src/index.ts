@@ -13,7 +13,7 @@
  * await ml.load();
  * const result = await ml.predict({ text: 'This is amazing!' });
  * console.log(result.label, result.score);
- * ml.dispose();
+ * ml.close();
  * ```
  *
  * @packageDocumentation
@@ -24,13 +24,13 @@ export { OctomilClient } from "./octomil.js";
 
 // Sub-modules (for advanced usage)
 export { InferenceEngine } from "./inference.js";
-export { ModelLoader } from "./model-loader.js";
+export { ModelManager } from "./model-manager.js";
 export { createModelCache, type ModelCache } from "./cache.js";
 export {
   TelemetryReporter,
   initTelemetry,
   getTelemetry,
-  disposeTelemetry,
+  closeTelemetry,
 } from "./telemetry.js";
 
 // Device auth

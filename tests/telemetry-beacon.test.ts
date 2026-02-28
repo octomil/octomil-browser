@@ -46,7 +46,7 @@ describe("TelemetryReporter — sendBeacon path", () => {
     await reporter.flush();
 
     expect(sendBeaconSpy).toHaveBeenCalledTimes(1);
-    reporter.dispose();
+    reporter.close();
   });
 
   it("falls back to fetch when sendBeacon returns false", async () => {
@@ -68,10 +68,10 @@ describe("TelemetryReporter — sendBeacon path", () => {
     expect(sendBeaconSpy).toHaveBeenCalled();
     // Then fetch was used as fallback.
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    reporter.dispose();
+    reporter.close();
   });
 
-  it("uses sendBeacon on dispose to flush remaining events", () => {
+  it("uses sendBeacon on close to flush remaining events", () => {
     const sendBeaconSpy = vi.fn(() => true);
     Object.defineProperty(globalThis, "navigator", {
       value: { sendBeacon: sendBeaconSpy },
@@ -82,9 +82,9 @@ describe("TelemetryReporter — sendBeacon path", () => {
     const reporter = new TelemetryReporter({ flushIntervalMs: 60_000 });
     reporter.track(makeEvent());
     reporter.track(makeEvent());
-    reporter.dispose();
+    reporter.close();
 
-    // dispose should have flushed via sendBeacon.
+    // close should have flushed via sendBeacon.
     expect(sendBeaconSpy).toHaveBeenCalledTimes(1);
   });
 
@@ -106,6 +106,6 @@ describe("TelemetryReporter — sendBeacon path", () => {
 
     // Should not throw even though sendBeacon threw.
     await expect(reporter.flush()).resolves.toBeUndefined();
-    reporter.dispose();
+    reporter.close();
   });
 });

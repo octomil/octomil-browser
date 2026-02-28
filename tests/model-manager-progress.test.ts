@@ -1,9 +1,9 @@
 /**
- * Tests for model-loader download-with-progress path.
+ * Tests for model-manager download-with-progress path.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ModelLoader } from "../src/model-loader.js";
+import { ModelManager } from "../src/model-manager.js";
 import type { ModelCache } from "../src/cache.js";
 import type { DownloadProgress, OctomilOptions } from "../src/types.js";
 
@@ -51,7 +51,7 @@ function chunkedStream(chunks: Uint8Array[]): ReadableStream<Uint8Array> {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("ModelLoader — download with progress", () => {
+describe("ModelManager — download with progress", () => {
   let cache: ModelCache;
 
   beforeEach(() => {
@@ -82,7 +82,7 @@ describe("ModelLoader — download with progress", () => {
       onProgress: (p) => progressEvents.push({ ...p }),
     };
 
-    const loader = new ModelLoader(opts, cache);
+    const loader = new ModelManager(opts, cache);
     const result = await loader.load();
 
     // Should have received 2 progress events.
@@ -120,7 +120,7 @@ describe("ModelLoader — download with progress", () => {
       onProgress: (p) => progressEvents.push({ ...p }),
     };
 
-    const loader = new ModelLoader(opts, cache);
+    const loader = new ModelManager(opts, cache);
     await loader.load();
 
     expect(progressEvents).toHaveLength(1);
