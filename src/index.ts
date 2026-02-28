@@ -56,6 +56,9 @@ export { embed } from "./embeddings.js";
 // Federated training
 export { FederatedClient, WeightExtractor } from "./federated.js";
 
+// Federated analytics
+export { FederatedAnalyticsClient } from "./federated-analytics.js";
+
 // Secure aggregation
 export {
   SecureAggregation,
@@ -134,6 +137,16 @@ export type {
   InferenceMetrics,
   GenerationChunk,
   CacheStats,
+  AnalyticsFilter,
+  DescriptiveResult,
+  GroupStats,
+  ConfidenceInterval,
+  TTestResult,
+  ChiSquareResult,
+  PostHocPair,
+  AnovaResult,
+  AnalyticsQuery,
+  AnalyticsQueryListResponse,
 } from "./types.js";
 
 export type { QuantizedWeightMap } from "./privacy.js";
