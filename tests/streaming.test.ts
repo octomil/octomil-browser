@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { StreamingInferenceEngine } from "../src/streaming.js";
+import { TelemetryReporter } from "../src/telemetry.js";
+import type { TelemetryEvent } from "../src/types.js";
 
 function sseResponse(chunks: Array<Record<string, unknown>>, status = 200): Response {
   const lines = chunks.map((c) => `data: ${JSON.stringify(c)}`).join("\n") + "\ndata: [DONE]\n";
@@ -19,15 +21,21 @@ function sseResponse(chunks: Array<Record<string, unknown>>, status = 200): Resp
 
 describe("StreamingInferenceEngine", () => {
   let engine: StreamingInferenceEngine;
-  let telemetryEvents: Array<{ type: string }>;
+  let telemetryReporter: TelemetryReporter;
+  let trackedEvents: TelemetryEvent[];
 
   beforeEach(() => {
     vi.restoreAllMocks();
-    telemetryEvents = [];
+    trackedEvents = [];
+    telemetryReporter = new TelemetryReporter({ flushIntervalMs: 60_000 });
+    // Spy on track to capture events
+    vi.spyOn(telemetryReporter, "track").mockImplementation((e) => {
+      trackedEvents.push(e);
+    });
     engine = new StreamingInferenceEngine({
       serverUrl: "https://api.octomil.io",
       apiKey: "edg_test", // pragma: allowlist secret
-      onTelemetry: (e) => telemetryEvents.push(e),
+      telemetry: telemetryReporter,
     });
   });
 
@@ -51,7 +59,7 @@ describe("StreamingInferenceEngine", () => {
     expect(received[1]).toMatchObject({ index: 1, data: " world" });
   });
 
-  it("emits telemetry events: start, chunk, complete", async () => {
+  it("emits telemetry events: inference.started, inference.chunk, inference.completed", async () => {
     const chunks = [
       { index: 0, data: "Hi", modality: "text", done: true },
     ];
@@ -63,10 +71,10 @@ describe("StreamingInferenceEngine", () => {
       // consume
     }
 
-    const types = telemetryEvents.map((e) => e.type);
-    expect(types).toContain("streaming_start");
-    expect(types).toContain("streaming_chunk");
-    expect(types).toContain("streaming_complete");
+    const names = trackedEvents.map((e) => e.name);
+    expect(names).toContain("inference.started");
+    expect(names).toContain("inference.chunk");
+    expect(names).toContain("inference.completed");
   });
 
   it("sends authorization header when apiKey is provided", async () => {
@@ -108,7 +116,7 @@ describe("StreamingInferenceEngine", () => {
     }).rejects.toThrow("Streaming request failed");
   });
 
-  it("emits streaming_error telemetry on network failure", async () => {
+  it("emits inference.failed telemetry on network failure", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("fail"));
 
     const generator = engine.stream("test-model", { prompt: "Hi" });
@@ -120,8 +128,8 @@ describe("StreamingInferenceEngine", () => {
       // expected
     }
 
-    const types = telemetryEvents.map((e) => e.type);
-    expect(types).toContain("streaming_error");
+    const names = trackedEvents.map((e) => e.name);
+    expect(names).toContain("inference.failed");
   });
 
   it("throws when response has no body", async () => {
@@ -161,8 +169,8 @@ describe("StreamingInferenceEngine", () => {
     expect(received[0]).toMatchObject({ data: "ok" });
   });
 
-  it("works without apiKey", async () => {
-    const noKeyEngine = new StreamingInferenceEngine({
+  it("works without telemetry", async () => {
+    const noTelemetryEngine = new StreamingInferenceEngine({
       serverUrl: "https://api.octomil.io",
     });
 
@@ -170,7 +178,7 @@ describe("StreamingInferenceEngine", () => {
       sseResponse([{ index: 0, data: "x", modality: "text", done: true }]),
     );
 
-    const generator = noKeyEngine.stream("test-model", { prompt: "Hi" });
+    const generator = noTelemetryEngine.stream("test-model", { prompt: "Hi" });
     for await (const _chunk of generator) {
       // consume
     }

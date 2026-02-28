@@ -16,14 +16,13 @@ import type { TelemetryEvent } from "../src/types.js";
 // ---------------------------------------------------------------------------
 
 function makeEvent(
-  type: TelemetryEvent["type"] = "inference",
+  name = "inference.completed",
   durationMs = 42,
 ): TelemetryEvent {
   return {
-    type,
-    model: "test-model",
-    durationMs,
-    timestamp: Date.now(),
+    name,
+    timestamp: new Date().toISOString(),
+    attributes: { modelId: "test-model", durationMs },
   };
 }
 
@@ -58,16 +57,16 @@ describe("TelemetryReporter", () => {
       flushIntervalMs: 60_000,
     });
 
-    reporter.track(makeEvent("model_load"));
-    reporter.track(makeEvent("inference"));
+    reporter.track(makeEvent("deploy.started"));
+    reporter.track(makeEvent("inference.completed"));
 
     await reporter.flush();
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const body = JSON.parse(fetchSpy.mock.calls[0]![1]!.body as string);
     expect(body.events).toHaveLength(2);
-    expect(body.events[0].type).toBe("model_load");
-    expect(body.events[1].type).toBe("inference");
+    expect(body.events[0].name).toBe("deploy.started");
+    expect(body.events[1].name).toBe("inference.completed");
 
     reporter.dispose();
   });
@@ -141,6 +140,69 @@ describe("TelemetryReporter", () => {
     const reporter = new TelemetryReporter({ flushIntervalMs: 60_000 });
     await reporter.flush();
     expect(fetchSpy).not.toHaveBeenCalled();
+    reporter.dispose();
+  });
+
+  // -----------------------------------------------------------------------
+  // Named report*() methods
+  // -----------------------------------------------------------------------
+
+  it("reportInferenceStarted enqueues inference.started event", async () => {
+    const reporter = new TelemetryReporter({ flushIntervalMs: 60_000 });
+    reporter.reportInferenceStarted("test-model", { target: "device" });
+    await reporter.flush();
+
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1]!.body as string);
+    expect(body.events[0].name).toBe("inference.started");
+    expect(body.events[0].attributes.modelId).toBe("test-model");
+    expect(body.events[0].attributes.target).toBe("device");
+    reporter.dispose();
+  });
+
+  it("reportInferenceCompleted enqueues inference.completed event", async () => {
+    const reporter = new TelemetryReporter({ flushIntervalMs: 60_000 });
+    reporter.reportInferenceCompleted("test-model", 42.5);
+    await reporter.flush();
+
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1]!.body as string);
+    expect(body.events[0].name).toBe("inference.completed");
+    expect(body.events[0].attributes.durationMs).toBe(42.5);
+    reporter.dispose();
+  });
+
+  it("reportDeployStarted/Completed enqueues deploy events", async () => {
+    const reporter = new TelemetryReporter({ flushIntervalMs: 60_000 });
+    reporter.reportDeployStarted("model-a", "1.0.0");
+    reporter.reportDeployCompleted("model-a", "1.0.0", 100);
+    await reporter.flush();
+
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1]!.body as string);
+    expect(body.events[0].name).toBe("deploy.started");
+    expect(body.events[1].name).toBe("deploy.completed");
+    reporter.dispose();
+  });
+
+  it("reportExperimentMetric enqueues experiment.metric event", async () => {
+    const reporter = new TelemetryReporter({ flushIntervalMs: 60_000 });
+    reporter.reportExperimentMetric("exp-1", "accuracy", 0.95);
+    await reporter.flush();
+
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1]!.body as string);
+    expect(body.events[0].name).toBe("experiment.metric");
+    expect(body.events[0].attributes.metricValue).toBe(0.95);
+    reporter.dispose();
+  });
+
+  it("reportTrainingStarted/Completed enqueues training events", async () => {
+    const reporter = new TelemetryReporter({ flushIntervalMs: 60_000 });
+    reporter.reportTrainingStarted("model-a", "1.0.0");
+    reporter.reportTrainingCompleted("model-a", "1.0.0", 5000);
+    await reporter.flush();
+
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1]!.body as string);
+    expect(body.events[0].name).toBe("training.started");
+    expect(body.events[1].name).toBe("training.completed");
+    expect(body.events[1].attributes.durationMs).toBe(5000);
     reporter.dispose();
   });
 });

@@ -14,7 +14,7 @@ export type Backend = "webgpu" | "wasm";
 /** Model caching strategy. */
 export type CacheStrategy = "cache-api" | "indexeddb" | "none";
 
-/** Options for initialising an {@link Octomil} instance. */
+/** Options for initialising an {@link OctomilClient} instance. */
 export interface OctomilOptions {
   /**
    * Model identifier — either a full URL to an `.onnx` file or
@@ -171,23 +171,11 @@ export interface CacheInfo {
 
 /** A single telemetry event queued for delivery. */
 export interface TelemetryEvent {
-  type:
-    | "model_load"
-    | "inference"
-    | "cache_hit"
-    | "cache_miss"
-    | "error"
-    | "streaming_start"
-    | "streaming_chunk"
-    | "streaming_complete"
-    | "streaming_error"
-    | "training_complete"
-    | "rollout_status"
-    | "experiment_metric";
-  model: string;
-  durationMs?: number;
-  metadata?: Record<string, unknown>;
-  timestamp: number;
+  name: string; // dot-notation: "inference.completed", "deploy.started", etc.
+  timestamp: string; // ISO 8601
+  traceId?: string;
+  spanId?: string;
+  attributes: Record<string, string | number | boolean>;
 }
 
 // ---------------------------------------------------------------------------

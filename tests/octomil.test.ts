@@ -1,12 +1,12 @@
 /**
- * Tests for the Octomil main class.
+ * Tests for the OctomilClient main class.
  *
  * We mock the sub-modules (ModelLoader, InferenceEngine, cache) so
  * these tests verify orchestration logic rather than I/O.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { Octomil } from "../src/octomil.js";
+import { OctomilClient } from "../src/octomil.js";
 import { OctomilError } from "../src/types.js";
 
 // ---------------------------------------------------------------------------
@@ -64,7 +64,7 @@ function installFetchMock(): void {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("Octomil", () => {
+describe("OctomilClient", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     installFetchMock();
@@ -79,16 +79,16 @@ describe("Octomil", () => {
 
   describe("constructor", () => {
     it("creates an instance with minimal options", () => {
-      const ml = new Octomil({
+      const ml = new OctomilClient({
         model: "https://models.octomil.io/test.onnx",
       });
-      expect(ml).toBeInstanceOf(Octomil);
+      expect(ml).toBeInstanceOf(OctomilClient);
       expect(ml.isLoaded).toBe(false);
       ml.dispose();
     });
 
     it("defaults telemetry to false — no telemetry beacon calls during lifecycle", async () => {
-      const ml = new Octomil({
+      const ml = new OctomilClient({
         model: "https://models.octomil.io/test.onnx",
         cacheStrategy: "none",
         backend: "wasm",
@@ -109,7 +109,7 @@ describe("Octomil", () => {
 
   describe("load", () => {
     it("loads the model and marks isLoaded", async () => {
-      const ml = new Octomil({
+      const ml = new OctomilClient({
         model: "https://models.octomil.io/test.onnx",
         cacheStrategy: "none",
         backend: "wasm",
@@ -122,7 +122,7 @@ describe("Octomil", () => {
     });
 
     it("throws SESSION_DISPOSED if called after dispose", async () => {
-      const ml = new Octomil({
+      const ml = new OctomilClient({
         model: "https://models.octomil.io/test.onnx",
         cacheStrategy: "none",
       });
@@ -134,7 +134,7 @@ describe("Octomil", () => {
 
   describe("predict", () => {
     it("throws NOT_LOADED when model is not loaded", async () => {
-      const ml = new Octomil({
+      const ml = new OctomilClient({
         model: "https://models.octomil.io/test.onnx",
         cacheStrategy: "none",
       });
@@ -150,7 +150,7 @@ describe("Octomil", () => {
     });
 
     it("runs inference with raw input", async () => {
-      const ml = new Octomil({
+      const ml = new OctomilClient({
         model: "https://models.octomil.io/test.onnx",
         cacheStrategy: "none",
         backend: "wasm",
@@ -170,7 +170,7 @@ describe("Octomil", () => {
     });
 
     it("runs inference with named tensors", async () => {
-      const ml = new Octomil({
+      const ml = new OctomilClient({
         model: "https://models.octomil.io/test.onnx",
         cacheStrategy: "none",
         backend: "wasm",
@@ -186,7 +186,7 @@ describe("Octomil", () => {
     });
 
     it("runs inference with text input", async () => {
-      const ml = new Octomil({
+      const ml = new OctomilClient({
         model: "https://models.octomil.io/test.onnx",
         cacheStrategy: "none",
         backend: "wasm",
@@ -202,7 +202,7 @@ describe("Octomil", () => {
 
   describe("chat", () => {
     it("throws when serverUrl is not configured", async () => {
-      const ml = new Octomil({
+      const ml = new OctomilClient({
         model: "https://models.octomil.io/test.onnx",
         cacheStrategy: "none",
         backend: "wasm",
@@ -218,7 +218,7 @@ describe("Octomil", () => {
 
   describe("isCached / clearCache / cacheInfo", () => {
     it("reports not cached when cache is disabled", async () => {
-      const ml = new Octomil({
+      const ml = new OctomilClient({
         model: "https://models.octomil.io/test.onnx",
         cacheStrategy: "none",
       });
@@ -230,7 +230,7 @@ describe("Octomil", () => {
     });
 
     it("clearCache does not throw when nothing is cached", async () => {
-      const ml = new Octomil({
+      const ml = new OctomilClient({
         model: "https://models.octomil.io/test.onnx",
         cacheStrategy: "none",
       });
@@ -242,7 +242,7 @@ describe("Octomil", () => {
 
   describe("dispose", () => {
     it("marks instance as not loaded", async () => {
-      const ml = new Octomil({
+      const ml = new OctomilClient({
         model: "https://models.octomil.io/test.onnx",
         cacheStrategy: "none",
         backend: "wasm",
@@ -256,7 +256,7 @@ describe("Octomil", () => {
     });
 
     it("is safe to call multiple times", () => {
-      const ml = new Octomil({
+      const ml = new OctomilClient({
         model: "https://models.octomil.io/test.onnx",
         cacheStrategy: "none",
       });
@@ -266,7 +266,7 @@ describe("Octomil", () => {
     });
 
     it("prevents further operations", async () => {
-      const ml = new Octomil({
+      const ml = new OctomilClient({
         model: "https://models.octomil.io/test.onnx",
         cacheStrategy: "none",
       });

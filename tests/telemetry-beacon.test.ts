@@ -8,10 +8,9 @@ import type { TelemetryEvent } from "../src/types.js";
 
 function makeEvent(): TelemetryEvent {
   return {
-    type: "inference",
-    model: "test-model",
-    durationMs: 10,
-    timestamp: Date.now(),
+    name: "inference.completed",
+    timestamp: new Date().toISOString(),
+    attributes: { modelId: "test-model", durationMs: 10 },
   };
 }
 

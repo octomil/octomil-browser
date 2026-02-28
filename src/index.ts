@@ -3,9 +3,9 @@
  *
  * @example
  * ```ts
- * import { Octomil } from '@octomil/browser';
+ * import { OctomilClient } from '@octomil/browser';
  *
- * const ml = new Octomil({
+ * const ml = new OctomilClient({
  *   model: 'https://models.octomil.io/sentiment-v1.onnx',
  *   backend: 'webgpu',
  * });
@@ -20,7 +20,7 @@
  */
 
 // Main class
-export { Octomil } from "./octomil.js";
+export { OctomilClient } from "./octomil.js";
 
 // Sub-modules (for advanced usage)
 export { InferenceEngine } from "./inference.js";
@@ -34,7 +34,7 @@ export {
 } from "./telemetry.js";
 
 // Device auth
-export { DeviceAuthManager } from "./device-auth.js";
+export { DeviceAuth } from "./device-auth.js";
 
 // Model integrity
 export {
