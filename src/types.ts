@@ -245,6 +245,7 @@ export interface StreamingResult {
   totalBytes: number;
   durationMs: number;
   ttfcMs: number;
+  metrics?: InferenceMetrics;
 }
 
 // ---------------------------------------------------------------------------
@@ -469,4 +470,51 @@ export class OctomilError extends Error {
     this.code = code;
     this.cause = cause;
   }
+}
+
+// --- Cross-platform inference types ---
+
+export interface BenchmarkResult {
+  engine_name: string;
+  tokens_per_second: number;
+  ttft_ms: number;
+  memory_mb: number;
+  error?: string;
+  metadata?: Record<string, string>;
+}
+
+export interface DetectionResult {
+  engine: string;
+  available: boolean;
+  info: string;
+}
+
+export interface RankedEngine {
+  engine: string;
+  result: BenchmarkResult;
+}
+
+export interface InferenceMetrics {
+  ttfc_ms: number;
+  prompt_tokens: number;
+  total_tokens: number;
+  tokens_per_second: number;
+  total_duration_ms: number;
+  cache_hit: boolean;
+  attention_backend?: string;
+}
+
+export interface GenerationChunk {
+  text: string;
+  token_count: number;
+  tokens_per_second: number;
+  finish_reason?: string;
+}
+
+export interface CacheStats {
+  hits: number;
+  misses: number;
+  hit_rate: number;
+  entries: number;
+  memory_mb: number;
 }
