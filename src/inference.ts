@@ -7,7 +7,7 @@
  */
 
 import type * as ort from "onnxruntime-web";
-import type { Backend, NamedTensors, PredictOutput } from "./types.js";
+import type { Backend, NamedTensors, PredictOutput, TensorData } from "./types.js";
 import { OctomilError } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -226,7 +226,7 @@ export class InferenceEngine {
     for (const name of Object.keys(results)) {
       const ortTensor = results[name]!;
       tensors[name] = {
-        data: ortTensor.data as Float32Array,
+        data: ortTensor.data as TensorData,
         dims: Array.from(ortTensor.dims),
       };
     }
@@ -247,8 +247,16 @@ export class InferenceEngine {
     const first = tensors[names[0]!]!;
     const data = first.data;
 
-    if (!(data instanceof Float32Array)) return {};
     if (data.length === 0) return {};
+
+    // In-graph sampling detection: if the model already contains ArgMax
+    // (appended by octomil-python's append_argmax), the output is a scalar
+    // token ID instead of vocab-sized logits. Skip the O(vocab_size) loop.
+    if (data.length === 1) {
+      return { label: String(Number(data[0])), score: 1.0 };
+    }
+
+    if (!(data instanceof Float32Array)) return {};
 
     // Treat as class probabilities / logits.
     const scores = Array.from(data);
