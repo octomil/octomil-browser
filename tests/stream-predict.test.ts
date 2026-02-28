@@ -21,7 +21,7 @@ function sseTokenResponse(
   });
 }
 
-// We need to test streamPredict on the OctomilClient class. Since it requires
+// We need to test predictStream on the OctomilClient class. Since it requires
 // serverUrl/apiKey but NOT a loaded model, we can create a minimal instance.
 async function createOctomilClientInstance() {
   const { OctomilClient } = await import("../src/octomil.js");
@@ -32,17 +32,17 @@ async function createOctomilClientInstance() {
   });
 }
 
-describe("OctomilClient.streamPredict", () => {
+describe("OctomilClient.predictStream", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
   it("yields StreamToken objects from SSE response", async () => {
     const ml = await createOctomilClientInstance();
-    // load() needs to be called for streamPredict to work (ensureReady check)
-    // Actually, streamPredict only checks serverUrl/apiKey, not loaded state.
+    // load() needs to be called for predictStream to work (ensureReady check)
+    // Actually, predictStream only checks serverUrl/apiKey, not loaded state.
     // Let me verify by reading the impl...
-    // streamPredict does NOT call ensureReady(), so no load() needed.
+    // predictStream does NOT call ensureReady(), so no load() needed.
 
     vi.stubGlobal(
       "fetch",
@@ -56,7 +56,7 @@ describe("OctomilClient.streamPredict", () => {
     );
 
     const tokens: StreamToken[] = [];
-    for await (const tok of ml.streamPredict("phi-4-mini", "What is life?")) {
+    for await (const tok of ml.predictStream("phi-4-mini", "What is life?")) {
       tokens.push(tok);
     }
 
@@ -83,7 +83,7 @@ describe("OctomilClient.streamPredict", () => {
     vi.stubGlobal("fetch", mockFetch);
 
     const tokens: StreamToken[] = [];
-    for await (const tok of ml.streamPredict("phi-4-mini", "Hello", {
+    for await (const tok of ml.predictStream("phi-4-mini", "Hello", {
       temperature: 0.7,
       max_tokens: 512,
     })) {
@@ -112,7 +112,7 @@ describe("OctomilClient.streamPredict", () => {
 
     const msgs = [{ role: "user", content: "Hi" }];
     const tokens: StreamToken[] = [];
-    for await (const tok of ml.streamPredict("phi-4-mini", msgs)) {
+    for await (const tok of ml.predictStream("phi-4-mini", msgs)) {
       tokens.push(tok);
     }
 
@@ -128,7 +128,7 @@ describe("OctomilClient.streamPredict", () => {
     const ml = new OctomilClient({ model: "test-model" });
 
     await expect(async () => {
-      for await (const _tok of ml.streamPredict("phi-4-mini", "Hello")) {
+      for await (const _tok of ml.predictStream("phi-4-mini", "Hello")) {
         // should not reach
       }
     }).rejects.toThrow(/serverUrl/);
@@ -143,7 +143,7 @@ describe("OctomilClient.streamPredict", () => {
     );
 
     await expect(async () => {
-      for await (const _tok of ml.streamPredict("phi-4-mini", "Hello")) {
+      for await (const _tok of ml.predictStream("phi-4-mini", "Hello")) {
         // should not reach
       }
     }).rejects.toThrow(/401/);
@@ -177,7 +177,7 @@ describe("OctomilClient.streamPredict", () => {
     );
 
     const tokens: StreamToken[] = [];
-    for await (const tok of ml.streamPredict("phi-4-mini", "Hello")) {
+    for await (const tok of ml.predictStream("phi-4-mini", "Hello")) {
       tokens.push(tok);
     }
 

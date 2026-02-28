@@ -16,14 +16,14 @@
  * await ml.load();
  * const result = await ml.predict({ raw: inputData, dims: [1, 3, 224, 224] });
  * console.log(result.label, result.score);
- * ml.dispose();
+ * ml.close();
  * ```
  */
 
 import { createModelCache, type ModelCache } from "./cache.js";
 import { embed as embedFn } from "./embeddings.js";
 import { InferenceEngine } from "./inference.js";
-import { ModelLoader } from "./model-loader.js";
+import { ModelManager } from "./model-manager.js";
 import { RoutingClient, detectDeviceCapabilities } from "./routing.js";
 import { TelemetryReporter } from "./telemetry.js";
 import { StreamingInferenceEngine } from "./streaming.js";
@@ -55,14 +55,14 @@ export class OctomilClient {
     OctomilOptions;
 
   private readonly cache: ModelCache;
-  private readonly loader: ModelLoader;
+  private readonly loader: ModelManager;
   private readonly engine: InferenceEngine;
   private readonly routingClient: RoutingClient | null = null;
   private telemetry: TelemetryReporter | null = null;
   private deviceCaps: DeviceCapabilities | null = null;
 
   private loaded = false;
-  private disposed = false;
+  private closed = false;
 
   constructor(options: OctomilOptions) {
     this.options = {
@@ -72,7 +72,7 @@ export class OctomilClient {
     };
 
     this.cache = createModelCache(this.options.cacheStrategy);
-    this.loader = new ModelLoader(this.options, this.cache);
+    this.loader = new ModelManager(this.options, this.cache);
     this.engine = new InferenceEngine();
 
     // Routing is opt-in: only enabled when serverUrl + apiKey + routing are set.
@@ -102,7 +102,7 @@ export class OctomilClient {
    * inference session.  Must be called before `predict()` or `chat()`.
    */
   async load(): Promise<void> {
-    this.ensureNotDisposed();
+    this.ensureNotClosed();
 
     const start = performance.now();
 
@@ -287,7 +287,7 @@ export class OctomilClient {
    * @param parameters - Generation parameters (temperature, max_tokens, etc.).
    * @param signal - Optional AbortSignal for cancellation.
    */
-  async *streamPredict(
+  async *predictStream(
     modelId: string,
     input: string | { role: string; content: string }[],
     parameters?: Record<string, unknown>,
@@ -296,7 +296,7 @@ export class OctomilClient {
     if (!this.options.serverUrl || !this.options.apiKey) {
       throw new OctomilError(
         "INFERENCE_FAILED",
-        "streamPredict() requires serverUrl and apiKey to be configured.",
+        "predictStream() requires serverUrl and apiKey to be configured.",
       );
     }
 
@@ -328,7 +328,7 @@ export class OctomilClient {
     } catch (err) {
       throw new OctomilError(
         "NETWORK_ERROR",
-        `streamPredict request failed: ${String(err)}`,
+        `predictStream request failed: ${String(err)}`,
         err,
       );
     }
@@ -336,7 +336,7 @@ export class OctomilClient {
     if (!response.ok) {
       throw new OctomilError(
         "INFERENCE_FAILED",
-        `streamPredict failed: HTTP ${response.status}`,
+        `predictStream failed: HTTP ${response.status}`,
       );
     }
 
@@ -426,19 +426,19 @@ export class OctomilClient {
 
   /** Check whether the model binary is currently cached locally. */
   async isCached(): Promise<boolean> {
-    this.ensureNotDisposed();
+    this.ensureNotClosed();
     return this.loader.isCached();
   }
 
   /** Remove the cached model binary. */
   async clearCache(): Promise<void> {
-    this.ensureNotDisposed();
+    this.ensureNotClosed();
     return this.loader.clearCache();
   }
 
   /** Get cache metadata for the model. */
   async cacheInfo(): Promise<CacheInfo> {
-    this.ensureNotDisposed();
+    this.ensureNotClosed();
     return this.loader.getCacheInfo();
   }
 
@@ -473,13 +473,13 @@ export class OctomilClient {
   // -----------------------------------------------------------------------
 
   /** Release all resources (WASM memory, WebGPU device, telemetry). */
-  dispose(): void {
-    if (this.disposed) return;
-    this.disposed = true;
+  close(): void {
+    if (this.closed) return;
+    this.closed = true;
     this.loaded = false;
 
     this.engine.dispose();
-    this.telemetry?.dispose();
+    this.telemetry?.close();
     this.telemetry = null;
   }
 
@@ -487,17 +487,17 @@ export class OctomilClient {
   // Private helpers
   // -----------------------------------------------------------------------
 
-  private ensureNotDisposed(): void {
-    if (this.disposed) {
+  private ensureNotClosed(): void {
+    if (this.closed) {
       throw new OctomilError(
-        "SESSION_DISPOSED",
-        "This OctomilClient instance has been disposed. Create a new one.",
+        "SESSION_CLOSED",
+        "This OctomilClient instance has been closed. Create a new one.",
       );
     }
   }
 
   private ensureReady(): void {
-    this.ensureNotDisposed();
+    this.ensureNotClosed();
     if (!this.loaded) {
       throw new OctomilError(
         "NOT_LOADED",

@@ -88,7 +88,7 @@ describe("OctomilClient — advanced input handling", () => {
       ml.predict({} as any),
     ).rejects.toThrow("Unrecognised PredictInput");
 
-    ml.dispose();
+    ml.close();
   });
 
   it("handles predict with ImageData input", async () => {
@@ -130,7 +130,7 @@ describe("OctomilClient — advanced input handling", () => {
     expect(result.tensors).toBeDefined();
     expect(result.latencyMs).toBeGreaterThanOrEqual(0);
 
-    ml.dispose();
+    ml.close();
   });
 });
 
@@ -167,9 +167,9 @@ describe("OctomilClient — telemetry integration", () => {
 
     await ml.load();
 
-    // Telemetry is batched — dispose will flush remaining events via beacon
+    // Telemetry is batched — close will flush remaining events via beacon
     // or swallow if sendBeacon is unavailable.
-    ml.dispose();
+    ml.close();
   });
 
   it("tracks inference events when telemetry is on", async () => {
@@ -184,7 +184,7 @@ describe("OctomilClient — telemetry integration", () => {
     await ml.predict({ raw: new Float32Array([1]), dims: [1, 1] });
 
     // Just verifying no errors are thrown — telemetry is best-effort.
-    ml.dispose();
+    ml.close();
   });
 });
 
@@ -205,7 +205,7 @@ describe("OctomilClient — introspection", () => {
     expect(ml.inputNames).toEqual(["input"]);
     expect(ml.outputNames).toEqual(["output"]);
     expect(ml.activeBackend).toBe("wasm");
-    ml.dispose();
+    ml.close();
   });
 
   it("throws when accessing inputNames before load", () => {
@@ -215,6 +215,6 @@ describe("OctomilClient — introspection", () => {
     });
 
     expect(() => ml.inputNames).toThrow("not loaded");
-    ml.dispose();
+    ml.close();
   });
 });

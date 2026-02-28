@@ -74,7 +74,7 @@ export class TelemetryReporter {
   }
 
   /** Stop the flush timer and send remaining events. */
-  dispose(): void {
+  close(): void {
     if (this.disposed) return;
     this.disposed = true;
 
@@ -309,7 +309,7 @@ export function initTelemetry(
   options: TelemetryReporterOptions = {},
 ): TelemetryReporter {
   if (_reporter) {
-    _reporter.dispose();
+    _reporter.close();
   }
   _reporter = new TelemetryReporter(options);
   return _reporter;
@@ -319,7 +319,7 @@ export function getTelemetry(): TelemetryReporter | null {
   return _reporter;
 }
 
-export function disposeTelemetry(): void {
-  _reporter?.dispose();
+export function closeTelemetry(): void {
+  _reporter?.close();
   _reporter = null;
 }

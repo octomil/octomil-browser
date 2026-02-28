@@ -457,6 +457,7 @@ export type OctomilErrorCode =
   | "NETWORK_ERROR"
   | "INVALID_INPUT"
   | "NOT_LOADED"
+  | "SESSION_CLOSED"
   | "SESSION_DISPOSED";
 
 /** Structured error thrown by the SDK. */

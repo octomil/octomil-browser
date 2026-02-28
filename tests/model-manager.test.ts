@@ -1,9 +1,9 @@
 /**
- * Tests for the model-loader module.
+ * Tests for the model-manager module.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ModelLoader } from "../src/model-loader.js";
+import { ModelManager } from "../src/model-manager.js";
 import type { ModelCache } from "../src/cache.js";
 import type { OctomilOptions } from "../src/types.js";
 import { OctomilError } from "../src/types.js";
@@ -64,7 +64,7 @@ function fakeOnnxBuffer(size = 64): ArrayBuffer {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("ModelLoader", () => {
+describe("ModelManager", () => {
   let cache: ModelCache;
 
   beforeEach(() => {
@@ -77,14 +77,14 @@ describe("ModelLoader", () => {
       const opts: OctomilOptions = {
         model: "https://models.octomil.io/test.onnx",
       };
-      const loader = new ModelLoader(opts, cache);
+      const loader = new ModelManager(opts, cache);
       const url = await loader.resolveModelUrl();
       expect(url).toBe("https://models.octomil.io/test.onnx");
     });
 
     it("throws when model is a name but no serverUrl is set", async () => {
       const opts: OctomilOptions = { model: "sentiment-v1" };
-      const loader = new ModelLoader(opts, cache);
+      const loader = new ModelManager(opts, cache);
       await expect(loader.resolveModelUrl()).rejects.toThrow(OctomilError);
       await expect(loader.resolveModelUrl()).rejects.toThrow(
         "no serverUrl configured",
@@ -111,7 +111,7 @@ describe("ModelLoader", () => {
         serverUrl: "https://api.octomil.io",
         apiKey: "test-key",  // pragma: allowlist secret
       };
-      const loader = new ModelLoader(opts, cache);
+      const loader = new ModelManager(opts, cache);
       const url = await loader.resolveModelUrl();
 
       expect(url).toBe("https://cdn.octomil.io/models/sentiment-v1.onnx");
@@ -136,7 +136,7 @@ describe("ModelLoader", () => {
         model: "nonexistent",
         serverUrl: "https://api.octomil.io",
       };
-      const loader = new ModelLoader(opts, cache);
+      const loader = new ModelManager(opts, cache);
 
       await expect(loader.resolveModelUrl()).rejects.toThrow(
         "not found in registry",
@@ -157,7 +157,7 @@ describe("ModelLoader", () => {
       const opts: OctomilOptions = {
         model: "https://models.octomil.io/test.onnx",
       };
-      const loader = new ModelLoader(opts, cache);
+      const loader = new ModelManager(opts, cache);
       const result = await loader.load();
 
       expect(result).toBe(data);
@@ -172,7 +172,7 @@ describe("ModelLoader", () => {
       const opts: OctomilOptions = {
         model: "https://models.octomil.io/test.onnx",
       };
-      const loader = new ModelLoader(opts, cache);
+      const loader = new ModelManager(opts, cache);
       const result = await loader.load();
 
       expect(new Uint8Array(result)[0]).toBe(0x08);
@@ -188,7 +188,7 @@ describe("ModelLoader", () => {
       const opts: OctomilOptions = {
         model: "https://models.octomil.io/test.onnx",
       };
-      const loader = new ModelLoader(opts, cache);
+      const loader = new ModelManager(opts, cache);
 
       await expect(loader.load()).rejects.toThrow("empty");
     });
@@ -201,7 +201,7 @@ describe("ModelLoader", () => {
       const opts: OctomilOptions = {
         model: "https://models.octomil.io/test.onnx",
       };
-      const loader = new ModelLoader(opts, cache);
+      const loader = new ModelManager(opts, cache);
 
       await expect(loader.load()).rejects.toThrow("valid ONNX");
     });
@@ -214,7 +214,7 @@ describe("ModelLoader", () => {
       const opts: OctomilOptions = {
         model: "https://models.octomil.io/test.onnx",
       };
-      const loader = new ModelLoader(opts, cache);
+      const loader = new ModelManager(opts, cache);
 
       await expect(loader.load()).rejects.toThrow(OctomilError);
     });
@@ -225,7 +225,7 @@ describe("ModelLoader", () => {
       const opts: OctomilOptions = {
         model: "https://models.octomil.io/test.onnx",
       };
-      const loader = new ModelLoader(opts, cache);
+      const loader = new ModelManager(opts, cache);
 
       await expect(loader.load()).rejects.toThrow(OctomilError);
     });
@@ -236,7 +236,7 @@ describe("ModelLoader", () => {
       const opts: OctomilOptions = {
         model: "https://models.octomil.io/test.onnx",
       };
-      const loader = new ModelLoader(opts, cache);
+      const loader = new ModelManager(opts, cache);
 
       expect(await loader.isCached()).toBe(false);
 
@@ -244,7 +244,7 @@ describe("ModelLoader", () => {
       const stored = new Map<string, ArrayBuffer>();
       stored.set("https://models.octomil.io/test.onnx", fakeOnnxBuffer());
       cache = createMockCache(stored);
-      const loader2 = new ModelLoader(opts, cache);
+      const loader2 = new ModelManager(opts, cache);
       expect(await loader2.isCached()).toBe(true);
     });
 
@@ -256,7 +256,7 @@ describe("ModelLoader", () => {
       const opts: OctomilOptions = {
         model: "https://models.octomil.io/test.onnx",
       };
-      const loader = new ModelLoader(opts, cache);
+      const loader = new ModelManager(opts, cache);
 
       await loader.clearCache();
       expect(cache.remove).toHaveBeenCalledWith(
