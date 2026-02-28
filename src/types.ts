@@ -519,3 +519,104 @@ export interface CacheStats {
   entries: number;
   memory_mb: number;
 }
+
+// ---------------------------------------------------------------------------
+// Federated Analytics
+// ---------------------------------------------------------------------------
+
+/** Filter criteria for analytics queries. */
+export interface AnalyticsFilter {
+  startTime?: string;
+  endTime?: string;
+  devicePlatform?: string;
+  minSampleCount?: number;
+}
+
+/** Descriptive statistics for a single group. */
+export interface GroupStats {
+  groupId: string;
+  count: number;
+  mean: number;
+  median?: number;
+  stdDev?: number;
+  min?: number;
+  max?: number;
+  percentiles?: Record<string, number>;
+}
+
+/** Result of a descriptive statistics query. */
+export interface DescriptiveResult {
+  variable: string;
+  groupBy: string;
+  groups: GroupStats[];
+}
+
+/** Confidence interval for a statistical test. */
+export interface ConfidenceInterval {
+  lower: number;
+  upper: number;
+  level: number;
+}
+
+/** Result of a two-sample t-test. */
+export interface TTestResult {
+  variable: string;
+  groupA: string;
+  groupB: string;
+  tStatistic: number;
+  pValue: number;
+  degreesOfFreedom: number;
+  confidenceInterval?: ConfidenceInterval;
+  significant: boolean;
+}
+
+/** Result of a chi-square test of independence. */
+export interface ChiSquareResult {
+  variable1: string;
+  variable2: string;
+  chiSquareStatistic: number;
+  pValue: number;
+  degreesOfFreedom: number;
+  significant: boolean;
+  cramersV?: number;
+}
+
+/** Post-hoc pairwise comparison result. */
+export interface PostHocPair {
+  groupA: string;
+  groupB: string;
+  pValue: number;
+  significant: boolean;
+}
+
+/** Result of a one-way ANOVA test. */
+export interface AnovaResult {
+  variable: string;
+  groupBy: string;
+  fStatistic: number;
+  pValue: number;
+  degreesOfFreedomBetween: number;
+  degreesOfFreedomWithin: number;
+  significant: boolean;
+  postHocPairs?: PostHocPair[];
+}
+
+/** A saved analytics query with its result. */
+export interface AnalyticsQuery {
+  id: string;
+  federationId: string;
+  queryType: string;
+  variable: string;
+  groupBy: string;
+  status: string;
+  result?: Record<string, unknown>;
+  errorMessage?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Response for listing analytics queries. */
+export interface AnalyticsQueryListResponse {
+  queries: AnalyticsQuery[];
+  total: number;
+}
