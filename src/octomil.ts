@@ -1,14 +1,14 @@
 /**
  * @octomil/browser — Main SDK entry point
  *
- * The `Octomil` class is the primary public interface.  It orchestrates
+ * The `OctomilClient` class is the primary public interface.  It orchestrates
  * model loading, caching, inference, and optional telemetry.
  *
  * @example
  * ```ts
- * import { Octomil } from '@octomil/browser';
+ * import { OctomilClient } from '@octomil/browser';
  *
- * const ml = new Octomil({
+ * const ml = new OctomilClient({
  *   model: 'https://models.octomil.io/sentiment-v1.onnx',
  *   backend: 'webgpu',
  * });
@@ -41,15 +41,14 @@ import type {
   PredictInput,
   PredictOutput,
   StreamToken,
-  TelemetryEvent,
 } from "./types.js";
 import { OctomilError } from "./types.js";
 
 // ---------------------------------------------------------------------------
-// Octomil
+// OctomilClient
 // ---------------------------------------------------------------------------
 
-export class Octomil {
+export class OctomilClient {
   private readonly options: Required<
     Pick<OctomilOptions, "model" | "telemetry" | "cacheStrategy">
   > &
@@ -106,7 +105,6 @@ export class Octomil {
     this.ensureNotDisposed();
 
     const start = performance.now();
-    const wasCached = await this.loader.isCached();
 
     const modelData = await this.loader.load();
     await this.engine.createSession(modelData, this.options.backend);
@@ -114,31 +112,8 @@ export class Octomil {
 
     const durationMs = performance.now() - start;
 
-    this.trackEvent({
-      type: "model_load",
-      model: this.options.model,
-      durationMs,
-      metadata: {
-        backend: this.engine.activeBackend,
-        cached: wasCached,
-        sizeBytes: modelData.byteLength,
-      },
-      timestamp: Date.now(),
-    });
-
-    if (wasCached) {
-      this.trackEvent({
-        type: "cache_hit",
-        model: this.options.model,
-        timestamp: Date.now(),
-      });
-    } else {
-      this.trackEvent({
-        type: "cache_miss",
-        model: this.options.model,
-        timestamp: Date.now(),
-      });
-    }
+    this.telemetry?.reportDeployStarted(this.options.model, "latest");
+    this.telemetry?.reportDeployCompleted(this.options.model, "latest", durationMs);
   }
 
   // -----------------------------------------------------------------------
@@ -162,14 +137,12 @@ export class Octomil {
 
     // Local inference (default path).
     const tensors = this.prepareTensors(input);
+    this.telemetry?.reportInferenceStarted(this.options.model, { target: "device" });
     const result = await this.engine.run(tensors);
 
-    this.trackEvent({
-      type: "inference",
-      model: this.options.model,
-      durationMs: result.latencyMs,
-      metadata: { backend: this.engine.activeBackend, target: "device" },
-      timestamp: Date.now(),
+    this.telemetry?.reportInferenceCompleted(this.options.model, result.latencyMs, {
+      backend: this.engine.activeBackend ?? "unknown",
+      target: "device",
     });
 
     return result;
@@ -194,15 +167,9 @@ export class Octomil {
 
     const totalMs = performance.now() - start;
 
-    this.trackEvent({
-      type: "inference",
-      model: this.options.model,
-      durationMs: totalMs,
-      metadata: {
-        backend: this.engine.activeBackend,
-        batchSize: inputs.length,
-      },
-      timestamp: Date.now(),
+    this.telemetry?.reportInferenceCompleted(this.options.model, totalMs, {
+      backend: this.engine.activeBackend ?? "unknown",
+      batchSize: inputs.length,
     });
 
     return results;
@@ -229,7 +196,7 @@ export class Octomil {
     const streaming = new StreamingInferenceEngine({
       serverUrl: this.options.serverUrl,
       apiKey: this.options.apiKey,
-      onTelemetry: (e) => this.trackEvent(e),
+      telemetry: this.telemetry ?? undefined,
     });
 
     const start = performance.now();
@@ -277,7 +244,7 @@ export class Octomil {
     const streaming = new StreamingInferenceEngine({
       serverUrl: this.options.serverUrl,
       apiKey: this.options.apiKey,
-      onTelemetry: (e) => this.trackEvent(e),
+      telemetry: this.telemetry ?? undefined,
     });
 
     const generator = streaming.stream(
@@ -524,7 +491,7 @@ export class Octomil {
     if (this.disposed) {
       throw new OctomilError(
         "SESSION_DISPOSED",
-        "This Octomil instance has been disposed. Create a new one.",
+        "This OctomilClient instance has been disposed. Create a new one.",
       );
     }
   }
@@ -696,16 +663,10 @@ export class Octomil {
       );
       const latencyMs = performance.now() - start;
 
-      this.trackEvent({
-        type: "inference",
-        model: this.options.model,
-        durationMs: latencyMs,
-        metadata: {
-          target: "cloud",
-          provider: cloudResponse.provider,
-          routingId: decision.id,
-        },
-        timestamp: Date.now(),
+      this.telemetry?.reportInferenceCompleted(this.options.model, latencyMs, {
+        target: "cloud",
+        provider: cloudResponse.provider,
+        routingId: decision.id,
       });
 
       // Wrap the cloud output in PredictOutput shape.
@@ -723,7 +684,4 @@ export class Octomil {
     }
   }
 
-  private trackEvent(event: TelemetryEvent): void {
-    this.telemetry?.track(event);
-  }
 }

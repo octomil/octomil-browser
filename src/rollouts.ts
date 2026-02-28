@@ -6,8 +6,9 @@
  * group assignment.
  */
 
-import type { RolloutConfig, RolloutVersion, TelemetryEvent } from "./types.js";
+import type { RolloutConfig, RolloutVersion } from "./types.js";
 import { OctomilError } from "./types.js";
+import type { TelemetryReporter } from "./telemetry.js";
 
 // ---------------------------------------------------------------------------
 // RolloutsManager
@@ -17,7 +18,7 @@ export class RolloutsManager {
   private readonly serverUrl: string;
   private readonly apiKey?: string;
   private readonly cacheTtlMs: number;
-  private readonly onTelemetry?: (event: TelemetryEvent) => void;
+  private readonly telemetry?: TelemetryReporter;
 
   private configCache = new Map<
     string,
@@ -28,12 +29,12 @@ export class RolloutsManager {
     serverUrl: string;
     apiKey?: string;
     cacheTtlMs?: number;
-    onTelemetry?: (event: TelemetryEvent) => void;
+    telemetry?: TelemetryReporter;
   }) {
     this.serverUrl = options.serverUrl;
     this.apiKey = options.apiKey;
     this.cacheTtlMs = options.cacheTtlMs ?? 5 * 60 * 1000; // 5 min
-    this.onTelemetry = options.onTelemetry;
+    this.telemetry = options.telemetry;
   }
 
   /**
@@ -123,11 +124,10 @@ export class RolloutsManager {
       body: JSON.stringify({ version, status }),
     });
 
-    this.onTelemetry?.({
-      type: "rollout_status",
-      model: modelId,
-      metadata: { version, status },
-      timestamp: Date.now(),
+    this.telemetry?.track({
+      name: "rollout.status",
+      timestamp: new Date().toISOString(),
+      attributes: { modelId, version, status },
     });
   }
 

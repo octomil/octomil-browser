@@ -1,10 +1,10 @@
 /**
- * Additional tests for Octomil to cover image input, invalid input,
+ * Additional tests for OctomilClient to cover image input, invalid input,
  * telemetry integration, and introspection properties.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { Octomil } from "../src/octomil.js";
+import { OctomilClient } from "../src/octomil.js";
 import { OctomilError } from "../src/types.js";
 
 // ---------------------------------------------------------------------------
@@ -62,7 +62,7 @@ function installFetchMock(): void {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("Octomil — advanced input handling", () => {
+describe("OctomilClient — advanced input handling", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     installFetchMock();
@@ -75,7 +75,7 @@ describe("Octomil — advanced input handling", () => {
   });
 
   it("handles invalid predict input format", async () => {
-    const ml = new Octomil({
+    const ml = new OctomilClient({
       model: "https://models.octomil.io/test.onnx",
       cacheStrategy: "none",
       backend: "wasm",
@@ -108,7 +108,7 @@ describe("Octomil — advanced input handling", () => {
       (globalThis as Record<string, unknown>).ImageData = ImageDataPolyfill;
     }
 
-    const ml = new Octomil({
+    const ml = new OctomilClient({
       model: "https://models.octomil.io/test.onnx",
       cacheStrategy: "none",
       backend: "wasm",
@@ -134,7 +134,7 @@ describe("Octomil — advanced input handling", () => {
   });
 });
 
-describe("Octomil — telemetry integration", () => {
+describe("OctomilClient — telemetry integration", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     installFetchMock();
@@ -157,7 +157,7 @@ describe("Octomil — telemetry integration", () => {
     }));
     globalThis.fetch = fetchSpy as unknown as typeof fetch;
 
-    const ml = new Octomil({
+    const ml = new OctomilClient({
       model: "https://models.octomil.io/test.onnx",
       cacheStrategy: "none",
       backend: "wasm",
@@ -173,7 +173,7 @@ describe("Octomil — telemetry integration", () => {
   });
 
   it("tracks inference events when telemetry is on", async () => {
-    const ml = new Octomil({
+    const ml = new OctomilClient({
       model: "https://models.octomil.io/test.onnx",
       cacheStrategy: "none",
       backend: "wasm",
@@ -188,14 +188,14 @@ describe("Octomil — telemetry integration", () => {
   });
 });
 
-describe("Octomil — introspection", () => {
+describe("OctomilClient — introspection", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     installFetchMock();
   });
 
   it("exposes inputNames and outputNames after load", async () => {
-    const ml = new Octomil({
+    const ml = new OctomilClient({
       model: "https://models.octomil.io/test.onnx",
       cacheStrategy: "none",
       backend: "wasm",
@@ -209,7 +209,7 @@ describe("Octomil — introspection", () => {
   });
 
   it("throws when accessing inputNames before load", () => {
-    const ml = new Octomil({
+    const ml = new OctomilClient({
       model: "https://models.octomil.io/test.onnx",
       cacheStrategy: "none",
     });

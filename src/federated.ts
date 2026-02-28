@@ -11,9 +11,9 @@ import type {
   TrainingConfig,
   FederatedRound,
   WeightMap,
-  TelemetryEvent,
 } from "./types.js";
 import { OctomilError } from "./types.js";
+import type { TelemetryReporter } from "./telemetry.js";
 
 // ---------------------------------------------------------------------------
 // WeightExtractor
@@ -86,18 +86,18 @@ export class FederatedClient {
   private readonly serverUrl: string;
   private readonly apiKey?: string;
   private readonly deviceId: string;
-  private readonly onTelemetry?: (event: TelemetryEvent) => void;
+  private readonly telemetry?: TelemetryReporter;
 
   constructor(options: {
     serverUrl: string;
     apiKey?: string;
     deviceId: string;
-    onTelemetry?: (event: TelemetryEvent) => void;
+    telemetry?: TelemetryReporter;
   }) {
     this.serverUrl = options.serverUrl;
     this.apiKey = options.apiKey;
     this.deviceId = options.deviceId;
-    this.onTelemetry = options.onTelemetry;
+    this.telemetry = options.telemetry;
   }
 
   /** Fetch the current training round from the server. */
@@ -156,17 +156,10 @@ export class FederatedClient {
 
     const delta = WeightExtractor.computeDelta(initialWeights, weights);
     const durationMs = performance.now() - start;
+    const modelId = config.modelId ?? "unknown";
 
-    this.onTelemetry?.({
-      type: "training_complete",
-      model: config.modelId ?? "unknown",
-      durationMs,
-      metadata: {
-        epochs: config.epochs,
-        deltaNorm: WeightExtractor.l2Norm(delta),
-      },
-      timestamp: Date.now(),
-    });
+    this.telemetry?.reportTrainingStarted(modelId, "local");
+    this.telemetry?.reportTrainingCompleted(modelId, "local", durationMs);
 
     return { finalWeights: weights, delta };
   }

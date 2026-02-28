@@ -18,9 +18,9 @@ function mockEmbeddingResponse(
   });
 }
 
-async function createOctomilInstance() {
-  const { Octomil } = await import("../src/octomil.js");
-  return new Octomil({
+async function createOctomilClientInstance() {
+  const { OctomilClient } = await import("../src/octomil.js");
+  return new OctomilClient({
     model: "test-model",
     serverUrl: "https://api.octomil.com",
     apiKey: "test-key", // pragma: allowlist secret
@@ -147,16 +147,16 @@ describe("embed()", () => {
 });
 
 // -----------------------------------------------------------------------
-// Octomil.embed() method
+// OctomilClient.embed() method
 // -----------------------------------------------------------------------
 
-describe("Octomil.embed", () => {
+describe("OctomilClient.embed", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
   it("delegates to embed() with configured serverUrl and apiKey", async () => {
-    const ml = await createOctomilInstance();
+    const ml = await createOctomilClientInstance();
 
     vi.stubGlobal(
       "fetch",
@@ -170,8 +170,8 @@ describe("Octomil.embed", () => {
   });
 
   it("throws when serverUrl is not configured", async () => {
-    const { Octomil } = await import("../src/octomil.js");
-    const ml = new Octomil({ model: "test-model" });
+    const { OctomilClient } = await import("../src/octomil.js");
+    const ml = new OctomilClient({ model: "test-model" });
 
     await expect(ml.embed("nomic-embed-text", "hello")).rejects.toThrow(
       /serverUrl/,
@@ -179,7 +179,7 @@ describe("Octomil.embed", () => {
   });
 
   it("passes array input correctly", async () => {
-    const ml = await createOctomilInstance();
+    const ml = await createOctomilClientInstance();
 
     const mockFetch = vi
       .fn()
