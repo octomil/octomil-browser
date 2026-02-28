@@ -46,6 +46,9 @@ export {
 // Streaming inference
 export { StreamingInferenceEngine } from "./streaming.js";
 
+// Engine plugin interface
+export type { EnginePlugin } from "./engine-plugin.js";
+
 // Embeddings
 export { embed } from "./embeddings.js";
 
@@ -124,8 +127,20 @@ export type {
   EmbeddingResult,
   EmbeddingUsage,
   EmbeddingResponse,
+  BenchmarkResult,
+  DetectionResult,
+  RankedEngine,
+  InferenceMetrics,
+  GenerationChunk,
+  CacheStats,
 } from "./types.js";
 
 export type { QuantizedWeightMap } from "./privacy.js";
 
 export { OctomilError } from "./types.js";
+
+// Helpers
+import type { BenchmarkResult } from "./types.js";
+export function benchmarkResultOk(result: BenchmarkResult): boolean {
+  return result.error == null;
+}
