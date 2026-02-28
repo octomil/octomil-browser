@@ -21,24 +21,24 @@ function sseTokenResponse(
   });
 }
 
-// We need to test streamPredict on the Octomil class. Since it requires
+// We need to test streamPredict on the OctomilClient class. Since it requires
 // serverUrl/apiKey but NOT a loaded model, we can create a minimal instance.
-async function createOctomilInstance() {
-  const { Octomil } = await import("../src/octomil.js");
-  return new Octomil({
+async function createOctomilClientInstance() {
+  const { OctomilClient } = await import("../src/octomil.js");
+  return new OctomilClient({
     model: "test-model",
     serverUrl: "https://api.octomil.com",
     apiKey: "test-key", // pragma: allowlist secret
   });
 }
 
-describe("Octomil.streamPredict", () => {
+describe("OctomilClient.streamPredict", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
   it("yields StreamToken objects from SSE response", async () => {
-    const ml = await createOctomilInstance();
+    const ml = await createOctomilClientInstance();
     // load() needs to be called for streamPredict to work (ensureReady check)
     // Actually, streamPredict only checks serverUrl/apiKey, not loaded state.
     // Let me verify by reading the impl...
@@ -75,7 +75,7 @@ describe("Octomil.streamPredict", () => {
   });
 
   it("sends correct request body with string input", async () => {
-    const ml = await createOctomilInstance();
+    const ml = await createOctomilClientInstance();
 
     const mockFetch = vi.fn().mockResolvedValue(
       sseTokenResponse([{ done: true }]),
@@ -103,7 +103,7 @@ describe("Octomil.streamPredict", () => {
   });
 
   it("sends messages array when input is chat-style", async () => {
-    const ml = await createOctomilInstance();
+    const ml = await createOctomilClientInstance();
 
     const mockFetch = vi.fn().mockResolvedValue(
       sseTokenResponse([{ done: true }]),
@@ -124,8 +124,8 @@ describe("Octomil.streamPredict", () => {
   });
 
   it("throws when serverUrl is not configured", async () => {
-    const { Octomil } = await import("../src/octomil.js");
-    const ml = new Octomil({ model: "test-model" });
+    const { OctomilClient } = await import("../src/octomil.js");
+    const ml = new OctomilClient({ model: "test-model" });
 
     await expect(async () => {
       for await (const _tok of ml.streamPredict("phi-4-mini", "Hello")) {
@@ -135,7 +135,7 @@ describe("Octomil.streamPredict", () => {
   });
 
   it("throws on HTTP error", async () => {
-    const ml = await createOctomilInstance();
+    const ml = await createOctomilClientInstance();
 
     vi.stubGlobal(
       "fetch",
@@ -150,7 +150,7 @@ describe("Octomil.streamPredict", () => {
   });
 
   it("skips malformed SSE lines", async () => {
-    const ml = await createOctomilInstance();
+    const ml = await createOctomilClientInstance();
 
     const encoder = new TextEncoder();
     const raw = [

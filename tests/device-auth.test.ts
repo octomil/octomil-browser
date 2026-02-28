@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { DeviceAuthManager } from "../src/device-auth.js";
+import { DeviceAuth } from "../src/device-auth.js";
 
 const FUTURE = new Date(Date.now() + 3_600_000).toISOString(); // +1h
 const PAST = new Date(Date.now() - 1_000).toISOString();
@@ -15,13 +15,13 @@ function mockFetch(overrides: Partial<{ token: string; expires_at: string; refre
   );
 }
 
-describe("DeviceAuthManager", () => {
-  let manager: DeviceAuthManager;
+describe("DeviceAuth", () => {
+  let manager: DeviceAuth;
 
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.useFakeTimers({ shouldAdvanceTime: false });
-    manager = new DeviceAuthManager({
+    manager = new DeviceAuth({
       serverUrl: "https://api.octomil.io",
       apiKey: "edg_test_key", // pragma: allowlist secret
     });

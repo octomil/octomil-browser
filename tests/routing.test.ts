@@ -46,6 +46,29 @@ const CLOUD_RESPONSE: CloudInferenceResponse = {
 };
 
 // ---------------------------------------------------------------------------
+// localStorage mock
+// ---------------------------------------------------------------------------
+
+const localStorageData: Record<string, string> = {};
+
+const localStorageMock = {
+  getItem: vi.fn((key: string) => localStorageData[key] ?? null),
+  setItem: vi.fn((key: string, value: string) => {
+    localStorageData[key] = value;
+  }),
+  removeItem: vi.fn((key: string) => {
+    delete localStorageData[key];
+  }),
+  clear: vi.fn(() => {
+    Object.keys(localStorageData).forEach((k) => delete localStorageData[k]);
+  }),
+  get length() {
+    return Object.keys(localStorageData).length;
+  },
+  key: vi.fn((_i: number) => null),
+};
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -54,6 +77,13 @@ describe("RoutingClient", () => {
   let fetchSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    Object.keys(localStorageData).forEach((k) => delete localStorageData[k]);
+    Object.defineProperty(globalThis, "localStorage", {
+      value: localStorageMock,
+      writable: true,
+      configurable: true,
+    });
+
     client = new RoutingClient({
       serverUrl: "https://api.octomil.io",
       apiKey: "test-key",
@@ -142,24 +172,6 @@ describe("RoutingClient", () => {
       expect(result).toEqual(CLOUD_DECISION);
     });
 
-    it("returns null on network failure", async () => {
-      fetchSpy.mockRejectedValueOnce(new Error("Network down"));
-
-      const result = await client.route("model-a", 500, 2.0, DEVICE_CAPS);
-
-      expect(result).toBeNull();
-    });
-
-    it("returns null on non-200 response", async () => {
-      fetchSpy.mockResolvedValueOnce(
-        new Response("Internal Server Error", { status: 500 }),
-      );
-
-      const result = await client.route("model-a", 500, 2.0, DEVICE_CAPS);
-
-      expect(result).toBeNull();
-    });
-
     it("caches different models independently", async () => {
       fetchSpy
         .mockResolvedValueOnce(
@@ -173,8 +185,81 @@ describe("RoutingClient", () => {
       const resultB = await client.route("model-b", 100, 0.5, DEVICE_CAPS);
 
       expect(fetchSpy).toHaveBeenCalledTimes(2);
-      expect(resultA!.target).toBe("cloud");
-      expect(resultB!.target).toBe("device");
+      expect(resultA.target).toBe("cloud");
+      expect(resultB.target).toBe("device");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Offline fallback
+  // -------------------------------------------------------------------------
+
+  describe("offline fallback", () => {
+    it("returns persistent-cached decision on network failure", async () => {
+      // First call succeeds — persists to localStorage.
+      fetchSpy.mockResolvedValueOnce(
+        new Response(JSON.stringify(CLOUD_DECISION), { status: 200 }),
+      );
+      await client.route("model-a", 500, 2.0, DEVICE_CAPS);
+      expect(localStorageMock.setItem).toHaveBeenCalled();
+
+      // Create new client to clear in-memory cache.
+      const client2 = new RoutingClient({
+        serverUrl: "https://api.octomil.io",
+        apiKey: "test-key",
+        cacheTtlMs: 5000,
+      });
+
+      // Second call fails — should get persistent cache.
+      fetchSpy.mockRejectedValueOnce(new Error("Network down"));
+      const result = await client2.route("model-a", 500, 2.0, DEVICE_CAPS);
+
+      expect(result.id).toBe("route-1");
+      expect(result.target).toBe("cloud");
+      expect(result.cached).toBe(true);
+      expect(result.offline).toBe(false);
+      expect(client2.lastRouteWasOffline).toBe(true);
+    });
+
+    it("returns synthetic device decision when no cache and network fails", async () => {
+      fetchSpy.mockRejectedValueOnce(new Error("Network down"));
+
+      const result = await client.route("model-x", 500, 2.0, DEVICE_CAPS);
+
+      expect(result.id).toBe("offline-model-x");
+      expect(result.target).toBe("device");
+      expect(result.format).toBe("onnx");
+      expect(result.engine).toBe("ort-wasm");
+      expect(result.cached).toBe(false);
+      expect(result.offline).toBe(true);
+      expect(client.lastRouteWasOffline).toBe(true);
+    });
+
+    it("returns offline fallback on non-200 with no cache", async () => {
+      fetchSpy.mockResolvedValueOnce(
+        new Response("Internal Server Error", { status: 500 }),
+      );
+
+      const result = await client.route("model-a", 500, 2.0, DEVICE_CAPS);
+
+      expect(result.target).toBe("device");
+      expect(result.offline).toBe(true);
+      expect(client.lastRouteWasOffline).toBe(true);
+    });
+
+    it("resets lastRouteWasOffline on successful call", async () => {
+      // Offline.
+      fetchSpy.mockRejectedValueOnce(new Error("Network down"));
+      await client.route("model-a", 500, 2.0, DEVICE_CAPS);
+      expect(client.lastRouteWasOffline).toBe(true);
+
+      // Online.
+      client.clearCache();
+      fetchSpy.mockResolvedValueOnce(
+        new Response(JSON.stringify(DEVICE_DECISION), { status: 200 }),
+      );
+      await client.route("model-a", 500, 2.0, DEVICE_CAPS);
+      expect(client.lastRouteWasOffline).toBe(false);
     });
   });
 
@@ -261,6 +346,19 @@ describe("RoutingClient", () => {
 
       // 3 total fetches: 2 initial + 1 after clear.
       expect(fetchSpy).toHaveBeenCalledTimes(3);
+    });
+
+    it("clearCache removes localStorage entry", async () => {
+      fetchSpy.mockResolvedValueOnce(
+        new Response(JSON.stringify(DEVICE_DECISION), { status: 200 }),
+      );
+      await client.route("model-a", 500, 2.0, DEVICE_CAPS);
+
+      client.clearCache();
+
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith(
+        "octomil_routing_cache",
+      );
     });
 
     it("invalidate removes a single model entry", async () => {

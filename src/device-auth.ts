@@ -19,10 +19,10 @@ import type {
 const REFRESH_BUFFER_MS = 30_000; // refresh 30s before expiry
 
 // ---------------------------------------------------------------------------
-// DeviceAuthManager
+// DeviceAuth
 // ---------------------------------------------------------------------------
 
-export class DeviceAuthManager {
+export class DeviceAuth {
   private readonly serverUrl: string;
   private readonly apiKey: string;
   private token: DeviceAuthToken | null = null;
@@ -263,7 +263,7 @@ export class DeviceAuthManager {
     if (this.disposed) {
       throw new OctomilError(
         "SESSION_DISPOSED",
-        "DeviceAuthManager has been disposed.",
+        "DeviceAuth has been disposed.",
       );
     }
   }

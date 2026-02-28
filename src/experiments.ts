@@ -8,9 +8,9 @@
 import type {
   Experiment,
   ExperimentVariant,
-  TelemetryEvent,
 } from "./types.js";
 import { OctomilError } from "./types.js";
+import type { TelemetryReporter } from "./telemetry.js";
 
 // ---------------------------------------------------------------------------
 // ExperimentsClient
@@ -20,7 +20,7 @@ export class ExperimentsClient {
   private readonly serverUrl: string;
   private readonly apiKey?: string;
   private readonly cacheTtlMs: number;
-  private readonly onTelemetry?: (event: TelemetryEvent) => void;
+  private readonly telemetry?: TelemetryReporter;
 
   private experimentsCache: {
     experiments: Experiment[];
@@ -31,12 +31,12 @@ export class ExperimentsClient {
     serverUrl: string;
     apiKey?: string;
     cacheTtlMs?: number;
-    onTelemetry?: (event: TelemetryEvent) => void;
+    telemetry?: TelemetryReporter;
   }) {
     this.serverUrl = options.serverUrl;
     this.apiKey = options.apiKey;
     this.cacheTtlMs = options.cacheTtlMs ?? 5 * 60 * 1000; // 5 min
-    this.onTelemetry = options.onTelemetry;
+    this.telemetry = options.telemetry;
   }
 
   /** Fetch all active experiments (cached). */
@@ -156,12 +156,7 @@ export class ExperimentsClient {
       }),
     });
 
-    this.onTelemetry?.({
-      type: "experiment_metric",
-      model: experimentId,
-      metadata: { metricName, value },
-      timestamp: Date.now(),
-    });
+    this.telemetry?.reportExperimentMetric(experimentId, metricName, value);
   }
 
   /** Clear the experiment cache. */

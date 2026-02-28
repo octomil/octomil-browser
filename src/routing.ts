@@ -22,6 +22,7 @@ import { OctomilError } from "./types.js";
 // ---------------------------------------------------------------------------
 
 const DEFAULT_CACHE_TTL_MS = 300_000; // 5 minutes
+const PERSISTENT_CACHE_KEY = "octomil_routing_cache";
 
 // ---------------------------------------------------------------------------
 // Cache entry
@@ -43,6 +44,9 @@ export class RoutingClient {
   private readonly prefer: RoutingPreference;
   private readonly cache = new Map<string, CacheEntry>();
 
+  /** Whether the last `route()` call was answered from offline fallback. */
+  lastRouteWasOffline = false;
+
   constructor(config: RoutingConfig) {
     this.serverUrl = config.serverUrl.replace(/\/+$/, "");
     this.apiKey = config.apiKey;
@@ -58,15 +62,17 @@ export class RoutingClient {
    * Ask the routing API whether to run on-device or in the cloud.
    *
    * Returns a cached decision when available and not expired.
-   * On network failure, returns `null` so the caller can fall back to
-   * local inference.
+   * On network failure, returns a persistent-cached decision or a synthetic
+   * device decision. Never returns `null`.
    */
   async route(
     modelId: string,
     modelParams: number,
     modelSizeMb: number,
     deviceCapabilities: DeviceCapabilities,
-  ): Promise<RoutingDecision | null> {
+  ): Promise<RoutingDecision> {
+    this.lastRouteWasOffline = false;
+
     const cached = this.cache.get(modelId);
     if (cached && cached.expiresAt > Date.now()) {
       return cached.decision;
@@ -91,13 +97,11 @@ export class RoutingClient {
         body: JSON.stringify(body),
       });
     } catch {
-      // Network failure — fall back to local.
-      return null;
+      return this.offlineFallback(modelId);
     }
 
     if (!response.ok) {
-      // Non-200 — fall back to local rather than breaking the user.
-      return null;
+      return this.offlineFallback(modelId);
     }
 
     const decision = (await response.json()) as RoutingDecision;
@@ -106,6 +110,9 @@ export class RoutingClient {
       decision,
       expiresAt: Date.now() + this.cacheTtlMs,
     });
+
+    // Persist to localStorage for offline fallback.
+    this.persistToStorage(modelId, decision);
 
     return decision;
   }
@@ -154,14 +161,76 @@ export class RoutingClient {
     return (await response.json()) as CloudInferenceResponse;
   }
 
-  /** Invalidate all cached routing decisions. */
+  /** Invalidate all cached routing decisions (in-memory and persistent). */
   clearCache(): void {
     this.cache.clear();
+    try {
+      localStorage.removeItem(PERSISTENT_CACHE_KEY);
+    } catch {
+      // localStorage unavailable (e.g. SSR).
+    }
   }
 
   /** Invalidate the cached routing decision for a specific model. */
   invalidate(modelId: string): void {
     this.cache.delete(modelId);
+    const entries = this.loadPersistentCache();
+    delete entries[modelId];
+    this.savePersistentCache(entries);
+  }
+
+  // -----------------------------------------------------------------------
+  // Offline fallback
+  // -----------------------------------------------------------------------
+
+  private offlineFallback(modelId: string): RoutingDecision {
+    this.lastRouteWasOffline = true;
+
+    // Try persistent cache.
+    const entries = this.loadPersistentCache();
+    const persisted = entries[modelId];
+    if (persisted) {
+      return { ...persisted, cached: true, offline: false };
+    }
+
+    // No cache — synthetic device decision.
+    return {
+      id: `offline-${modelId}`,
+      target: "device",
+      format: "onnx",
+      engine: "ort-wasm",
+      fallback_target: null,
+      cached: false,
+      offline: true,
+    };
+  }
+
+  // -----------------------------------------------------------------------
+  // Persistent storage (localStorage)
+  // -----------------------------------------------------------------------
+
+  private persistToStorage(modelId: string, decision: RoutingDecision): void {
+    const entries = this.loadPersistentCache();
+    entries[modelId] = decision;
+    this.savePersistentCache(entries);
+  }
+
+  private loadPersistentCache(): Record<string, RoutingDecision> {
+    try {
+      const raw = localStorage.getItem(PERSISTENT_CACHE_KEY);
+      if (!raw) return {};
+      return JSON.parse(raw) as Record<string, RoutingDecision>;
+    } catch {
+      return {};
+    }
+  }
+
+  private savePersistentCache(entries: Record<string, RoutingDecision>): void {
+    try {
+      localStorage.setItem(PERSISTENT_CACHE_KEY, JSON.stringify(entries));
+    } catch {
+      // localStorage unavailable or full.
+    }
   }
 }
 
