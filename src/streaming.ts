@@ -9,9 +9,9 @@ import type {
   StreamingOptions,
   StreamingChunk,
   StreamingResult,
-  TelemetryEvent,
 } from "./types.js";
 import { OctomilError } from "./types.js";
+import type { TelemetryReporter } from "./telemetry.js";
 
 // ---------------------------------------------------------------------------
 // StreamingInferenceEngine
@@ -20,16 +20,16 @@ import { OctomilError } from "./types.js";
 export class StreamingInferenceEngine {
   private readonly serverUrl: string;
   private readonly apiKey?: string;
-  private readonly onTelemetry?: (event: TelemetryEvent) => void;
+  private readonly telemetry?: TelemetryReporter;
 
   constructor(options: {
     serverUrl: string;
     apiKey?: string;
-    onTelemetry?: (event: TelemetryEvent) => void;
+    telemetry?: TelemetryReporter;
   }) {
     this.serverUrl = options.serverUrl;
     this.apiKey = options.apiKey;
-    this.onTelemetry = options.onTelemetry;
+    this.telemetry = options.telemetry;
   }
 
   /**
@@ -61,11 +61,8 @@ export class StreamingInferenceEngine {
     let chunkCount = 0;
     let totalBytes = 0;
 
-    this.onTelemetry?.({
-      type: "streaming_start",
-      model: modelId,
-      metadata: { modality: options.modality ?? "text" },
-      timestamp: Date.now(),
+    this.telemetry?.reportInferenceStarted(modelId, {
+      modality: options.modality ?? "text",
     });
 
     let response: Response;
@@ -81,12 +78,11 @@ export class StreamingInferenceEngine {
         signal,
       });
     } catch (err) {
-      this.onTelemetry?.({
-        type: "streaming_error",
-        model: modelId,
-        metadata: { error: String(err) },
-        timestamp: Date.now(),
-      });
+      this.telemetry?.reportInferenceFailed(
+        modelId,
+        "network_error",
+        String(err),
+      );
       throw new OctomilError(
         "NETWORK_ERROR",
         `Streaming request failed: ${String(err)}`,
@@ -138,12 +134,10 @@ export class StreamingInferenceEngine {
 
           if (ttfc === null) {
             ttfc = performance.now() - startTime;
-            this.onTelemetry?.({
-              type: "streaming_chunk",
-              model: modelId,
+            this.telemetry?.reportInferenceChunk(modelId, {
+              chunkIndex: 0,
+              ttfc: true,
               durationMs: ttfc,
-              metadata: { chunkIndex: 0, ttfc: true },
-              timestamp: Date.now(),
             });
           }
 
@@ -156,12 +150,10 @@ export class StreamingInferenceEngine {
 
     const totalMs = performance.now() - startTime;
 
-    this.onTelemetry?.({
-      type: "streaming_complete",
-      model: modelId,
-      durationMs: totalMs,
-      metadata: { chunkCount, totalBytes, ttfcMs: ttfc },
-      timestamp: Date.now(),
+    this.telemetry?.reportInferenceCompleted(modelId, totalMs, {
+      chunkCount,
+      totalBytes,
+      ttfcMs: ttfc ?? totalMs,
     });
 
     return {

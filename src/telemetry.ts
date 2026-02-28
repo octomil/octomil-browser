@@ -52,7 +52,7 @@ export class TelemetryReporter {
   }
 
   // -----------------------------------------------------------------------
-  // Public
+  // Public — low-level
   // -----------------------------------------------------------------------
 
   /** Enqueue a telemetry event. Non-blocking, never throws. */
@@ -90,8 +90,165 @@ export class TelemetryReporter {
   }
 
   // -----------------------------------------------------------------------
+  // Public — named convenience methods (inference)
+  // -----------------------------------------------------------------------
+
+  reportInferenceStarted(
+    modelId: string,
+    attrs?: Record<string, string | number | boolean>,
+  ): void {
+    this.track(this.makeEvent("inference.started", { modelId, ...attrs }));
+  }
+
+  reportInferenceCompleted(
+    modelId: string,
+    durationMs: number,
+    attrs?: Record<string, string | number | boolean>,
+  ): void {
+    this.track(
+      this.makeEvent("inference.completed", { modelId, durationMs, ...attrs }),
+    );
+  }
+
+  reportInferenceFailed(
+    modelId: string,
+    errorType: string,
+    errorMessage: string,
+  ): void {
+    this.track(
+      this.makeEvent("inference.failed", { modelId, errorType, errorMessage }),
+    );
+  }
+
+  reportInferenceChunk(
+    modelId: string,
+    attrs?: Record<string, string | number | boolean>,
+  ): void {
+    this.track(this.makeEvent("inference.chunk", { modelId, ...attrs }));
+  }
+
+  // -----------------------------------------------------------------------
+  // Public — named convenience methods (training)
+  // -----------------------------------------------------------------------
+
+  reportTrainingStarted(modelId: string, version: string): void {
+    this.track(this.makeEvent("training.started", { modelId, version }));
+  }
+
+  reportTrainingCompleted(
+    modelId: string,
+    version: string,
+    durationMs: number,
+  ): void {
+    this.track(
+      this.makeEvent("training.completed", { modelId, version, durationMs }),
+    );
+  }
+
+  reportTrainingFailed(
+    modelId: string,
+    version: string,
+    errorType: string,
+  ): void {
+    this.track(
+      this.makeEvent("training.failed", { modelId, version, errorType }),
+    );
+  }
+
+  reportWeightUpload(
+    modelId: string,
+    roundId: string,
+    sampleCount: number,
+  ): void {
+    this.track(
+      this.makeEvent("training.weight_upload", {
+        modelId,
+        roundId,
+        sampleCount,
+      }),
+    );
+  }
+
+  // -----------------------------------------------------------------------
+  // Public — named convenience methods (deploy)
+  // -----------------------------------------------------------------------
+
+  reportDeployStarted(modelId: string, version: string): void {
+    this.track(this.makeEvent("deploy.started", { modelId, version }));
+  }
+
+  reportDeployCompleted(
+    modelId: string,
+    version: string,
+    durationMs: number,
+  ): void {
+    this.track(
+      this.makeEvent("deploy.completed", { modelId, version, durationMs }),
+    );
+  }
+
+  reportDeployRollback(
+    modelId: string,
+    fromVersion: string,
+    toVersion: string,
+    reason: string,
+  ): void {
+    this.track(
+      this.makeEvent("deploy.rollback", {
+        modelId,
+        fromVersion,
+        toVersion,
+        reason,
+      }),
+    );
+  }
+
+  // -----------------------------------------------------------------------
+  // Public — named convenience methods (experiment)
+  // -----------------------------------------------------------------------
+
+  reportExperimentAssigned(
+    modelId: string,
+    experimentId: string,
+    variant: string,
+  ): void {
+    this.track(
+      this.makeEvent("experiment.assigned", {
+        modelId,
+        experimentId,
+        variant,
+      }),
+    );
+  }
+
+  reportExperimentMetric(
+    experimentId: string,
+    metricName: string,
+    metricValue: number,
+  ): void {
+    this.track(
+      this.makeEvent("experiment.metric", {
+        experimentId,
+        metricName,
+        metricValue,
+      }),
+    );
+  }
+
+  // -----------------------------------------------------------------------
   // Internal
   // -----------------------------------------------------------------------
+
+  private makeEvent(
+    name: string,
+    attributes: Record<string, string | number | boolean>,
+  ): TelemetryEvent {
+    return {
+      name,
+      timestamp: new Date().toISOString(),
+      attributes,
+    };
+  }
 
   private startAutoFlush(): void {
     if (typeof setInterval === "undefined") return;
