@@ -250,8 +250,6 @@ export class InferenceEngine {
     if (data.length === 0) return {};
 
     // Single-element output indicates a direct class/token ID.
-
-
     if (data.length === 1) {
       return { label: String(Number(data[0])), score: 1.0 };
     }

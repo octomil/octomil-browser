@@ -7,7 +7,6 @@
  * register additional backends.
  *
  * Matches the cross-platform SDK interface.
-
  */
 
 import type { EnginePlugin } from "./engine-plugin.js";
