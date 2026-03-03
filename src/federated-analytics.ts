@@ -4,8 +4,7 @@
  * Provides cross-site statistical analyses (descriptive stats, t-tests,
  * chi-square, ANOVA) and query history for federation members.
  *
- * API-compatible with the Android `FederatedAnalyticsApi` and
- * Python `FederatedAnalyticsClient`.
+ * Matches the cross-platform SDK interface.
  */
 
 import type {

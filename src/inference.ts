@@ -249,9 +249,7 @@ export class InferenceEngine {
 
     if (data.length === 0) return {};
 
-    // In-graph sampling detection: if the model already contains ArgMax
-    // (appended by octomil-python's append_argmax), the output is a scalar
-    // token ID instead of vocab-sized logits. Skip the O(vocab_size) loop.
+    // Single-element output indicates a direct class/token ID.
     if (data.length === 1) {
       return { label: String(Number(data[0])), score: 1.0 };
     }

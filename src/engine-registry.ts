@@ -6,8 +6,7 @@
  * available by default, but the registry allows third-party plugins to
  * register additional backends.
  *
- * Cross-SDK parity with Python's `EngineRegistry`, iOS's `EngineRegistry`,
- * and Android's `EngineRegistry`.
+ * Matches the cross-platform SDK interface.
  */
 
 import type { EnginePlugin } from "./engine-plugin.js";
