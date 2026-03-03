@@ -2,8 +2,11 @@
 
 In-browser ML inference via ONNX Runtime Web + WebGPU.
 
-[![npm](https://img.shields.io/npm/v/@octomil/browser)](https://www.npmjs.com/package/@octomil/browser)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+<p align="center">
+  <a href="https://github.com/octomil/octomil-browser/actions/workflows/ci.yml"><img src="https://github.com/octomil/octomil-browser/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/octomil/octomil-browser/blob/main/LICENSE"><img src="https://img.shields.io/github/license/octomil/octomil-browser" alt="License"></a>
+  <a href="https://www.npmjs.com/package/@octomil/browser"><img src="https://img.shields.io/npm/v/@octomil/browser" alt="npm"></a>
+</p>
 
 ## Install
 
