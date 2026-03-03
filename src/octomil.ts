@@ -9,7 +9,7 @@
  * import { OctomilClient } from '@octomil/browser';
  *
  * const ml = new OctomilClient({
- *   model: 'https://models.octomil.io/sentiment-v1.onnx',
+ *   model: 'https://models.octomil.com/sentiment-v1.onnx',
  *   backend: 'webgpu',
  * });
  *

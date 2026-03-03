@@ -75,11 +75,11 @@ describe("ModelManager", () => {
   describe("resolveModelUrl", () => {
     it("uses the model string directly when it is a URL", async () => {
       const opts: OctomilOptions = {
-        model: "https://models.octomil.io/test.onnx",
+        model: "https://models.octomil.com/test.onnx",
       };
       const loader = new ModelManager(opts, cache);
       const url = await loader.resolveModelUrl();
-      expect(url).toBe("https://models.octomil.io/test.onnx");
+      expect(url).toBe("https://models.octomil.com/test.onnx");
     });
 
     it("throws when model is a name but no serverUrl is set", async () => {
@@ -97,7 +97,7 @@ describe("ModelManager", () => {
         version: "1.0.0",
         format: "onnx",
         sizeBytes: 1024,
-        url: "https://cdn.octomil.io/models/sentiment-v1.onnx",
+        url: "https://cdn.octomil.com/models/sentiment-v1.onnx",
       };
 
       globalThis.fetch = vi.fn(async () => ({
@@ -108,15 +108,15 @@ describe("ModelManager", () => {
 
       const opts: OctomilOptions = {
         model: "sentiment-v1",
-        serverUrl: "https://api.octomil.io",
+        serverUrl: "https://api.octomil.com",
         apiKey: "test-key",  // pragma: allowlist secret
       };
       const loader = new ModelManager(opts, cache);
       const url = await loader.resolveModelUrl();
 
-      expect(url).toBe("https://cdn.octomil.io/models/sentiment-v1.onnx");
+      expect(url).toBe("https://cdn.octomil.com/models/sentiment-v1.onnx");
       expect(fetch).toHaveBeenCalledWith(
-        "https://api.octomil.io/api/v1/models/sentiment-v1/metadata",
+        "https://api.octomil.com/api/v1/models/sentiment-v1/metadata",
         expect.objectContaining({
           headers: expect.objectContaining({
             Authorization: "Bearer test-key",
@@ -134,7 +134,7 @@ describe("ModelManager", () => {
 
       const opts: OctomilOptions = {
         model: "nonexistent",
-        serverUrl: "https://api.octomil.io",
+        serverUrl: "https://api.octomil.com",
       };
       const loader = new ModelManager(opts, cache);
 
@@ -148,14 +148,14 @@ describe("ModelManager", () => {
     it("returns cached data when available", async () => {
       const data = fakeOnnxBuffer(128);
       const stored = new Map<string, ArrayBuffer>();
-      stored.set("https://models.octomil.io/test.onnx", data);
+      stored.set("https://models.octomil.com/test.onnx", data);
       cache = createMockCache(stored);
 
       const fetchSpy = vi.fn();
       globalThis.fetch = fetchSpy as unknown as typeof fetch;
 
       const opts: OctomilOptions = {
-        model: "https://models.octomil.io/test.onnx",
+        model: "https://models.octomil.com/test.onnx",
       };
       const loader = new ModelManager(opts, cache);
       const result = await loader.load();
@@ -170,14 +170,14 @@ describe("ModelManager", () => {
       mockFetchResponse(data);
 
       const opts: OctomilOptions = {
-        model: "https://models.octomil.io/test.onnx",
+        model: "https://models.octomil.com/test.onnx",
       };
       const loader = new ModelManager(opts, cache);
       const result = await loader.load();
 
       expect(new Uint8Array(result)[0]).toBe(0x08);
       expect(cache.put).toHaveBeenCalledWith(
-        "https://models.octomil.io/test.onnx",
+        "https://models.octomil.com/test.onnx",
         expect.any(ArrayBuffer),
       );
     });
@@ -186,7 +186,7 @@ describe("ModelManager", () => {
       mockFetchResponse(new ArrayBuffer(0));
 
       const opts: OctomilOptions = {
-        model: "https://models.octomil.io/test.onnx",
+        model: "https://models.octomil.com/test.onnx",
       };
       const loader = new ModelManager(opts, cache);
 
@@ -199,7 +199,7 @@ describe("ModelManager", () => {
       mockFetchResponse(bad);
 
       const opts: OctomilOptions = {
-        model: "https://models.octomil.io/test.onnx",
+        model: "https://models.octomil.com/test.onnx",
       };
       const loader = new ModelManager(opts, cache);
 
@@ -212,7 +212,7 @@ describe("ModelManager", () => {
       }) as unknown as typeof fetch;
 
       const opts: OctomilOptions = {
-        model: "https://models.octomil.io/test.onnx",
+        model: "https://models.octomil.com/test.onnx",
       };
       const loader = new ModelManager(opts, cache);
 
@@ -223,7 +223,7 @@ describe("ModelManager", () => {
       mockFetchResponse(new ArrayBuffer(0), 500);
 
       const opts: OctomilOptions = {
-        model: "https://models.octomil.io/test.onnx",
+        model: "https://models.octomil.com/test.onnx",
       };
       const loader = new ModelManager(opts, cache);
 
@@ -234,7 +234,7 @@ describe("ModelManager", () => {
   describe("isCached / clearCache", () => {
     it("reports cached status", async () => {
       const opts: OctomilOptions = {
-        model: "https://models.octomil.io/test.onnx",
+        model: "https://models.octomil.com/test.onnx",
       };
       const loader = new ModelManager(opts, cache);
 
@@ -242,7 +242,7 @@ describe("ModelManager", () => {
 
       // Simulate caching.
       const stored = new Map<string, ArrayBuffer>();
-      stored.set("https://models.octomil.io/test.onnx", fakeOnnxBuffer());
+      stored.set("https://models.octomil.com/test.onnx", fakeOnnxBuffer());
       cache = createMockCache(stored);
       const loader2 = new ModelManager(opts, cache);
       expect(await loader2.isCached()).toBe(true);
@@ -250,17 +250,17 @@ describe("ModelManager", () => {
 
     it("clears cache", async () => {
       const stored = new Map<string, ArrayBuffer>();
-      stored.set("https://models.octomil.io/test.onnx", fakeOnnxBuffer());
+      stored.set("https://models.octomil.com/test.onnx", fakeOnnxBuffer());
       cache = createMockCache(stored);
 
       const opts: OctomilOptions = {
-        model: "https://models.octomil.io/test.onnx",
+        model: "https://models.octomil.com/test.onnx",
       };
       const loader = new ModelManager(opts, cache);
 
       await loader.clearCache();
       expect(cache.remove).toHaveBeenCalledWith(
-        "https://models.octomil.io/test.onnx",
+        "https://models.octomil.com/test.onnx",
       );
     });
   });

@@ -53,7 +53,7 @@ describe("TelemetryReporter", () => {
 
   it("flushes events on manual flush()", async () => {
     const reporter = new TelemetryReporter({
-      url: "https://api.octomil.io/v1/telemetry",
+      url: "https://api.octomil.com/v1/telemetry",
       flushIntervalMs: 60_000,
     });
 

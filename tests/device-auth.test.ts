@@ -22,7 +22,7 @@ describe("DeviceAuth", () => {
     vi.restoreAllMocks();
     vi.useFakeTimers({ shouldAdvanceTime: false });
     manager = new DeviceAuth({
-      serverUrl: "https://api.octomil.io",
+      serverUrl: "https://api.octomil.com",
       apiKey: "edg_test_key", // pragma: allowlist secret
     });
   });

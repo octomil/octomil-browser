@@ -78,7 +78,7 @@ describe("ModelManager — download with progress", () => {
     const progressEvents: DownloadProgress[] = [];
 
     const opts: OctomilOptions = {
-      model: "https://models.octomil.io/test.onnx",
+      model: "https://models.octomil.com/test.onnx",
       onProgress: (p) => progressEvents.push({ ...p }),
     };
 
@@ -116,7 +116,7 @@ describe("ModelManager — download with progress", () => {
     const progressEvents: DownloadProgress[] = [];
 
     const opts: OctomilOptions = {
-      model: "https://models.octomil.io/test.onnx",
+      model: "https://models.octomil.com/test.onnx",
       onProgress: (p) => progressEvents.push({ ...p }),
     };
 

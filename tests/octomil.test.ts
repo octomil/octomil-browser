@@ -80,7 +80,7 @@ describe("OctomilClient", () => {
   describe("constructor", () => {
     it("creates an instance with minimal options", () => {
       const ml = new OctomilClient({
-        model: "https://models.octomil.io/test.onnx",
+        model: "https://models.octomil.com/test.onnx",
       });
       expect(ml).toBeInstanceOf(OctomilClient);
       expect(ml.isLoaded).toBe(false);
@@ -89,7 +89,7 @@ describe("OctomilClient", () => {
 
     it("defaults telemetry to false — no telemetry beacon calls during lifecycle", async () => {
       const ml = new OctomilClient({
-        model: "https://models.octomil.io/test.onnx",
+        model: "https://models.octomil.com/test.onnx",
         cacheStrategy: "none",
         backend: "wasm",
       });
@@ -110,7 +110,7 @@ describe("OctomilClient", () => {
   describe("load", () => {
     it("loads the model and marks isLoaded", async () => {
       const ml = new OctomilClient({
-        model: "https://models.octomil.io/test.onnx",
+        model: "https://models.octomil.com/test.onnx",
         cacheStrategy: "none",
         backend: "wasm",
       });
@@ -123,7 +123,7 @@ describe("OctomilClient", () => {
 
     it("throws SESSION_CLOSED if called after close", async () => {
       const ml = new OctomilClient({
-        model: "https://models.octomil.io/test.onnx",
+        model: "https://models.octomil.com/test.onnx",
         cacheStrategy: "none",
       });
 
@@ -135,7 +135,7 @@ describe("OctomilClient", () => {
   describe("predict", () => {
     it("throws NOT_LOADED when model is not loaded", async () => {
       const ml = new OctomilClient({
-        model: "https://models.octomil.io/test.onnx",
+        model: "https://models.octomil.com/test.onnx",
         cacheStrategy: "none",
       });
 
@@ -151,7 +151,7 @@ describe("OctomilClient", () => {
 
     it("runs inference with raw input", async () => {
       const ml = new OctomilClient({
-        model: "https://models.octomil.io/test.onnx",
+        model: "https://models.octomil.com/test.onnx",
         cacheStrategy: "none",
         backend: "wasm",
       });
@@ -171,7 +171,7 @@ describe("OctomilClient", () => {
 
     it("runs inference with named tensors", async () => {
       const ml = new OctomilClient({
-        model: "https://models.octomil.io/test.onnx",
+        model: "https://models.octomil.com/test.onnx",
         cacheStrategy: "none",
         backend: "wasm",
       });
@@ -187,7 +187,7 @@ describe("OctomilClient", () => {
 
     it("runs inference with text input", async () => {
       const ml = new OctomilClient({
-        model: "https://models.octomil.io/test.onnx",
+        model: "https://models.octomil.com/test.onnx",
         cacheStrategy: "none",
         backend: "wasm",
       });
@@ -203,7 +203,7 @@ describe("OctomilClient", () => {
   describe("chat", () => {
     it("throws when serverUrl is not configured", async () => {
       const ml = new OctomilClient({
-        model: "https://models.octomil.io/test.onnx",
+        model: "https://models.octomil.com/test.onnx",
         cacheStrategy: "none",
         backend: "wasm",
       });
@@ -219,7 +219,7 @@ describe("OctomilClient", () => {
   describe("isCached / clearCache / cacheInfo", () => {
     it("reports not cached when cache is disabled", async () => {
       const ml = new OctomilClient({
-        model: "https://models.octomil.io/test.onnx",
+        model: "https://models.octomil.com/test.onnx",
         cacheStrategy: "none",
       });
 
@@ -231,7 +231,7 @@ describe("OctomilClient", () => {
 
     it("clearCache does not throw when nothing is cached", async () => {
       const ml = new OctomilClient({
-        model: "https://models.octomil.io/test.onnx",
+        model: "https://models.octomil.com/test.onnx",
         cacheStrategy: "none",
       });
 
@@ -243,7 +243,7 @@ describe("OctomilClient", () => {
   describe("close", () => {
     it("marks instance as not loaded", async () => {
       const ml = new OctomilClient({
-        model: "https://models.octomil.io/test.onnx",
+        model: "https://models.octomil.com/test.onnx",
         cacheStrategy: "none",
         backend: "wasm",
       });
@@ -257,7 +257,7 @@ describe("OctomilClient", () => {
 
     it("is safe to call multiple times", () => {
       const ml = new OctomilClient({
-        model: "https://models.octomil.io/test.onnx",
+        model: "https://models.octomil.com/test.onnx",
         cacheStrategy: "none",
       });
 
@@ -267,7 +267,7 @@ describe("OctomilClient", () => {
 
     it("prevents further operations", async () => {
       const ml = new OctomilClient({
-        model: "https://models.octomil.io/test.onnx",
+        model: "https://models.octomil.com/test.onnx",
         cacheStrategy: "none",
       });
 

@@ -29,7 +29,7 @@ describe("ExperimentsClient", () => {
   let client: ExperimentsClient;
 
   beforeEach(() => {
-    client = new ExperimentsClient({ serverUrl: "https://api.octomil.io" });
+    client = new ExperimentsClient({ serverUrl: "https://api.octomil.com" });
     vi.restoreAllMocks();
   });
 
