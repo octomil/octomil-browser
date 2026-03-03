@@ -14,7 +14,7 @@ describe("RolloutsManager", () => {
   let manager: RolloutsManager;
 
   beforeEach(() => {
-    manager = new RolloutsManager({ serverUrl: "https://REDACTED_URL" });
+    manager = new RolloutsManager({ serverUrl: "https://api.octomil.com" });
     vi.restoreAllMocks();
   });
 

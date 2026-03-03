@@ -33,7 +33,7 @@ describe("StreamingInferenceEngine", () => {
       trackedEvents.push(e);
     });
     engine = new StreamingInferenceEngine({
-      serverUrl: "https://REDACTED_URL",
+      serverUrl: "https://api.octomil.com",
       apiKey: "edg_test", // pragma: allowlist secret
       telemetry: telemetryReporter,
     });
@@ -171,7 +171,7 @@ describe("StreamingInferenceEngine", () => {
 
   it("works without telemetry", async () => {
     const noTelemetryEngine = new StreamingInferenceEngine({
-      serverUrl: "https://REDACTED_URL",
+      serverUrl: "https://api.octomil.com",
     });
 
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(

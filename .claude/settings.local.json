@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git fetch:*)",
+      "Bash(git checkout:*)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm tsc:*)",
+      "Bash(pnpm eslint:*)",
+      "Bash(git merge:*)",
+      "Bash(git reset:*)",
+      "Bash(git read-tree:*)",
+      "Bash(git show:*)",
+      "Bash(git:*)",
+      "Bash(do:*)",
+      "Bash(gh api:*)",
+      "Bash(gh search:*)",
+      "Bash(gh repo:*)",
+      "Bash(gh pr:*)",
+      "Bash(echo === SERVER: favicon on main? ===:*)",
+      "Bash(echo === ANDROID: device auth on main? ===:*)"
+    ]
+  }
+}

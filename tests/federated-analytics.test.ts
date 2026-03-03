@@ -83,7 +83,7 @@ describe("FederatedAnalyticsClient", () => {
 
   beforeEach(() => {
     client = new FederatedAnalyticsClient({
-      serverUrl: "https://REDACTED_URL",
+      serverUrl: "https://api.octomil.com",
       apiKey: "test-key",
     });
     vi.restoreAllMocks();
@@ -102,7 +102,7 @@ describe("FederatedAnalyticsClient", () => {
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0]!;
-    expect(url).toBe("https://REDACTED_URL/api/v1/analytics/descriptive");
+    expect(url).toBe("https://api.octomil.com/api/v1/analytics/descriptive");
     expect(init!.method).toBe("POST");
     expect(init!.headers).toHaveProperty("Authorization", "Bearer test-key");
 
@@ -132,7 +132,7 @@ describe("FederatedAnalyticsClient", () => {
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0]!;
-    expect(url).toBe("https://REDACTED_URL/api/v1/analytics/t-test");
+    expect(url).toBe("https://api.octomil.com/api/v1/analytics/t-test");
 
     const body = JSON.parse(init!.body as string);
     expect(body.variable).toBe("latency_ms");
@@ -163,7 +163,7 @@ describe("FederatedAnalyticsClient", () => {
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0]!;
-    expect(url).toBe("https://REDACTED_URL/api/v1/analytics/chi-square");
+    expect(url).toBe("https://api.octomil.com/api/v1/analytics/chi-square");
 
     const body = JSON.parse(init!.body as string);
     expect(body.variable_1).toBe("device_type");
@@ -192,7 +192,7 @@ describe("FederatedAnalyticsClient", () => {
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0]!;
-    expect(url).toBe("https://REDACTED_URL/api/v1/analytics/anova");
+    expect(url).toBe("https://api.octomil.com/api/v1/analytics/anova");
 
     const body = JSON.parse(init!.body as string);
     expect(body.variable).toBe("accuracy");
@@ -218,7 +218,7 @@ describe("FederatedAnalyticsClient", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0]!;
     expect(url).toBe(
-      "https://REDACTED_URL/api/v1/analytics/queries?limit=10&offset=20",
+      "https://api.octomil.com/api/v1/analytics/queries?limit=10&offset=20",
     );
     expect(init!.method).toBe("GET");
 
@@ -240,7 +240,7 @@ describe("FederatedAnalyticsClient", () => {
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0]!;
-    expect(url).toBe("https://REDACTED_URL/api/v1/analytics/queries/q-123");
+    expect(url).toBe("https://api.octomil.com/api/v1/analytics/queries/q-123");
     expect(init!.method).toBe("GET");
 
     expect(result.id).toBe("q-123");
@@ -268,7 +268,7 @@ describe("FederatedAnalyticsClient", () => {
 
   it("omits Authorization header when no apiKey is provided", async () => {
     const noKeyClient = new FederatedAnalyticsClient({
-      serverUrl: "https://REDACTED_URL",
+      serverUrl: "https://api.octomil.com",
     });
 
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
@@ -315,7 +315,7 @@ describe("FederatedAnalyticsClient", () => {
 
   it("strips trailing slashes from serverUrl", async () => {
     const slashClient = new FederatedAnalyticsClient({
-      serverUrl: "https://REDACTED_URL///",
+      serverUrl: "https://api.octomil.com///",
     });
 
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
@@ -325,7 +325,7 @@ describe("FederatedAnalyticsClient", () => {
     await slashClient.listQueries();
 
     const url = fetchSpy.mock.calls[0]![0] as string;
-    expect(url).toMatch(/^https:\/\/api\.octomil\.io\/api\//);
+    expect(url).toMatch(/^https:\/\/api\.octomil\.com\/api\//);
     expect(url).not.toMatch(/\/\/api\//);
   });
 });

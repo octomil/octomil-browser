@@ -76,7 +76,7 @@ describe("OctomilClient — advanced input handling", () => {
 
   it("handles invalid predict input format", async () => {
     const ml = new OctomilClient({
-      model: "https://REDACTED_URL/test.onnx",
+      model: "https://models.octomil.com/test.onnx",
       cacheStrategy: "none",
       backend: "wasm",
     });
@@ -109,7 +109,7 @@ describe("OctomilClient — advanced input handling", () => {
     }
 
     const ml = new OctomilClient({
-      model: "https://REDACTED_URL/test.onnx",
+      model: "https://models.octomil.com/test.onnx",
       cacheStrategy: "none",
       backend: "wasm",
     });
@@ -158,7 +158,7 @@ describe("OctomilClient — telemetry integration", () => {
     globalThis.fetch = fetchSpy as unknown as typeof fetch;
 
     const ml = new OctomilClient({
-      model: "https://REDACTED_URL/test.onnx",
+      model: "https://models.octomil.com/test.onnx",
       cacheStrategy: "none",
       backend: "wasm",
       telemetry: true,
@@ -174,7 +174,7 @@ describe("OctomilClient — telemetry integration", () => {
 
   it("tracks inference events when telemetry is on", async () => {
     const ml = new OctomilClient({
-      model: "https://REDACTED_URL/test.onnx",
+      model: "https://models.octomil.com/test.onnx",
       cacheStrategy: "none",
       backend: "wasm",
       telemetry: true,
@@ -196,7 +196,7 @@ describe("OctomilClient — introspection", () => {
 
   it("exposes inputNames and outputNames after load", async () => {
     const ml = new OctomilClient({
-      model: "https://REDACTED_URL/test.onnx",
+      model: "https://models.octomil.com/test.onnx",
       cacheStrategy: "none",
       backend: "wasm",
     });
@@ -210,7 +210,7 @@ describe("OctomilClient — introspection", () => {
 
   it("throws when accessing inputNames before load", () => {
     const ml = new OctomilClient({
-      model: "https://REDACTED_URL/test.onnx",
+      model: "https://models.octomil.com/test.onnx",
       cacheStrategy: "none",
     });
 

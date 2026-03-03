@@ -127,47 +127,47 @@ describe("CacheApiModelCache", () => {
 
   it("stores and retrieves model data", async () => {
     const data = new Uint8Array([1, 2, 3, 4]).buffer;
-    await cache.put("https://REDACTED_URL/test.onnx", data);
+    await cache.put("https://models.octomil.com/test.onnx", data);
     expect(mockCaches.open).toHaveBeenCalledWith("octomil-models-v1");
 
-    const retrieved = await cache.get("https://REDACTED_URL/test.onnx");
+    const retrieved = await cache.get("https://models.octomil.com/test.onnx");
     expect(retrieved).toBeInstanceOf(ArrayBuffer);
     expect(new Uint8Array(retrieved!)).toEqual(new Uint8Array([1, 2, 3, 4]));
   });
 
   it("reports has() correctly", async () => {
-    expect(await cache.has("https://REDACTED_URL/missing.onnx")).toBe(
+    expect(await cache.has("https://models.octomil.com/missing.onnx")).toBe(
       false,
     );
 
     await cache.put(
-      "https://REDACTED_URL/test.onnx",
+      "https://models.octomil.com/test.onnx",
       new ArrayBuffer(4),
     );
-    expect(await cache.has("https://REDACTED_URL/test.onnx")).toBe(true);
+    expect(await cache.has("https://models.octomil.com/test.onnx")).toBe(true);
   });
 
   it("removes cached entries", async () => {
     await cache.put(
-      "https://REDACTED_URL/test.onnx",
+      "https://models.octomil.com/test.onnx",
       new ArrayBuffer(4),
     );
-    await cache.remove("https://REDACTED_URL/test.onnx");
-    expect(await cache.has("https://REDACTED_URL/test.onnx")).toBe(false);
+    await cache.remove("https://models.octomil.com/test.onnx");
+    expect(await cache.has("https://models.octomil.com/test.onnx")).toBe(false);
   });
 
   it("returns cache info with size and timestamp", async () => {
     const data = new ArrayBuffer(1024);
-    await cache.put("https://REDACTED_URL/test.onnx", data);
+    await cache.put("https://models.octomil.com/test.onnx", data);
 
-    const info = await cache.info("https://REDACTED_URL/test.onnx");
+    const info = await cache.info("https://models.octomil.com/test.onnx");
     expect(info.cached).toBe(true);
     expect(info.sizeBytes).toBe(1024);
     expect(info.cachedAt).toBeDefined();
   });
 
   it("returns not-cached info for missing entries", async () => {
-    const info = await cache.info("https://REDACTED_URL/missing.onnx");
+    const info = await cache.info("https://models.octomil.com/missing.onnx");
     expect(info.cached).toBe(false);
     expect(info.sizeBytes).toBe(0);
     expect(info.cachedAt).toBeUndefined();

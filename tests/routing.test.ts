@@ -85,7 +85,7 @@ describe("RoutingClient", () => {
     });
 
     client = new RoutingClient({
-      serverUrl: "https://REDACTED_URL",
+      serverUrl: "https://api.octomil.com",
       apiKey: "test-key",
       cacheTtlMs: 5000,
       prefer: "fastest",
@@ -111,7 +111,7 @@ describe("RoutingClient", () => {
       const result = await client.route("sentiment-v1", 1_000_000, 4.2, DEVICE_CAPS);
 
       expect(fetchSpy).toHaveBeenCalledWith(
-        "https://REDACTED_URL/api/v1/route",
+        "https://api.octomil.com/api/v1/route",
         expect.objectContaining({
           method: "POST",
           headers: expect.objectContaining({
@@ -148,7 +148,7 @@ describe("RoutingClient", () => {
 
     it("re-fetches after cache expires", async () => {
       const shortTtlClient = new RoutingClient({
-        serverUrl: "https://REDACTED_URL",
+        serverUrl: "https://api.octomil.com",
         apiKey: "test-key",
         cacheTtlMs: 1, // 1ms TTL
       });
@@ -205,7 +205,7 @@ describe("RoutingClient", () => {
 
       // Create new client to clear in-memory cache.
       const client2 = new RoutingClient({
-        serverUrl: "https://REDACTED_URL",
+        serverUrl: "https://api.octomil.com",
         apiKey: "test-key",
         cacheTtlMs: 5000,
       });
@@ -276,7 +276,7 @@ describe("RoutingClient", () => {
       const result = await client.cloudInfer("sentiment-v1", { text: "hello" });
 
       expect(fetchSpy).toHaveBeenCalledWith(
-        "https://REDACTED_URL/api/v1/inference",
+        "https://api.octomil.com/api/v1/inference",
         expect.objectContaining({
           method: "POST",
           headers: expect.objectContaining({
@@ -386,7 +386,7 @@ describe("RoutingClient", () => {
   describe("constructor", () => {
     it("strips trailing slashes from serverUrl", async () => {
       const c = new RoutingClient({
-        serverUrl: "https://REDACTED_URL///",
+        serverUrl: "https://api.octomil.com///",
         apiKey: "key",
       });
 
@@ -397,14 +397,14 @@ describe("RoutingClient", () => {
       await c.route("m", 0, 0, DEVICE_CAPS);
 
       expect(fetchSpy).toHaveBeenCalledWith(
-        "https://REDACTED_URL/api/v1/route",
+        "https://api.octomil.com/api/v1/route",
         expect.anything(),
       );
     });
 
     it("defaults prefer to fastest", async () => {
       const c = new RoutingClient({
-        serverUrl: "https://REDACTED_URL",
+        serverUrl: "https://api.octomil.com",
         apiKey: "key",
       });
 

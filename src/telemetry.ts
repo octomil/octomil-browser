@@ -14,7 +14,7 @@ import type { TelemetryEvent } from "./types.js";
 
 const DEFAULT_FLUSH_INTERVAL_MS = 30_000; // 30 seconds
 const DEFAULT_MAX_BATCH_SIZE = 50;
-const DEFAULT_TELEMETRY_URL = "https://REDACTED_URL/v1/telemetry";
+const DEFAULT_TELEMETRY_URL = "https://api.octomil.com/v1/telemetry";
 
 // ---------------------------------------------------------------------------
 // TelemetryReporter
