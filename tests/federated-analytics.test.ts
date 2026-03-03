@@ -325,7 +325,7 @@ describe("FederatedAnalyticsClient", () => {
     await slashClient.listQueries();
 
     const url = fetchSpy.mock.calls[0]![0] as string;
-    expect(url).toMatch(/^https:\/\/api\.octomil\.io\/api\//);
+    expect(url).toMatch(/^https:\/\/api\.octomil\.com\/api\//);
     expect(url).not.toMatch(/\/\/api\//);
   });
 });
