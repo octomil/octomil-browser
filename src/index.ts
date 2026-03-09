@@ -59,14 +59,6 @@ export { FederatedClient, WeightExtractor } from "./federated.js";
 // Federated analytics
 export { FederatedAnalyticsClient } from "./federated-analytics.js";
 
-// Legacy query routing compatibility
-export { QueryRouter, PolicyClient, assignTiers } from "./query-routing.js";
-export type {
-  RoutingPolicy,
-  QueryModelInfo,
-  QueryRoutingDecision,
-} from "./query-routing.js";
-
 // Secure aggregation
 export {
   SecureAggregation,
