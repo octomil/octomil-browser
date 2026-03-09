@@ -111,11 +111,11 @@ export class ModelManager {
       );
     }
 
-    return this.fetchRegistryUrl(this.modelId);
+    return this.fetchResolverUrl(this.modelId);
   }
 
-  private async fetchRegistryUrl(name: string): Promise<string> {
-    const registryUrl = `${this.serverUrl}/api/v1/models/${encodeURIComponent(name)}/metadata`;
+  private async fetchResolverUrl(reference: string): Promise<string> {
+    const resolverUrl = `${this.serverUrl}/api/v1/registry/resolve/${encodeURIComponent(reference)}`;
 
     const headers: Record<string, string> = {
       Accept: "application/json",
@@ -126,11 +126,11 @@ export class ModelManager {
 
     let response: Response;
     try {
-      response = await fetch(registryUrl, { headers });
+      response = await fetch(resolverUrl, { headers });
     } catch (err) {
       throw new OctomilError(
         "NETWORK_ERROR",
-        `Failed to reach model registry at ${registryUrl}`,
+        `Failed to reach model resolver at ${resolverUrl}`,
         err,
       );
     }
@@ -139,17 +139,24 @@ export class ModelManager {
       if (response.status === 404) {
         throw new OctomilError(
           "MODEL_NOT_FOUND",
-          `Model "${name}" not found in registry.`,
+          `Model "${reference}" not found in registry.`,
         );
       }
       throw new OctomilError(
         "NETWORK_ERROR",
-        `Registry returned HTTP ${response.status}: ${response.statusText}`,
+        `Model resolver returned HTTP ${response.status}: ${response.statusText}`,
       );
     }
 
     const metadata = (await response.json()) as ModelMetadata;
-    return metadata.url;
+    const resolvedUrl = metadata.download_url ?? metadata.url;
+    if (!resolvedUrl) {
+      throw new OctomilError(
+        "MODEL_LOAD_FAILED",
+        `Model resolver response for "${reference}" did not include a download URL`,
+      );
+    }
+    return resolvedUrl;
   }
 
   // -----------------------------------------------------------------------

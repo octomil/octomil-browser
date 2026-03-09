@@ -97,7 +97,7 @@ describe("ModelManager", () => {
         version: "1.0.0",
         format: "onnx",
         sizeBytes: 1024,
-        url: "https://cdn.octomil.com/models/sentiment-v1.onnx",
+        download_url: "https://cdn.octomil.com/models/sentiment-v1.onnx",
       };
 
       globalThis.fetch = vi.fn(async () => ({
@@ -116,7 +116,7 @@ describe("ModelManager", () => {
 
       expect(url).toBe("https://cdn.octomil.com/models/sentiment-v1.onnx");
       expect(fetch).toHaveBeenCalledWith(
-        "https://api.octomil.com/api/v1/models/sentiment-v1/metadata",
+        "https://api.octomil.com/api/v1/registry/resolve/sentiment-v1",
         expect.objectContaining({
           headers: expect.objectContaining({
             Authorization: "Bearer test-key",

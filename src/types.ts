@@ -184,11 +184,12 @@ export interface TelemetryEvent {
 
 /** Metadata returned by the Octomil model registry. */
 export interface ModelMetadata {
-  name: string;
-  version: string;
-  format: "onnx";
-  sizeBytes: number;
-  url: string;
+  name?: string;
+  version?: string;
+  format?: "onnx";
+  sizeBytes?: number;
+  url?: string;
+  download_url?: string;
   checksum?: string;
 }
 
