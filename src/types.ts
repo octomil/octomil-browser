@@ -313,6 +313,16 @@ export interface FederatedRound {
   config: Record<string, unknown>;
 }
 
+/** Cached gradient entry for offline/retry submission. */
+export interface GradientCacheEntry {
+  roundId: string;
+  federationId: string;
+  delta: Record<string, { data: number[]; shape: number[] }>;
+  metrics?: Record<string, number>;
+  timestamp: number;
+  submitted: boolean;
+}
+
 // ---------------------------------------------------------------------------
 // Rollouts
 // ---------------------------------------------------------------------------

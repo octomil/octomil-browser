@@ -59,6 +59,14 @@ export { FederatedClient, WeightExtractor } from "./federated.js";
 // Federated analytics
 export { FederatedAnalyticsClient } from "./federated-analytics.js";
 
+// Legacy query routing compatibility
+export { QueryRouter, PolicyClient, assignTiers } from "./query-routing.js";
+export type {
+  RoutingPolicy,
+  QueryModelInfo,
+  QueryRoutingDecision,
+} from "./query-routing.js";
+
 // Secure aggregation
 export {
   SecureAggregation,
@@ -74,6 +82,9 @@ export {
   quantize,
   dequantize,
 } from "./privacy.js";
+
+// Gradient cache
+export { GradientCache } from "./gradient-cache.js";
 
 // Rollouts
 export { RolloutsManager } from "./rollouts.js";
@@ -147,6 +158,7 @@ export type {
   AnovaResult,
   AnalyticsQuery,
   AnalyticsQueryListResponse,
+  GradientCacheEntry,
 } from "./types.js";
 
 export type { QuantizedWeightMap } from "./privacy.js";
