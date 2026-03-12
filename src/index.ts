@@ -49,6 +49,7 @@ export type {
   HeartbeatResponse,
   ControlClientOptions,
 } from "./control.js";
+export type { ControlSyncResult } from "./types.js";
 
 // Device auth
 export { DeviceAuth } from "./device-auth.js";

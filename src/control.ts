@@ -7,6 +7,7 @@
  */
 
 import { OctomilError } from "./types.js";
+import type { ControlSyncResult } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -55,8 +56,16 @@ export class ControlClient {
   // -----------------------------------------------------------------------
 
   /** Fetch current device assignments from the server. */
-  async refresh(): Promise<void> {
-    if (!this.serverDeviceId) return;
+  async refresh(): Promise<ControlSyncResult> {
+    if (!this.serverDeviceId) {
+      return {
+        updated: false,
+        configVersion: "",
+        assignmentsChanged: false,
+        rolloutsChanged: false,
+        fetchedAt: new Date().toISOString(),
+      };
+    }
     const headers: Record<string, string> = {};
     if (this.apiKey) headers["Authorization"] = `Bearer ${this.apiKey}`;
     const resp = await fetch(
@@ -69,6 +78,21 @@ export class ControlClient {
         `Refresh assignments failed: ${resp.status}`,
       );
     }
+
+    const data = (await resp.json()) as {
+      updated?: boolean;
+      config_version?: string;
+      assignments_changed?: boolean;
+      rollouts_changed?: boolean;
+    };
+
+    return {
+      updated: data.updated ?? true,
+      configVersion: data.config_version ?? "",
+      assignmentsChanged: data.assignments_changed ?? false,
+      rolloutsChanged: data.rollouts_changed ?? false,
+      fetchedAt: new Date().toISOString(),
+    };
   }
 
   /** Register a device with the Octomil server. */

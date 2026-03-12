@@ -5,6 +5,20 @@
  */
 
 // ---------------------------------------------------------------------------
+// Control
+// ---------------------------------------------------------------------------
+
+/** Result returned by `control.refresh()`. */
+export interface ControlSyncResult {
+  updated: boolean;
+  configVersion: string;
+  assignmentsChanged: boolean;
+  rolloutsChanged: boolean;
+  /** ISO-8601 timestamp of when the data was fetched. */
+  fetchedAt: string;
+}
+
+// ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
 

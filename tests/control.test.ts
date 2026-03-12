@@ -220,16 +220,27 @@ describe("ControlClient", () => {
   });
 
   describe("refresh", () => {
-    it("does nothing when device is not registered", async () => {
+    it("returns no-op ControlSyncResult when device is not registered", async () => {
       const client = new ControlClient({});
-      // Should not throw, just return early
-      await expect(client.refresh()).resolves.toBeUndefined();
+      const result = await client.refresh();
+      expect(result.updated).toBe(false);
+      expect(result.configVersion).toBe("");
+      expect(result.assignmentsChanged).toBe(false);
+      expect(result.rolloutsChanged).toBe(false);
+      expect(result.fetchedAt).toBeTruthy();
     });
 
-    it("calls assignments endpoint for registered device", async () => {
+    it("calls assignments endpoint and returns ControlSyncResult", async () => {
       mockFetchSequence([
         { body: { id: "srv-1" } },
-        { body: { assignments: [] } },
+        {
+          body: {
+            updated: true,
+            config_version: "v42",
+            assignments_changed: true,
+            rollouts_changed: false,
+          },
+        },
       ]);
 
       const client = new ControlClient({
@@ -238,13 +249,38 @@ describe("ControlClient", () => {
       });
 
       await client.register("d1");
-      await client.refresh();
+      const result = await client.refresh();
+
+      expect(result.updated).toBe(true);
+      expect(result.configVersion).toBe("v42");
+      expect(result.assignmentsChanged).toBe(true);
+      expect(result.rolloutsChanged).toBe(false);
+      expect(result.fetchedAt).toBeTruthy();
 
       const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
       const [url] = fetchMock.mock.calls[1]!;
       expect(url).toBe(
         "https://api.test.com/api/v1/devices/srv-1/assignments",
       );
+    });
+
+    it("returns defaults when server omits optional fields", async () => {
+      mockFetchSequence([
+        { body: { id: "srv-1" } },
+        { body: {} },
+      ]);
+
+      const client = new ControlClient({
+        serverUrl: "https://api.test.com",
+      });
+
+      await client.register("d1");
+      const result = await client.refresh();
+
+      expect(result.updated).toBe(true);
+      expect(result.configVersion).toBe("");
+      expect(result.assignmentsChanged).toBe(false);
+      expect(result.rolloutsChanged).toBe(false);
     });
 
     it("throws on HTTP error during refresh", async () => {
