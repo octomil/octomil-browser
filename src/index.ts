@@ -201,7 +201,7 @@ export type {
 
 export type { QuantizedWeightMap } from "./privacy.js";
 
-export { OctomilError } from "./types.js";
+export { OctomilError, ERROR_CODE_MAP } from "./types.js";
 
 // Contract-generated enums and constants (from octomil-contracts)
 export {

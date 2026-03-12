@@ -472,11 +472,13 @@ export interface EmbeddingUsage {
 // Errors
 // ---------------------------------------------------------------------------
 
+import { ErrorCode } from "./_generated/error_code.js";
+
 /**
  * Error codes emitted by the SDK.
  *
  * 19 canonical codes shared across all Octomil SDKs (Python, Node, Browser,
- * iOS, Android) plus 3 browser-specific codes for backward compatibility.
+ * iOS, Android) plus 6 browser-specific codes for backward compatibility.
  */
 export type OctomilErrorCode =
   // --- Original 10 (backward-compatible) ---
@@ -506,6 +508,35 @@ export type OctomilErrorCode =
   | "RATE_LIMITED"
   | "CANCELLED"
   | "UNKNOWN";
+
+/**
+ * Map from contract `ErrorCode` enum values (snake_case) to the SDK's
+ * `OctomilErrorCode` string union (UPPER_SNAKE_CASE).
+ *
+ * Every canonical code defined in octomil-contracts is explicitly referenced
+ * here to ensure contract parity.
+ */
+export const ERROR_CODE_MAP: Readonly<Record<ErrorCode, OctomilErrorCode>> = {
+  [ErrorCode.NetworkUnavailable]: "NETWORK_UNAVAILABLE",
+  [ErrorCode.RequestTimeout]: "REQUEST_TIMEOUT",
+  [ErrorCode.ServerError]: "SERVER_ERROR",
+  [ErrorCode.InvalidApiKey]: "INVALID_API_KEY",
+  [ErrorCode.AuthenticationFailed]: "AUTHENTICATION_FAILED",
+  [ErrorCode.Forbidden]: "FORBIDDEN",
+  [ErrorCode.ModelNotFound]: "MODEL_NOT_FOUND",
+  [ErrorCode.ModelDisabled]: "MODEL_DISABLED",
+  [ErrorCode.DownloadFailed]: "DOWNLOAD_FAILED",
+  [ErrorCode.ChecksumMismatch]: "CHECKSUM_MISMATCH",
+  [ErrorCode.InsufficientStorage]: "INSUFFICIENT_STORAGE",
+  [ErrorCode.RuntimeUnavailable]: "RUNTIME_UNAVAILABLE",
+  [ErrorCode.ModelLoadFailed]: "MODEL_LOAD_FAILED",
+  [ErrorCode.InferenceFailed]: "INFERENCE_FAILED",
+  [ErrorCode.InsufficientMemory]: "INSUFFICIENT_MEMORY",
+  [ErrorCode.RateLimited]: "RATE_LIMITED",
+  [ErrorCode.InvalidInput]: "INVALID_INPUT",
+  [ErrorCode.Cancelled]: "CANCELLED",
+  [ErrorCode.Unknown]: "UNKNOWN",
+} as const;
 
 /** Codes that indicate a transient failure safe to retry. */
 const RETRYABLE_CODES: ReadonlySet<OctomilErrorCode> = new Set([
@@ -537,6 +568,20 @@ export class OctomilError extends Error {
   }
 
   /**
+   * Create an `OctomilError` from a contract `ErrorCode` enum value.
+   *
+   * Maps the snake_case canonical code to the SDK's UPPER_SNAKE_CASE code.
+   */
+  static fromErrorCode(
+    errorCode: ErrorCode,
+    message: string,
+    cause?: unknown,
+  ): OctomilError {
+    const sdkCode = ERROR_CODE_MAP[errorCode];
+    return new OctomilError(sdkCode, message, cause);
+  }
+
+  /**
    * Create an `OctomilError` from an HTTP status code.
    *
    * Maps common HTTP statuses to the appropriate canonical error code.
@@ -545,30 +590,30 @@ export class OctomilError extends Error {
     const msg = message || `HTTP ${status}`;
     switch (status) {
       case 400:
-        return new OctomilError("INVALID_INPUT", msg);
+        return new OctomilError(ERROR_CODE_MAP[ErrorCode.InvalidInput], msg);
       case 401:
-        return new OctomilError("INVALID_API_KEY", msg);
+        return new OctomilError(ERROR_CODE_MAP[ErrorCode.InvalidApiKey], msg);
       case 403:
-        return new OctomilError("FORBIDDEN", msg);
+        return new OctomilError(ERROR_CODE_MAP[ErrorCode.Forbidden], msg);
       case 404:
-        return new OctomilError("MODEL_NOT_FOUND", msg);
+        return new OctomilError(ERROR_CODE_MAP[ErrorCode.ModelNotFound], msg);
       case 408:
-        return new OctomilError("REQUEST_TIMEOUT", msg);
+        return new OctomilError(ERROR_CODE_MAP[ErrorCode.RequestTimeout], msg);
       case 429:
-        return new OctomilError("RATE_LIMITED", msg);
+        return new OctomilError(ERROR_CODE_MAP[ErrorCode.RateLimited], msg);
       case 500:
       case 502:
       case 503:
       case 504:
-        return new OctomilError("SERVER_ERROR", msg);
+        return new OctomilError(ERROR_CODE_MAP[ErrorCode.ServerError], msg);
       default:
         if (status >= 400 && status < 500) {
-          return new OctomilError("INVALID_INPUT", msg);
+          return new OctomilError(ERROR_CODE_MAP[ErrorCode.InvalidInput], msg);
         }
         if (status >= 500) {
-          return new OctomilError("SERVER_ERROR", msg);
+          return new OctomilError(ERROR_CODE_MAP[ErrorCode.ServerError], msg);
         }
-        return new OctomilError("UNKNOWN", msg);
+        return new OctomilError(ERROR_CODE_MAP[ErrorCode.Unknown], msg);
     }
   }
 }

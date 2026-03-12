@@ -10,6 +10,7 @@
  */
 
 import type { TelemetryEvent } from "./types.js";
+import { TELEMETRY_EVENTS } from "./_generated/telemetry_events.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -183,7 +184,12 @@ export class TelemetryReporter {
     modelId: string,
     attrs?: Record<string, string | number | boolean>,
   ): void {
-    this.track(this.makeEvent("inference.started", { modelId, ...attrs }));
+    this.track(
+      this.makeEvent(TELEMETRY_EVENTS.inferenceStarted, {
+        "model.id": modelId,
+        ...attrs,
+      }),
+    );
   }
 
   reportInferenceCompleted(
@@ -192,7 +198,11 @@ export class TelemetryReporter {
     attrs?: Record<string, string | number | boolean>,
   ): void {
     this.track(
-      this.makeEvent("inference.completed", { modelId, durationMs, ...attrs }),
+      this.makeEvent(TELEMETRY_EVENTS.inferenceCompleted, {
+        "model.id": modelId,
+        "inference.duration_ms": durationMs,
+        ...attrs,
+      }),
     );
   }
 
@@ -202,7 +212,11 @@ export class TelemetryReporter {
     errorMessage: string,
   ): void {
     this.track(
-      this.makeEvent("inference.failed", { modelId, errorType, errorMessage }),
+      this.makeEvent(TELEMETRY_EVENTS.inferenceFailed, {
+        "model.id": modelId,
+        "error.type": errorType,
+        "error.message": errorMessage,
+      }),
     );
   }
 
@@ -210,7 +224,12 @@ export class TelemetryReporter {
     modelId: string,
     attrs?: Record<string, string | number | boolean>,
   ): void {
-    this.track(this.makeEvent("inference.chunk", { modelId, ...attrs }));
+    this.track(
+      this.makeEvent(TELEMETRY_EVENTS.inferenceChunkProduced, {
+        "model.id": modelId,
+        ...attrs,
+      }),
+    );
   }
 
   /**
@@ -224,7 +243,7 @@ export class TelemetryReporter {
     attrs?: Record<string, string | number | boolean>,
   ): void {
     this.track(
-      this.makeEvent("inference.chunk_produced", {
+      this.makeEvent(TELEMETRY_EVENTS.inferenceChunkProduced, {
         "model.id": modelId,
         "inference.chunk_index": chunkIndex,
         ...attrs,
