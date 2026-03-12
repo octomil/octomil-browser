@@ -141,6 +141,9 @@ export class StreamingInferenceEngine {
             });
           }
 
+          // Emit per-chunk telemetry for every chunk.
+          this.telemetry?.reportChunkProduced(modelId, chunkCount - 1);
+
           yield parsed;
         }
       }

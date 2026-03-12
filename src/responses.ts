@@ -223,6 +223,7 @@ export class ResponsesClient {
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
+    let chunkIndex = 0;
     const textParts: string[] = [];
     const toolCallBuffers: Map<
       number,
@@ -253,6 +254,11 @@ export class ResponsesClient {
             const delta = choice.delta;
             if (delta?.content) {
               textParts.push(delta.content);
+              this.telemetry?.reportChunkProduced(
+                request.model,
+                chunkIndex,
+              );
+              chunkIndex++;
               yield {
                 type: "text_delta",
                 delta: delta.content,
@@ -270,6 +276,11 @@ export class ResponsesClient {
                   existing.arguments += tc.function.arguments;
                 toolCallBuffers.set(tc.index, existing);
 
+                this.telemetry?.reportChunkProduced(
+                  request.model,
+                  chunkIndex,
+                );
+                chunkIndex++;
                 yield {
                   type: "tool_call_delta",
                   index: tc.index,
