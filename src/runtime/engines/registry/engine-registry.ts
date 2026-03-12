@@ -10,7 +10,7 @@
  */
 
 import type { EnginePlugin } from "./engine-plugin.js";
-import type { BenchmarkResult, DetectionResult, RankedEngine } from "./types.js";
+import type { BenchmarkResult, DetectionResult, RankedEngine } from "../../../types.js";
 
 export class EngineRegistry {
   private plugins: Map<string, EnginePlugin> = new Map();

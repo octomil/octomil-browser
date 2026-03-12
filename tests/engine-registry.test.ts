@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { EngineRegistry } from "../src/engine-registry.js";
-import type { EnginePlugin } from "../src/engine-plugin.js";
+import { EngineRegistry } from "../src/runtime/engines/registry/engine-registry.js";
+import type { EnginePlugin } from "../src/runtime/engines/registry/engine-plugin.js";
 
 function makePlugin(overrides: Partial<EnginePlugin> = {}): EnginePlugin {
   return {

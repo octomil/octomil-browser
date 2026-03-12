@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { InferenceEngine } from "../src/inference.js";
+import { InferenceEngine } from "../src/runtime/engines/onnx-web/engine.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
