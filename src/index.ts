@@ -22,6 +22,10 @@
 // Main class
 export { OctomilClient } from "./octomil.js";
 
+// Chat namespace (OpenAI-compatible chat completions)
+export { ChatClient, messagesToResponseInput } from "./chat.js";
+export type { ChatClientOptions } from "./chat.js";
+
 // Sub-modules (for advanced usage)
 export { InferenceEngine } from "./inference.js";
 export type { ModelRuntime } from "./inference.js";
