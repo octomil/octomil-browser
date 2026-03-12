@@ -22,7 +22,7 @@ const SDK_NAME = "browser";
 const DEFAULT_SDK_VERSION = "1.0.0";
 
 // ---------------------------------------------------------------------------
-// Resource envelope types
+// Legacy resource envelope types (kept for backward compatibility)
 // ---------------------------------------------------------------------------
 
 /** OTLP-style resource descriptor included in every telemetry batch. */
@@ -34,10 +34,57 @@ export interface TelemetryResource {
   org_id: string;
 }
 
-/** V2 telemetry payload sent to the server. */
+/** @deprecated Use ExportLogsServiceRequest instead. */
 export interface TelemetryEnvelope {
   resource: TelemetryResource;
   events: TelemetryEvent[];
+}
+
+// ---------------------------------------------------------------------------
+// OTLP/JSON types (OpenTelemetry Logs Data Model)
+// ---------------------------------------------------------------------------
+
+export interface OtlpKeyValue {
+  key: string;
+  value: {
+    stringValue?: string;
+    intValue?: string;
+    doubleValue?: number;
+    boolValue?: boolean;
+  };
+}
+
+export interface OtlpResource {
+  attributes: OtlpKeyValue[];
+}
+
+export interface OtlpInstrumentationScope {
+  name: string;
+  version?: string;
+}
+
+export interface OtlpLogRecord {
+  timeUnixNano: string;
+  severityNumber?: number;
+  severityText?: string;
+  body?: { stringValue: string };
+  attributes?: OtlpKeyValue[];
+  traceId?: string;
+  spanId?: string;
+}
+
+export interface OtlpScopeLogs {
+  scope: OtlpInstrumentationScope;
+  logRecords: OtlpLogRecord[];
+}
+
+export interface OtlpResourceLogs {
+  resource: OtlpResource;
+  scopeLogs: OtlpScopeLogs[];
+}
+
+export interface ExportLogsServiceRequest {
+  resourceLogs: OtlpResourceLogs[];
 }
 
 // ---------------------------------------------------------------------------
@@ -317,11 +364,64 @@ export class TelemetryReporter {
     }, this.flushIntervalMs);
   }
 
-  private buildEnvelope(events: TelemetryEvent[]): TelemetryEnvelope {
+  private buildEnvelope(events: TelemetryEvent[]): ExportLogsServiceRequest {
+    const resourceAttrs = this.resourceToOtlpAttributes();
+    const logRecords = events.map((e) => this.eventToLogRecord(e));
+
     return {
-      resource: this.resource,
-      events,
+      resourceLogs: [
+        {
+          resource: { attributes: resourceAttrs },
+          scopeLogs: [
+            {
+              scope: {
+                name: `@octomil/${SDK_NAME}`,
+                version: this.resource.sdk_version,
+              },
+              logRecords,
+            },
+          ],
+        },
+      ],
     };
+  }
+
+  private resourceToOtlpAttributes(): OtlpKeyValue[] {
+    return [
+      { key: "sdk", value: { stringValue: this.resource.sdk } },
+      { key: "sdk_version", value: { stringValue: this.resource.sdk_version } },
+      { key: "device_id", value: { stringValue: this.resource.device_id } },
+      { key: "platform", value: { stringValue: this.resource.platform } },
+      { key: "org_id", value: { stringValue: this.resource.org_id } },
+    ];
+  }
+
+  private eventToLogRecord(event: TelemetryEvent): OtlpLogRecord {
+    const attributes: OtlpKeyValue[] = Object.entries(event.attributes).map(
+      ([key, val]) => ({
+        key,
+        value: this.toOtlpValue(val),
+      }),
+    );
+
+    return {
+      timeUnixNano: String(new Date(event.timestamp).getTime() * 1_000_000),
+      severityNumber: 9, // INFO
+      severityText: "INFO",
+      body: { stringValue: event.name },
+      attributes,
+      traceId: event.traceId,
+      spanId: event.spanId,
+    };
+  }
+
+  private toOtlpValue(
+    val: string | number | boolean,
+  ): OtlpKeyValue["value"] {
+    if (typeof val === "string") return { stringValue: val };
+    if (typeof val === "boolean") return { boolValue: val };
+    if (Number.isInteger(val)) return { intValue: String(val) };
+    return { doubleValue: val as number };
   }
 
   private async send(events: TelemetryEvent[]): Promise<void> {
@@ -351,7 +451,7 @@ export class TelemetryReporter {
     }
   }
 
-  private sendBeaconPayload(envelope: TelemetryEnvelope): boolean {
+  private sendBeaconPayload(envelope: ExportLogsServiceRequest): boolean {
     if (typeof navigator === "undefined" || !navigator.sendBeacon) {
       return false;
     }

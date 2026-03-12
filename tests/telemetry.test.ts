@@ -9,7 +9,7 @@ import {
   getTelemetry,
   closeTelemetry,
 } from "../src/telemetry.js";
-import type { TelemetryEnvelope } from "../src/telemetry.js";
+import type { ExportLogsServiceRequest } from "../src/telemetry.js";
 import type { TelemetryEvent } from "../src/types.js";
 
 // ---------------------------------------------------------------------------
@@ -31,10 +31,24 @@ function makeEvent(
 function parseFetchBody(
   fetchSpy: ReturnType<typeof vi.fn>,
   callIndex = 0,
-): TelemetryEnvelope {
+): ExportLogsServiceRequest {
   return JSON.parse(
     fetchSpy.mock.calls[callIndex]![1]!.body as string,
-  ) as TelemetryEnvelope;
+  ) as ExportLogsServiceRequest;
+}
+
+/** Convenience: extract the log records from an OTLP envelope. */
+function getLogRecords(body: ExportLogsServiceRequest) {
+  return body.resourceLogs[0]!.scopeLogs[0]!.logRecords;
+}
+
+/** Convenience: extract resource attributes as a Record. */
+function getResourceAttrs(body: ExportLogsServiceRequest): Record<string, string> {
+  const attrs: Record<string, string> = {};
+  for (const kv of body.resourceLogs[0]!.resource.attributes) {
+    attrs[kv.key] = kv.value.stringValue ?? "";
+  }
+  return attrs;
 }
 
 // ---------------------------------------------------------------------------
@@ -62,7 +76,7 @@ describe("TelemetryReporter", () => {
     reporter.close();
   });
 
-  it("flushes events on manual flush()", async () => {
+  it("flushes events on manual flush() in OTLP format", async () => {
     const reporter = new TelemetryReporter({
       url: "https://api.octomil.com/v2/telemetry/events",
       flushIntervalMs: 60_000,
@@ -75,9 +89,11 @@ describe("TelemetryReporter", () => {
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const body = parseFetchBody(fetchSpy);
-    expect(body.events).toHaveLength(2);
-    expect(body.events[0]!.name).toBe("deploy.started");
-    expect(body.events[1]!.name).toBe("inference.completed");
+    expect(body.resourceLogs).toHaveLength(1);
+    const records = getLogRecords(body);
+    expect(records).toHaveLength(2);
+    expect(records[0]!.body!.stringValue).toBe("deploy.started");
+    expect(records[1]!.body!.stringValue).toBe("inference.completed");
 
     reporter.close();
   });
@@ -158,62 +174,79 @@ describe("TelemetryReporter", () => {
   // Named report*() methods
   // -----------------------------------------------------------------------
 
-  it("reportInferenceStarted enqueues inference.started event", async () => {
+  it("reportInferenceStarted enqueues inference.started as OTLP log record", async () => {
     const reporter = new TelemetryReporter({ flushIntervalMs: 60_000 });
     reporter.reportInferenceStarted("test-model", { target: "device" });
     await reporter.flush();
 
     const body = parseFetchBody(fetchSpy);
-    expect(body.events[0]!.name).toBe("inference.started");
-    expect(body.events[0]!.attributes.modelId).toBe("test-model");
-    expect(body.events[0]!.attributes.target).toBe("device");
+    const records = getLogRecords(body);
+    expect(records[0]!.body!.stringValue).toBe("inference.started");
+    const attrs = Object.fromEntries(
+      records[0]!.attributes!.map((a) => [a.key, a.value.stringValue ?? a.value.intValue ?? a.value.doubleValue ?? a.value.boolValue]),
+    );
+    expect(attrs.modelId).toBe("test-model");
+    expect(attrs.target).toBe("device");
     reporter.close();
   });
 
-  it("reportInferenceCompleted enqueues inference.completed event", async () => {
+  it("reportInferenceCompleted enqueues inference.completed as OTLP log record", async () => {
     const reporter = new TelemetryReporter({ flushIntervalMs: 60_000 });
     reporter.reportInferenceCompleted("test-model", 42.5);
     await reporter.flush();
 
     const body = parseFetchBody(fetchSpy);
-    expect(body.events[0]!.name).toBe("inference.completed");
-    expect(body.events[0]!.attributes.durationMs).toBe(42.5);
+    const records = getLogRecords(body);
+    expect(records[0]!.body!.stringValue).toBe("inference.completed");
+    const attrs = Object.fromEntries(
+      records[0]!.attributes!.map((a) => [a.key, a.value.stringValue ?? a.value.intValue ?? a.value.doubleValue ?? a.value.boolValue]),
+    );
+    expect(attrs.durationMs).toBe(42.5);
     reporter.close();
   });
 
-  it("reportDeployStarted/Completed enqueues deploy events", async () => {
+  it("reportDeployStarted/Completed enqueues deploy log records", async () => {
     const reporter = new TelemetryReporter({ flushIntervalMs: 60_000 });
     reporter.reportDeployStarted("model-a", "1.0.0");
     reporter.reportDeployCompleted("model-a", "1.0.0", 100);
     await reporter.flush();
 
     const body = parseFetchBody(fetchSpy);
-    expect(body.events[0]!.name).toBe("deploy.started");
-    expect(body.events[1]!.name).toBe("deploy.completed");
+    const records = getLogRecords(body);
+    expect(records[0]!.body!.stringValue).toBe("deploy.started");
+    expect(records[1]!.body!.stringValue).toBe("deploy.completed");
     reporter.close();
   });
 
-  it("reportExperimentMetric enqueues experiment.metric event", async () => {
+  it("reportExperimentMetric enqueues experiment.metric log record", async () => {
     const reporter = new TelemetryReporter({ flushIntervalMs: 60_000 });
     reporter.reportExperimentMetric("exp-1", "accuracy", 0.95);
     await reporter.flush();
 
     const body = parseFetchBody(fetchSpy);
-    expect(body.events[0]!.name).toBe("experiment.metric");
-    expect(body.events[0]!.attributes.metricValue).toBe(0.95);
+    const records = getLogRecords(body);
+    expect(records[0]!.body!.stringValue).toBe("experiment.metric");
+    const attrs = Object.fromEntries(
+      records[0]!.attributes!.map((a) => [a.key, a.value.stringValue ?? a.value.intValue ?? a.value.doubleValue ?? a.value.boolValue]),
+    );
+    expect(attrs.metricValue).toBe(0.95);
     reporter.close();
   });
 
-  it("reportTrainingStarted/Completed enqueues training events", async () => {
+  it("reportTrainingStarted/Completed enqueues training log records", async () => {
     const reporter = new TelemetryReporter({ flushIntervalMs: 60_000 });
     reporter.reportTrainingStarted("model-a", "1.0.0");
     reporter.reportTrainingCompleted("model-a", "1.0.0", 5000);
     await reporter.flush();
 
     const body = parseFetchBody(fetchSpy);
-    expect(body.events[0]!.name).toBe("training.started");
-    expect(body.events[1]!.name).toBe("training.completed");
-    expect(body.events[1]!.attributes.durationMs).toBe(5000);
+    const records = getLogRecords(body);
+    expect(records[0]!.body!.stringValue).toBe("training.started");
+    expect(records[1]!.body!.stringValue).toBe("training.completed");
+    const attrs = Object.fromEntries(
+      records[1]!.attributes!.map((a) => [a.key, a.value.stringValue ?? a.value.intValue ?? a.value.doubleValue ?? a.value.boolValue]),
+    );
+    expect(attrs.durationMs).toBe("5000");
     reporter.close();
   });
 });
@@ -246,7 +279,7 @@ describe("TelemetryReporter — v2 OTLP envelope", () => {
     reporter.close();
   });
 
-  it("includes resource envelope with sdk, platform, and version", async () => {
+  it("includes OTLP resource attributes with sdk, platform, and version", async () => {
     const reporter = new TelemetryReporter({
       flushIntervalMs: 60_000,
       sdkVersion: "2.3.0",
@@ -258,13 +291,13 @@ describe("TelemetryReporter — v2 OTLP envelope", () => {
     await reporter.flush();
 
     const body = parseFetchBody(fetchSpy);
+    const attrs = getResourceAttrs(body);
 
-    expect(body.resource).toBeDefined();
-    expect(body.resource.sdk).toBe("browser");
-    expect(body.resource.sdk_version).toBe("2.3.0");
-    expect(body.resource.platform).toBe("browser");
-    expect(body.resource.org_id).toBe("org_test123");
-    expect(body.resource.device_id).toBe("dev_custom");
+    expect(attrs.sdk).toBe("browser");
+    expect(attrs.sdk_version).toBe("2.3.0");
+    expect(attrs.platform).toBe("browser");
+    expect(attrs.org_id).toBe("org_test123");
+    expect(attrs.device_id).toBe("dev_custom");
     reporter.close();
   });
 
@@ -274,7 +307,8 @@ describe("TelemetryReporter — v2 OTLP envelope", () => {
     await reporter.flush();
 
     const body = parseFetchBody(fetchSpy);
-    expect(body.resource.device_id).toMatch(/^dev_[0-9a-f]{16}$/);
+    const attrs = getResourceAttrs(body);
+    expect(attrs.device_id).toMatch(/^dev_[0-9a-f]{16}$/);
     reporter.close();
   });
 
@@ -284,7 +318,8 @@ describe("TelemetryReporter — v2 OTLP envelope", () => {
     await reporter.flush();
 
     const body = parseFetchBody(fetchSpy);
-    expect(body.resource.sdk_version).toBe("1.0.0");
+    const attrs = getResourceAttrs(body);
+    expect(attrs.sdk_version).toBe("1.0.0");
     reporter.close();
   });
 
@@ -294,41 +329,72 @@ describe("TelemetryReporter — v2 OTLP envelope", () => {
     await reporter.flush();
 
     const body = parseFetchBody(fetchSpy);
-    expect(body.resource.org_id).toBe("");
+    const attrs = getResourceAttrs(body);
+    expect(attrs.org_id).toBe("");
     reporter.close();
   });
 
-  it("events generated via report*() include trace_id and span_id", async () => {
+  it("OTLP log records include traceId and spanId", async () => {
     const reporter = new TelemetryReporter({ flushIntervalMs: 60_000 });
     reporter.reportInferenceCompleted("model-a", 50);
     await reporter.flush();
 
     const body = parseFetchBody(fetchSpy);
-    const event = body.events[0]!;
+    const record = getLogRecords(body)[0]!;
 
-    expect(event.traceId).toBeDefined();
-    expect(event.traceId).toMatch(/^[0-9a-f]{32}$/);
-    expect(event.spanId).toBeDefined();
-    expect(event.spanId).toMatch(/^[0-9a-f]{16}$/);
+    expect(record.traceId).toBeDefined();
+    expect(record.traceId).toMatch(/^[0-9a-f]{32}$/);
+    expect(record.spanId).toBeDefined();
+    expect(record.spanId).toMatch(/^[0-9a-f]{16}$/);
     reporter.close();
   });
 
-  it("each event gets unique trace_id and span_id", async () => {
+  it("each log record gets unique traceId and spanId", async () => {
     const reporter = new TelemetryReporter({ flushIntervalMs: 60_000 });
     reporter.reportInferenceStarted("model-a");
     reporter.reportInferenceCompleted("model-a", 50);
     await reporter.flush();
 
     const body = parseFetchBody(fetchSpy);
-    expect(body.events).toHaveLength(2);
+    const records = getLogRecords(body);
+    expect(records).toHaveLength(2);
 
-    // trace_id and span_id should differ between events.
-    expect(body.events[0]!.traceId).not.toBe(body.events[1]!.traceId);
-    expect(body.events[0]!.spanId).not.toBe(body.events[1]!.spanId);
+    expect(records[0]!.traceId).not.toBe(records[1]!.traceId);
+    expect(records[0]!.spanId).not.toBe(records[1]!.spanId);
     reporter.close();
   });
 
-  it("resource is consistent across multiple flushes", async () => {
+  it("OTLP log records include timeUnixNano and severity", async () => {
+    const reporter = new TelemetryReporter({ flushIntervalMs: 60_000 });
+    reporter.reportInferenceCompleted("model-a", 50);
+    await reporter.flush();
+
+    const body = parseFetchBody(fetchSpy);
+    const record = getLogRecords(body)[0]!;
+
+    expect(record.timeUnixNano).toBeDefined();
+    expect(Number(record.timeUnixNano)).toBeGreaterThan(0);
+    expect(record.severityNumber).toBe(9);
+    expect(record.severityText).toBe("INFO");
+    reporter.close();
+  });
+
+  it("scope includes SDK name and version", async () => {
+    const reporter = new TelemetryReporter({
+      flushIntervalMs: 60_000,
+      sdkVersion: "2.3.0",
+    });
+    reporter.track(makeEvent());
+    await reporter.flush();
+
+    const body = parseFetchBody(fetchSpy);
+    const scope = body.resourceLogs[0]!.scopeLogs[0]!.scope;
+    expect(scope.name).toBe("@octomil/browser");
+    expect(scope.version).toBe("2.3.0");
+    reporter.close();
+  });
+
+  it("resource attributes are consistent across multiple flushes", async () => {
     const reporter = new TelemetryReporter({
       flushIntervalMs: 60_000,
       orgId: "org_stable",
@@ -344,7 +410,7 @@ describe("TelemetryReporter — v2 OTLP envelope", () => {
     const body1 = parseFetchBody(fetchSpy, 0);
     const body2 = parseFetchBody(fetchSpy, 1);
 
-    expect(body1.resource).toEqual(body2.resource);
+    expect(getResourceAttrs(body1)).toEqual(getResourceAttrs(body2));
     reporter.close();
   });
 });

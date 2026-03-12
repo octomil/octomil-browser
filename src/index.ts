@@ -36,6 +36,13 @@ export type {
   TelemetryReporterOptions,
   TelemetryResource,
   TelemetryEnvelope,
+  OtlpKeyValue,
+  OtlpResource,
+  OtlpInstrumentationScope,
+  OtlpLogRecord,
+  OtlpScopeLogs,
+  OtlpResourceLogs,
+  ExportLogsServiceRequest,
 } from "./telemetry.js";
 
 // Capabilities
