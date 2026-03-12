@@ -1,9 +1,12 @@
 /**
  * @octomil/browser — Rollout and canary management
  *
- * Resolves which model version a device should use based on server-side
- * rollout configuration. Uses deterministic hashing for stable canary
- * group assignment.
+ * ADVANCED — MAY: Resolves which model version a device should use based on
+ * server-side rollout configuration. Uses deterministic hashing for stable
+ * canary group assignment.
+ *
+ * This module is part of the ADVANCED tier. SDKs MAY implement rollout
+ * support. It is not required for core SDK compliance.
  */
 
 import type { RolloutConfig, RolloutVersion } from "./types.js";

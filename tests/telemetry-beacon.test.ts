@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { TelemetryReporter } from "../src/telemetry.js";
-import type { TelemetryEnvelope } from "../src/telemetry.js";
+import type { ExportLogsServiceRequest } from "../src/telemetry.js";
 import type { TelemetryEvent } from "../src/types.js";
 
 function makeEvent(): TelemetryEvent {
@@ -71,13 +71,17 @@ describe("TelemetryReporter — sendBeacon path", () => {
 
     expect(capturedBlob).toBeDefined();
     const text = await capturedBlob!.text();
-    const envelope = JSON.parse(text) as TelemetryEnvelope;
+    const envelope = JSON.parse(text) as ExportLogsServiceRequest;
 
-    expect(envelope.resource).toBeDefined();
-    expect(envelope.resource.sdk).toBe("browser");
-    expect(envelope.resource.org_id).toBe("org_beacon");
-    expect(envelope.events).toHaveLength(1);
-    expect(envelope.events[0]!.name).toBe("inference.completed");
+    expect(envelope.resourceLogs).toHaveLength(1);
+    const resourceAttrs = Object.fromEntries(
+      envelope.resourceLogs[0]!.resource.attributes.map((a) => [a.key, a.value.stringValue]),
+    );
+    expect(resourceAttrs.sdk).toBe("browser");
+    expect(resourceAttrs.org_id).toBe("org_beacon");
+    const records = envelope.resourceLogs[0]!.scopeLogs[0]!.logRecords;
+    expect(records).toHaveLength(1);
+    expect(records[0]!.body!.stringValue).toBe("inference.completed");
     reporter.close();
   });
 
@@ -101,12 +105,15 @@ describe("TelemetryReporter — sendBeacon path", () => {
     // Then fetch was used as fallback.
     expect(fetchSpy).toHaveBeenCalledTimes(1);
 
-    // Verify fetch also sends v2 envelope.
+    // Verify fetch also sends OTLP envelope.
     const body = JSON.parse(
       fetchSpy.mock.calls[0]![1]!.body as string,
-    ) as TelemetryEnvelope;
-    expect(body.resource).toBeDefined();
-    expect(body.resource.sdk).toBe("browser");
+    ) as ExportLogsServiceRequest;
+    expect(body.resourceLogs).toHaveLength(1);
+    const attrs = Object.fromEntries(
+      body.resourceLogs[0]!.resource.attributes.map((a) => [a.key, a.value.stringValue]),
+    );
+    expect(attrs.sdk).toBe("browser");
 
     reporter.close();
   });

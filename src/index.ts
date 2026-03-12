@@ -24,6 +24,7 @@ export { OctomilClient } from "./octomil.js";
 
 // Sub-modules (for advanced usage)
 export { InferenceEngine } from "./inference.js";
+export type { ModelRuntime } from "./inference.js";
 export { ModelManager } from "./model-manager.js";
 export { createModelCache, type ModelCache } from "./cache.js";
 export {
@@ -36,6 +37,13 @@ export type {
   TelemetryReporterOptions,
   TelemetryResource,
   TelemetryEnvelope,
+  OtlpKeyValue,
+  OtlpResource,
+  OtlpInstrumentationScope,
+  OtlpLogRecord,
+  OtlpScopeLogs,
+  OtlpResourceLogs,
+  ExportLogsServiceRequest,
 } from "./telemetry.js";
 
 // Capabilities
@@ -49,6 +57,7 @@ export type {
   HeartbeatResponse,
   ControlClientOptions,
 } from "./control.js";
+export type { ControlSyncResult } from "./types.js";
 
 // Device auth
 export { DeviceAuth } from "./device-auth.js";

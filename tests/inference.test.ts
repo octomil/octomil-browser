@@ -217,4 +217,21 @@ describe("InferenceEngine", () => {
       engine.dispose(); // Should not throw.
     });
   });
+
+  describe("isAvailable", () => {
+    it("returns true when onnxruntime-web can be loaded", async () => {
+      const result = await engine.isAvailable();
+      expect(result).toBe(true);
+    });
+  });
+
+  describe("ModelRuntime interface", () => {
+    it("InferenceEngine implements ModelRuntime", () => {
+      // Verify shape: createSession, run, dispose, isAvailable
+      expect(typeof engine.createSession).toBe("function");
+      expect(typeof engine.run).toBe("function");
+      expect(typeof engine.dispose).toBe("function");
+      expect(typeof engine.isAvailable).toBe("function");
+    });
+  });
 });
