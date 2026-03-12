@@ -43,6 +43,22 @@ export {
   assertModelIntegrity,
 } from "./integrity.js";
 
+// Responses namespace (Layer 2 — structured response API)
+export { ResponsesClient, generateId as generateResponseId } from "./responses.js";
+export type {
+  ResponseRequest,
+  ContentBlock,
+  ToolDef,
+  ResponseOutput,
+  Response as ResponseObject,
+  ResponseUsage,
+  TextDeltaEvent,
+  ToolCallDeltaEvent,
+  DoneEvent,
+  ResponseStreamEvent,
+  ResponsesClientOptions,
+} from "./responses.js";
+
 // Streaming inference
 export { StreamingInferenceEngine } from "./streaming.js";
 
