@@ -24,6 +24,7 @@ export { OctomilClient } from "./octomil.js";
 
 // Sub-modules (for advanced usage)
 export { InferenceEngine } from "./inference.js";
+export type { ModelRuntime } from "./inference.js";
 export { ModelManager } from "./model-manager.js";
 export { createModelCache, type ModelCache } from "./cache.js";
 export {

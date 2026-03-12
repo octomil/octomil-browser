@@ -24,7 +24,7 @@ import { CapabilitiesClient } from "./capabilities.js";
 import { createModelCache, type ModelCache } from "./cache.js";
 import { ControlClient } from "./control.js";
 import { embed as embedFn } from "./embeddings.js";
-import { InferenceEngine } from "./inference.js";
+import { InferenceEngine, type ModelRuntime } from "./inference.js";
 import { ModelManager } from "./model-manager.js";
 import { ModelsClient } from "./models.js";
 import { ResponsesClient } from "./responses.js";
@@ -59,7 +59,8 @@ export class OctomilClient {
 
   private readonly cache: ModelCache;
   private readonly loader: ModelManager;
-  private readonly engine: InferenceEngine;
+  private readonly engine: ModelRuntime;
+  private readonly inferenceEngine: InferenceEngine | null;
   private readonly routingClient: RoutingClient | null = null;
   private telemetry: TelemetryReporter | null = null;
   private deviceCaps: DeviceCapabilities | null = null;
@@ -71,7 +72,7 @@ export class OctomilClient {
   private loaded = false;
   private closed = false;
 
-  constructor(options: OctomilOptions) {
+  constructor(options: OctomilOptions & { runtime?: ModelRuntime }) {
     this.options = {
       telemetry: false,
       cacheStrategy: "cache-api",
@@ -80,7 +81,9 @@ export class OctomilClient {
 
     this.cache = createModelCache(this.options.cacheStrategy);
     this.loader = new ModelManager(this.options, this.cache);
-    this.engine = new InferenceEngine();
+    const defaultEngine = options.runtime ? null : new InferenceEngine();
+    this.engine = options.runtime ?? defaultEngine!;
+    this.inferenceEngine = defaultEngine;
 
     // Routing is opt-in: only enabled when serverUrl + apiKey + routing are set.
     if (this.options.serverUrl && this.options.apiKey && this.options.routing) {
@@ -148,7 +151,7 @@ export class OctomilClient {
     const result = await this.engine.run(tensors);
 
     this.telemetry?.reportInferenceCompleted(this.options.model, result.latencyMs, {
-      backend: this.engine.activeBackend ?? "unknown",
+      backend: this.inferenceEngine?.activeBackend ?? "unknown",
       target: "device",
     });
 
@@ -175,7 +178,7 @@ export class OctomilClient {
     const totalMs = performance.now() - start;
 
     this.telemetry?.reportInferenceCompleted(this.options.model, totalMs, {
-      backend: this.engine.activeBackend ?? "unknown",
+      backend: this.inferenceEngine?.activeBackend ?? "unknown",
       batchSize: inputs.length,
     });
 
@@ -463,19 +466,25 @@ export class OctomilClient {
 
   /** The inference backend currently in use (after `load()`). */
   get activeBackend(): Backend | null {
-    return this.engine.activeBackend;
+    return this.inferenceEngine?.activeBackend ?? null;
   }
 
   /** Input tensor names defined by the loaded model. */
   get inputNames(): readonly string[] {
     this.ensureReady();
-    return this.engine.inputNames;
+    if (!this.inferenceEngine) {
+      throw new OctomilError("INVALID_INPUT", "inputNames not available with custom runtime");
+    }
+    return this.inferenceEngine.inputNames;
   }
 
   /** Output tensor names defined by the loaded model. */
   get outputNames(): readonly string[] {
     this.ensureReady();
-    return this.engine.outputNames;
+    if (!this.inferenceEngine) {
+      throw new OctomilError("INVALID_INPUT", "outputNames not available with custom runtime");
+    }
+    return this.inferenceEngine.outputNames;
   }
 
   /** Whether `load()` has been called successfully. */
@@ -648,7 +657,7 @@ export class OctomilClient {
 
     // { raw, dims } — wrap in the first input name.
     if ("raw" in input && "dims" in input) {
-      const name = this.engine.inputNames[0];
+      const name = this.inferenceEngine!.inputNames[0];
       if (!name) {
         throw new OctomilError(
           "INVALID_INPUT",
@@ -662,7 +671,7 @@ export class OctomilClient {
     // Real tokenization would require a tokenizer; this is a minimal
     // placeholder that works for models expecting raw code-point inputs.
     if ("text" in input) {
-      const name = this.engine.inputNames[0];
+      const name = this.inferenceEngine!.inputNames[0];
       if (!name) {
         throw new OctomilError(
           "INVALID_INPUT",

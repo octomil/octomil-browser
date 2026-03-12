@@ -18,10 +18,30 @@ import { OctomilError } from "./types.js";
 type OrtModule = typeof ort;
 
 // ---------------------------------------------------------------------------
+// ModelRuntime interface
+// ---------------------------------------------------------------------------
+
+/**
+ * Abstraction over inference runtimes. The default `InferenceEngine` uses
+ * ONNX Runtime Web, but callers may inject a custom runtime (e.g.
+ * TensorFlow.js, WebNN) via the OctomilClient constructor.
+ */
+export interface ModelRuntime {
+  /** Create a runtime session from a model buffer. */
+  createSession(modelData: ArrayBuffer, backend?: Backend): Promise<void>;
+  /** Run inference on the given inputs. */
+  run(inputs: NamedTensors): Promise<PredictOutput>;
+  /** Release all resources held by the runtime. */
+  dispose(): void;
+  /** Whether this runtime is available in the current environment. */
+  isAvailable(): Promise<boolean>;
+}
+
+// ---------------------------------------------------------------------------
 // InferenceEngine
 // ---------------------------------------------------------------------------
 
-export class InferenceEngine {
+export class InferenceEngine implements ModelRuntime {
   private session: ort.InferenceSession | null = null;
   private ortModule: OrtModule | null = null;
   private resolvedBackend: Backend | null = null;
@@ -151,6 +171,16 @@ export class InferenceEngine {
       // InferenceSession.release() returns a Promise but we fire-and-forget.
       void this.session.release();
       this.session = null;
+    }
+  }
+
+  /** Check if ONNX Runtime Web can be loaded in this environment. */
+  async isAvailable(): Promise<boolean> {
+    try {
+      await this.loadOrt();
+      return true;
+    } catch {
+      return false;
     }
   }
 
