@@ -458,8 +458,14 @@ export interface EmbeddingUsage {
 // Errors
 // ---------------------------------------------------------------------------
 
-/** Error codes emitted by the SDK. */
+/**
+ * Error codes emitted by the SDK.
+ *
+ * 19 canonical codes shared across all Octomil SDKs (Python, Node, Browser,
+ * iOS, Android) plus 3 browser-specific codes for backward compatibility.
+ */
 export type OctomilErrorCode =
+  // --- Original 10 (backward-compatible) ---
   | "MODEL_NOT_FOUND"
   | "MODEL_LOAD_FAILED"
   | "INFERENCE_FAILED"
@@ -469,7 +475,35 @@ export type OctomilErrorCode =
   | "INVALID_INPUT"
   | "NOT_LOADED"
   | "SESSION_CLOSED"
-  | "SESSION_DISPOSED";
+  | "SESSION_DISPOSED"
+  // --- Canonical additions ---
+  | "NETWORK_UNAVAILABLE"
+  | "REQUEST_TIMEOUT"
+  | "SERVER_ERROR"
+  | "INVALID_API_KEY"
+  | "AUTHENTICATION_FAILED"
+  | "FORBIDDEN"
+  | "MODEL_DISABLED"
+  | "DOWNLOAD_FAILED"
+  | "CHECKSUM_MISMATCH"
+  | "INSUFFICIENT_STORAGE"
+  | "RUNTIME_UNAVAILABLE"
+  | "INSUFFICIENT_MEMORY"
+  | "RATE_LIMITED"
+  | "CANCELLED"
+  | "UNKNOWN";
+
+/** Codes that indicate a transient failure safe to retry. */
+const RETRYABLE_CODES: ReadonlySet<OctomilErrorCode> = new Set([
+  "NETWORK_UNAVAILABLE",
+  "NETWORK_ERROR",
+  "REQUEST_TIMEOUT",
+  "SERVER_ERROR",
+  "DOWNLOAD_FAILED",
+  "CHECKSUM_MISMATCH",
+  "INFERENCE_FAILED",
+  "RATE_LIMITED",
+]);
 
 /** Structured error thrown by the SDK. */
 export class OctomilError extends Error {
@@ -481,6 +515,47 @@ export class OctomilError extends Error {
     this.name = "OctomilError";
     this.code = code;
     this.cause = cause;
+  }
+
+  /** Whether this error represents a transient failure that can be retried. */
+  get retryable(): boolean {
+    return RETRYABLE_CODES.has(this.code);
+  }
+
+  /**
+   * Create an `OctomilError` from an HTTP status code.
+   *
+   * Maps common HTTP statuses to the appropriate canonical error code.
+   */
+  static fromHttpStatus(status: number, message?: string): OctomilError {
+    const msg = message || `HTTP ${status}`;
+    switch (status) {
+      case 400:
+        return new OctomilError("INVALID_INPUT", msg);
+      case 401:
+        return new OctomilError("INVALID_API_KEY", msg);
+      case 403:
+        return new OctomilError("FORBIDDEN", msg);
+      case 404:
+        return new OctomilError("MODEL_NOT_FOUND", msg);
+      case 408:
+        return new OctomilError("REQUEST_TIMEOUT", msg);
+      case 429:
+        return new OctomilError("RATE_LIMITED", msg);
+      case 500:
+      case 502:
+      case 503:
+      case 504:
+        return new OctomilError("SERVER_ERROR", msg);
+      default:
+        if (status >= 400 && status < 500) {
+          return new OctomilError("INVALID_INPUT", msg);
+        }
+        if (status >= 500) {
+          return new OctomilError("SERVER_ERROR", msg);
+        }
+        return new OctomilError("UNKNOWN", msg);
+    }
   }
 }
 

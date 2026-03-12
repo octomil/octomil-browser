@@ -20,7 +20,9 @@
  * ```
  */
 
+import { CapabilitiesClient } from "./capabilities.js";
 import { createModelCache, type ModelCache } from "./cache.js";
+import { ControlClient } from "./control.js";
 import { embed as embedFn } from "./embeddings.js";
 import { InferenceEngine } from "./inference.js";
 import { ModelManager } from "./model-manager.js";
@@ -62,6 +64,8 @@ export class OctomilClient {
   private telemetry: TelemetryReporter | null = null;
   private deviceCaps: DeviceCapabilities | null = null;
   private _responses: ResponsesClient | null = null;
+  private _control: ControlClient | null = null;
+  private _capabilities: CapabilitiesClient | null = null;
 
   private loaded = false;
   private closed = false;
@@ -493,6 +497,42 @@ export class OctomilClient {
   }
 
   // -----------------------------------------------------------------------
+  // Control namespace (device registration + heartbeat)
+  // -----------------------------------------------------------------------
+
+  /**
+   * Lazily-created `ControlClient` providing `control.register()`,
+   * `control.heartbeat()`, and `control.refresh()` methods.
+   *
+   * Uses the configured `serverUrl`, `apiKey`, and any `orgId`
+   * inferred from the options.
+   */
+  get control(): ControlClient {
+    if (!this._control) {
+      this._control = new ControlClient({
+        serverUrl: this.options.serverUrl,
+        apiKey: this.options.apiKey,
+      });
+    }
+    return this._control;
+  }
+
+  // -----------------------------------------------------------------------
+  // Capabilities namespace (device capability profiling)
+  // -----------------------------------------------------------------------
+
+  /**
+   * Lazily-created `CapabilitiesClient` providing `capabilities.current()`
+   * to detect the full device capability profile.
+   */
+  get capabilities(): CapabilitiesClient {
+    if (!this._capabilities) {
+      this._capabilities = new CapabilitiesClient();
+    }
+    return this._capabilities;
+  }
+
+  // -----------------------------------------------------------------------
   // Cleanup
   // -----------------------------------------------------------------------
 
@@ -506,6 +546,9 @@ export class OctomilClient {
     this.telemetry?.close();
     this.telemetry = null;
     this._responses = null;
+    this._control?.stopHeartbeat();
+    this._control = null;
+    this._capabilities = null;
   }
 
   // -----------------------------------------------------------------------
