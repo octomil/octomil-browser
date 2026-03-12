@@ -24,6 +24,7 @@ import { createModelCache, type ModelCache } from "./cache.js";
 import { embed as embedFn } from "./embeddings.js";
 import { InferenceEngine } from "./inference.js";
 import { ModelManager } from "./model-manager.js";
+import { ResponsesClient } from "./responses.js";
 import { RoutingClient, detectDeviceCapabilities } from "./routing.js";
 import { TelemetryReporter } from "./telemetry.js";
 import { StreamingInferenceEngine } from "./streaming.js";
@@ -60,6 +61,7 @@ export class OctomilClient {
   private readonly routingClient: RoutingClient | null = null;
   private telemetry: TelemetryReporter | null = null;
   private deviceCaps: DeviceCapabilities | null = null;
+  private _responses: ResponsesClient | null = null;
 
   private loaded = false;
   private closed = false;
@@ -469,6 +471,28 @@ export class OctomilClient {
   }
 
   // -----------------------------------------------------------------------
+  // Responses namespace (Layer 2 — structured response API)
+  // -----------------------------------------------------------------------
+
+  /**
+   * Lazily-created `ResponsesClient` providing `responses.create()` and
+   * `responses.stream()` methods for the structured response API.
+   *
+   * Requires `serverUrl` to be configured; `apiKey` is optional but
+   * recommended.
+   */
+  get responses(): ResponsesClient {
+    if (!this._responses) {
+      this._responses = new ResponsesClient({
+        serverUrl: this.options.serverUrl,
+        apiKey: this.options.apiKey,
+        telemetry: this.telemetry,
+      });
+    }
+    return this._responses;
+  }
+
+  // -----------------------------------------------------------------------
   // Cleanup
   // -----------------------------------------------------------------------
 
@@ -481,6 +505,7 @@ export class OctomilClient {
     this.engine.dispose();
     this.telemetry?.close();
     this.telemetry = null;
+    this._responses = null;
   }
 
   // -----------------------------------------------------------------------

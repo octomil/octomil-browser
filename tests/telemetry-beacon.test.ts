@@ -1,9 +1,10 @@
 /**
- * Tests for the sendBeacon fallback path in telemetry.
+ * Tests for the sendBeacon fallback path in telemetry (v2 OTLP envelope).
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { TelemetryReporter } from "../src/telemetry.js";
+import type { TelemetryEnvelope } from "../src/telemetry.js";
 import type { TelemetryEvent } from "../src/types.js";
 
 function makeEvent(): TelemetryEvent {
@@ -49,6 +50,37 @@ describe("TelemetryReporter — sendBeacon path", () => {
     reporter.close();
   });
 
+  it("sends v2 envelope via sendBeacon with resource", async () => {
+    let capturedBlob: Blob | undefined;
+    const sendBeaconSpy = vi.fn((_url: string, data: Blob) => {
+      capturedBlob = data;
+      return true;
+    });
+    Object.defineProperty(globalThis, "navigator", {
+      value: { sendBeacon: sendBeaconSpy },
+      writable: true,
+      configurable: true,
+    });
+
+    const reporter = new TelemetryReporter({
+      flushIntervalMs: 60_000,
+      orgId: "org_beacon",
+    });
+    reporter.track(makeEvent());
+    await reporter.flush();
+
+    expect(capturedBlob).toBeDefined();
+    const text = await capturedBlob!.text();
+    const envelope = JSON.parse(text) as TelemetryEnvelope;
+
+    expect(envelope.resource).toBeDefined();
+    expect(envelope.resource.sdk).toBe("browser");
+    expect(envelope.resource.org_id).toBe("org_beacon");
+    expect(envelope.events).toHaveLength(1);
+    expect(envelope.events[0]!.name).toBe("inference.completed");
+    reporter.close();
+  });
+
   it("falls back to fetch when sendBeacon returns false", async () => {
     const sendBeaconSpy = vi.fn(() => false);
     Object.defineProperty(globalThis, "navigator", {
@@ -68,6 +100,14 @@ describe("TelemetryReporter — sendBeacon path", () => {
     expect(sendBeaconSpy).toHaveBeenCalled();
     // Then fetch was used as fallback.
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+    // Verify fetch also sends v2 envelope.
+    const body = JSON.parse(
+      fetchSpy.mock.calls[0]![1]!.body as string,
+    ) as TelemetryEnvelope;
+    expect(body.resource).toBeDefined();
+    expect(body.resource.sdk).toBe("browser");
+
     reporter.close();
   });
 

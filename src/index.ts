@@ -32,6 +32,11 @@ export {
   getTelemetry,
   closeTelemetry,
 } from "./telemetry.js";
+export type {
+  TelemetryReporterOptions,
+  TelemetryResource,
+  TelemetryEnvelope,
+} from "./telemetry.js";
 
 // Device auth
 export { DeviceAuth } from "./device-auth.js";
@@ -42,6 +47,22 @@ export {
   verifyModelIntegrity,
   assertModelIntegrity,
 } from "./integrity.js";
+
+// Responses namespace (Layer 2 — structured response API)
+export { ResponsesClient, generateId as generateResponseId } from "./responses.js";
+export type {
+  ResponseRequest,
+  ContentBlock,
+  ToolDef,
+  ResponseOutput,
+  Response as ResponseObject,
+  ResponseUsage,
+  TextDeltaEvent,
+  ToolCallDeltaEvent,
+  DoneEvent,
+  ResponseStreamEvent,
+  ResponsesClientOptions,
+} from "./responses.js";
 
 // Streaming inference
 export { StreamingInferenceEngine } from "./streaming.js";
