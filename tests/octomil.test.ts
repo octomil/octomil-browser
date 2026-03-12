@@ -200,8 +200,8 @@ describe("OctomilClient", () => {
     });
   });
 
-  describe("chat", () => {
-    it("throws when serverUrl is not configured", async () => {
+  describe("chat namespace", () => {
+    it("chat.create() throws when serverUrl is not configured", async () => {
       const ml = new OctomilClient({
         model: "https://models.octomil.com/test.onnx",
         cacheStrategy: "none",
@@ -210,8 +210,37 @@ describe("OctomilClient", () => {
 
       await ml.load();
       await expect(
-        ml.chat([{ role: "user", content: "Hi" }]),
+        ml.chat.create([{ role: "user", content: "Hi" }]),
       ).rejects.toThrow("requires serverUrl");
+      ml.close();
+    });
+
+    it("deprecated createChat() delegates to chat.create()", async () => {
+      const ml = new OctomilClient({
+        model: "https://models.octomil.com/test.onnx",
+        cacheStrategy: "none",
+        backend: "wasm",
+      });
+
+      await ml.load();
+      await expect(
+        ml.createChat([{ role: "user", content: "Hi" }]),
+      ).rejects.toThrow("requires serverUrl");
+      ml.close();
+    });
+
+    it("chat getter returns a ChatClient instance", async () => {
+      const ml = new OctomilClient({
+        model: "https://models.octomil.com/test.onnx",
+        cacheStrategy: "none",
+        backend: "wasm",
+      });
+
+      await ml.load();
+      const chatClient = ml.chat;
+      expect(chatClient).toBeDefined();
+      expect(typeof chatClient.create).toBe("function");
+      expect(typeof chatClient.stream).toBe("function");
       ml.close();
     });
   });
