@@ -1,9 +1,12 @@
 /**
  * @octomil/browser — Routing client
  *
- * Calls the Octomil routing API to decide whether inference should run
- * on-device or in the cloud.  Caches decisions with a configurable TTL
- * and provides a cloud inference proxy when the server picks "cloud".
+ * ADVANCED — MAY: Calls the Octomil routing API to decide whether inference
+ * should run on-device or in the cloud.  Caches decisions with a configurable
+ * TTL and provides a cloud inference proxy when the server picks "cloud".
+ *
+ * This module is part of the ADVANCED tier. SDKs MAY implement routing
+ * support. It is not required for core SDK compliance.
  */
 
 import type {
