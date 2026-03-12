@@ -166,6 +166,25 @@ export class TelemetryReporter {
     this.track(this.makeEvent("inference.chunk", { modelId, ...attrs }));
   }
 
+  /**
+   * Report that a single chunk was produced during streaming inference.
+   *
+   * Emits `inference.chunk_produced` with the model ID and chunk index.
+   */
+  reportChunkProduced(
+    modelId: string,
+    chunkIndex: number,
+    attrs?: Record<string, string | number | boolean>,
+  ): void {
+    this.track(
+      this.makeEvent("inference.chunk_produced", {
+        "model.id": modelId,
+        "inference.chunk_index": chunkIndex,
+        ...attrs,
+      }),
+    );
+  }
+
   // -----------------------------------------------------------------------
   // Public — named convenience methods (training)
   // -----------------------------------------------------------------------

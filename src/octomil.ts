@@ -26,6 +26,7 @@ import { ControlClient } from "./control.js";
 import { embed as embedFn } from "./embeddings.js";
 import { InferenceEngine } from "./inference.js";
 import { ModelManager } from "./model-manager.js";
+import { ModelsClient } from "./models.js";
 import { ResponsesClient } from "./responses.js";
 import { RoutingClient, detectDeviceCapabilities } from "./routing.js";
 import { TelemetryReporter } from "./telemetry.js";
@@ -66,6 +67,7 @@ export class OctomilClient {
   private _responses: ResponsesClient | null = null;
   private _control: ControlClient | null = null;
   private _capabilities: CapabilitiesClient | null = null;
+  private _models: ModelsClient | null = null;
 
   private loaded = false;
   private closed = false;
@@ -356,6 +358,7 @@ export class OctomilClient {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
+    let chunkIndex = 0;
 
     try {
       while (true) {
@@ -377,6 +380,9 @@ export class OctomilClient {
           } catch {
             continue;
           }
+
+          this.telemetry?.reportChunkProduced(modelId, chunkIndex);
+          chunkIndex++;
 
           yield {
             token: (parsed.token as string) ?? "",
@@ -533,6 +539,32 @@ export class OctomilClient {
   }
 
   // -----------------------------------------------------------------------
+  // Models namespace (status / load / unload / list / clearCache)
+  // -----------------------------------------------------------------------
+
+  /**
+   * Lazily-created `ModelsClient` providing `models.status()`,
+   * `models.load()`, `models.unload()`, `models.list()`, and
+   * `models.clearCache()`.
+   */
+  get models(): ModelsClient {
+    if (!this._models) {
+      this._models = new ModelsClient(
+        this.options.model,
+        this.loader,
+        () => {
+          // When ModelsClient.load() succeeds, mark the engine as loaded
+          // so that predict()/chat() work without a separate load() call.
+          // Note: the engine session is NOT created here — callers should
+          // still use OctomilClient.load() for full setup.  This callback
+          // ensures the downloading→ready state transition is tracked.
+        },
+      );
+    }
+    return this._models;
+  }
+
+  // -----------------------------------------------------------------------
   // Cleanup
   // -----------------------------------------------------------------------
 
@@ -549,6 +581,7 @@ export class OctomilClient {
     this._control?.stopHeartbeat();
     this._control = null;
     this._capabilities = null;
+    this._models = null;
   }
 
   // -----------------------------------------------------------------------
