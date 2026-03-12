@@ -203,6 +203,18 @@ export type { QuantizedWeightMap } from "./privacy.js";
 
 export { OctomilError } from "./types.js";
 
+// Contract-generated enums and constants (from octomil-contracts)
+export {
+  ErrorCode,
+  ModelStatus as ContractModelStatus,
+  DeviceClass,
+  FinishReason,
+  CompatibilityLevel,
+  OTLP_RESOURCE_ATTRIBUTES,
+  TELEMETRY_EVENTS,
+  EVENT_REQUIRED_ATTRIBUTES,
+} from "./_generated/index.js";
+
 // Helpers
 import type { BenchmarkResult } from "./types.js";
 export function benchmarkResultOk(result: BenchmarkResult): boolean {
