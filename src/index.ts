@@ -76,6 +76,10 @@ export type {
   ResponsesClientOptions,
 } from "./responses.js";
 
+// Models namespace (status / load / unload / list / clearCache)
+export { ModelsClient } from "./models.js";
+export type { ModelStatus, CachedModelInfo } from "./models.js";
+
 // Streaming inference
 export { StreamingInferenceEngine } from "./streaming.js";
 
