@@ -30,7 +30,6 @@ import { ModelsClient } from "./models.js";
 import { ResponsesClient } from "./responses.js";
 import { RoutingClient, detectDeviceCapabilities } from "./routing.js";
 import { TelemetryReporter } from "./telemetry.js";
-import { StreamingInferenceEngine } from "./streaming.js";
 import type {
   Backend,
   CacheInfo,
@@ -185,8 +184,10 @@ export class OctomilClient {
 
   /**
    * OpenAI-compatible chat completion.
-   * Requires a server with streaming endpoint. Uses StreamingInferenceEngine
-   * under the hood to collect the full response.
+   *
+   * COMPATIBILITY shim — delegates to `this.responses.create()` internally,
+   * converting messages to ResponseRequest input and Response back to
+   * ChatResponse.
    */
   async chat(
     messages: ChatMessage[],
@@ -201,40 +202,41 @@ export class OctomilClient {
       );
     }
 
-    const streaming = new StreamingInferenceEngine({
-      serverUrl: this.options.serverUrl,
-      apiKey: this.options.apiKey,
-      telemetry: this.telemetry ?? undefined,
+    const start = performance.now();
+    const { instructions, input } = this.messagesToResponseInput(messages);
+
+    const response = await this.responses.create({
+      model: this.options.model,
+      input,
+      instructions,
+      maxOutputTokens: options.maxTokens,
+      temperature: options.temperature,
+      topP: options.topP,
     });
 
-    const start = performance.now();
-    let content = "";
-
-    const generator = streaming.stream(
-      this.options.model,
-      {
-        messages,
-        temperature: options.temperature,
-        max_tokens: options.maxTokens,
-        top_p: options.topP,
-      },
-      { modality: "text", signal: options.signal },
-    );
-
-    for await (const chunk of generator) {
-      if (typeof chunk.data === "string") {
-        content += chunk.data;
-      }
-    }
+    const content = response.output
+      .filter((o) => o.type === "text" && o.text)
+      .map((o) => o.text!)
+      .join("");
 
     return {
       message: { role: "assistant", content },
       latencyMs: performance.now() - start,
+      usage: response.usage
+        ? {
+            promptTokens: response.usage.promptTokens,
+            completionTokens: response.usage.completionTokens,
+            totalTokens: response.usage.totalTokens,
+          }
+        : undefined,
     };
   }
 
   /**
    * Streaming chat — yields chunks as they arrive.
+   *
+   * COMPATIBILITY shim — delegates to `this.responses.stream()` internally,
+   * converting ResponseStreamEvent back to ChatChunk.
    */
   async *chatStream(
     messages: ChatMessage[],
@@ -249,33 +251,34 @@ export class OctomilClient {
       );
     }
 
-    const streaming = new StreamingInferenceEngine({
-      serverUrl: this.options.serverUrl,
-      apiKey: this.options.apiKey,
-      telemetry: this.telemetry ?? undefined,
+    const { instructions, input } = this.messagesToResponseInput(messages);
+    let chunkIndex = 0;
+
+    const generator = this.responses.stream({
+      model: this.options.model,
+      input,
+      instructions,
+      maxOutputTokens: options.maxTokens,
+      temperature: options.temperature,
+      topP: options.topP,
     });
 
-    const generator = streaming.stream(
-      this.options.model,
-      {
-        messages,
-        temperature: options.temperature,
-        max_tokens: options.maxTokens,
-        top_p: options.topP,
-      },
-      { modality: "text", signal: options.signal },
-    );
-
-    for await (const chunk of generator) {
-      yield {
-        index: chunk.index,
-        content:
-          typeof chunk.data === "string"
-            ? chunk.data
-            : JSON.stringify(chunk.data),
-        done: chunk.done,
-        role: "assistant",
-      };
+    for await (const event of generator) {
+      if (event.type === "text_delta") {
+        yield {
+          index: chunkIndex++,
+          content: event.delta,
+          done: false,
+          role: "assistant",
+        };
+      } else if (event.type === "done") {
+        yield {
+          index: chunkIndex,
+          content: "",
+          done: true,
+          role: "assistant",
+        };
+      }
     }
   }
 
@@ -587,6 +590,32 @@ export class OctomilClient {
   // -----------------------------------------------------------------------
   // Private helpers
   // -----------------------------------------------------------------------
+
+  /**
+   * Convert ChatMessage[] to ResponseRequest fields.
+   * Extracts system messages as `instructions`, remaining as `input`.
+   */
+  private messagesToResponseInput(messages: ChatMessage[]): {
+    instructions?: string;
+    input: string;
+  } {
+    const systemParts: string[] = [];
+    const userParts: string[] = [];
+
+    for (const msg of messages) {
+      if (msg.role === "system") {
+        systemParts.push(msg.content);
+      } else {
+        const prefix = msg.role === "assistant" ? "[assistant] " : "";
+        userParts.push(prefix + msg.content);
+      }
+    }
+
+    return {
+      instructions: systemParts.length > 0 ? systemParts.join("\n") : undefined,
+      input: userParts.join("\n"),
+    };
+  }
 
   private ensureNotClosed(): void {
     if (this.closed) {
