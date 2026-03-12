@@ -1,9 +1,12 @@
 /**
- * @octomil/browser — Telemetry reporter
+ * @octomil/browser — Telemetry reporter (v2 OTLP envelope)
  *
  * Opt-in, batched, non-blocking telemetry.  Events are queued in memory
  * and flushed periodically using `navigator.sendBeacon` (preferred) or
  * `fetch` with `keepalive: true`.
+ *
+ * V2 sends to `POST /v2/telemetry/events` with an OTLP-style resource
+ * envelope wrapping each batch.
  */
 
 import type { TelemetryEvent } from "./types.js";
@@ -14,7 +17,28 @@ import type { TelemetryEvent } from "./types.js";
 
 const DEFAULT_FLUSH_INTERVAL_MS = 30_000; // 30 seconds
 const DEFAULT_MAX_BATCH_SIZE = 50;
-const DEFAULT_TELEMETRY_URL = "https://api.octomil.com/v1/telemetry";
+const DEFAULT_TELEMETRY_URL = "https://api.octomil.com/v2/telemetry/events";
+const SDK_NAME = "browser";
+const DEFAULT_SDK_VERSION = "1.0.0";
+
+// ---------------------------------------------------------------------------
+// Resource envelope types
+// ---------------------------------------------------------------------------
+
+/** OTLP-style resource descriptor included in every telemetry batch. */
+export interface TelemetryResource {
+  sdk: string;
+  sdk_version: string;
+  device_id: string;
+  platform: string;
+  org_id: string;
+}
+
+/** V2 telemetry payload sent to the server. */
+export interface TelemetryEnvelope {
+  resource: TelemetryResource;
+  events: TelemetryEvent[];
+}
 
 // ---------------------------------------------------------------------------
 // TelemetryReporter
@@ -29,6 +53,12 @@ export interface TelemetryReporterOptions {
   maxBatchSize?: number;
   /** API key included in the `Authorization` header. */
   apiKey?: string;
+  /** Organisation identifier included in the resource envelope. */
+  orgId?: string;
+  /** Stable device identifier included in the resource envelope. */
+  deviceId?: string;
+  /** SDK version string. Defaults to the package version. */
+  sdkVersion?: string;
 }
 
 export class TelemetryReporter {
@@ -36,6 +66,7 @@ export class TelemetryReporter {
   private readonly flushIntervalMs: number;
   private readonly maxBatchSize: number;
   private readonly apiKey: string | undefined;
+  private readonly resource: TelemetryResource;
 
   private queue: TelemetryEvent[] = [];
   private timerId: ReturnType<typeof setInterval> | null = null;
@@ -47,6 +78,13 @@ export class TelemetryReporter {
       options.flushIntervalMs ?? DEFAULT_FLUSH_INTERVAL_MS;
     this.maxBatchSize = options.maxBatchSize ?? DEFAULT_MAX_BATCH_SIZE;
     this.apiKey = options.apiKey;
+    this.resource = {
+      sdk: SDK_NAME,
+      sdk_version: options.sdkVersion ?? DEFAULT_SDK_VERSION,
+      device_id: options.deviceId ?? generateDeviceId(),
+      platform: SDK_NAME,
+      org_id: options.orgId ?? "",
+    };
 
     this.startAutoFlush();
   }
@@ -85,7 +123,8 @@ export class TelemetryReporter {
 
     // Best-effort final flush via beacon.
     if (this.queue.length > 0) {
-      this.sendBeacon(this.queue.splice(0));
+      const remaining = this.queue.splice(0);
+      this.sendBeaconPayload(this.buildEnvelope(remaining));
     }
   }
 
@@ -246,6 +285,8 @@ export class TelemetryReporter {
     return {
       name,
       timestamp: new Date().toISOString(),
+      traceId: generateHexId(16),
+      spanId: generateHexId(8),
       attributes,
     };
   }
@@ -257,12 +298,20 @@ export class TelemetryReporter {
     }, this.flushIntervalMs);
   }
 
+  private buildEnvelope(events: TelemetryEvent[]): TelemetryEnvelope {
+    return {
+      resource: this.resource,
+      events,
+    };
+  }
+
   private async send(events: TelemetryEvent[]): Promise<void> {
-    const body = JSON.stringify({ events });
+    const envelope = this.buildEnvelope(events);
+    const body = JSON.stringify(envelope);
 
     try {
       // Try sendBeacon first — it survives page unload.
-      if (this.sendBeacon(events)) return;
+      if (this.sendBeaconPayload(envelope)) return;
 
       // Fallback to fetch with keepalive.
       const headers: Record<string, string> = {
@@ -283,13 +332,13 @@ export class TelemetryReporter {
     }
   }
 
-  private sendBeacon(events: TelemetryEvent[]): boolean {
+  private sendBeaconPayload(envelope: TelemetryEnvelope): boolean {
     if (typeof navigator === "undefined" || !navigator.sendBeacon) {
       return false;
     }
 
     try {
-      const blob = new Blob([JSON.stringify({ events })], {
+      const blob = new Blob([JSON.stringify(envelope)], {
         type: "application/json",
       });
       return navigator.sendBeacon(this.url, blob);
@@ -297,6 +346,31 @@ export class TelemetryReporter {
       return false;
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// ID generation helpers
+// ---------------------------------------------------------------------------
+
+/** Generate a hex string of `byteCount` random bytes (e.g. 16 → 32 hex chars). */
+function generateHexId(byteCount: number): string {
+  const bytes = new Uint8Array(byteCount);
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    // Fallback for environments without crypto (test, SSR).
+    for (let i = 0; i < byteCount; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/** Generate a stable-ish device ID using random hex. */
+function generateDeviceId(): string {
+  return `dev_${generateHexId(8)}`;
 }
 
 // ---------------------------------------------------------------------------

@@ -32,6 +32,11 @@ export {
   getTelemetry,
   closeTelemetry,
 } from "./telemetry.js";
+export type {
+  TelemetryReporterOptions,
+  TelemetryResource,
+  TelemetryEnvelope,
+} from "./telemetry.js";
 
 // Device auth
 export { DeviceAuth } from "./device-auth.js";
