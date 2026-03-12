@@ -38,6 +38,18 @@ export type {
   TelemetryEnvelope,
 } from "./telemetry.js";
 
+// Capabilities
+export { CapabilitiesClient } from "./capabilities.js";
+export type { CapabilityProfile } from "./capabilities.js";
+
+// Control (device registration + heartbeat)
+export { ControlClient } from "./control.js";
+export type {
+  DeviceRegistration,
+  HeartbeatResponse,
+  ControlClientOptions,
+} from "./control.js";
+
 // Device auth
 export { DeviceAuth } from "./device-auth.js";
 
