@@ -28,7 +28,7 @@ export type { ChatClientOptions } from "./chat.js";
 
 // Sub-modules (for advanced usage)
 export { InferenceEngine } from "./runtime/engines/onnx-web/engine.js";
-export type { ModelRuntime } from "./runtime/core/model-runtime.js";
+export type { ModelRuntime } from "./runtime/index.js";
 export { ModelManager } from "./model-manager.js";
 export { createModelCache, type ModelCache } from "./cache.js";
 export {
@@ -97,8 +97,8 @@ export type { ModelStatus, CachedModelInfo } from "./models.js";
 export { StreamingInferenceEngine } from "./streaming.js";
 
 // Engine registry & plugin interface
-export { EngineRegistry } from "./runtime/engines/registry/engine-registry.js";
-export type { EnginePlugin } from "./runtime/engines/registry/engine-plugin.js";
+export { EngineRegistry } from "./runtime/index.js";
+export type { EnginePlugin } from "./runtime/index.js";
 
 // Embeddings
 export { embed } from "./embeddings.js";
