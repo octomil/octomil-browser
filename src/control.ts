@@ -6,7 +6,8 @@
  * required by the SDK facade contract.
  */
 
-import { OctomilError } from "./types.js";
+import { OctomilError, ERROR_CODE_MAP } from "./types.js";
+import { ErrorCode } from "./_generated/error_code.js";
 import type { ControlSyncResult } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -73,8 +74,8 @@ export class ControlClient {
       { headers },
     );
     if (!resp.ok) {
-      throw new OctomilError(
-        "NETWORK_ERROR",
+      throw OctomilError.fromHttpStatus(
+        resp.status,
         `Refresh assignments failed: ${resp.status}`,
       );
     }
@@ -121,15 +122,15 @@ export class ControlClient {
       });
     } catch (err) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        ERROR_CODE_MAP[ErrorCode.NetworkUnavailable],
         `Registration request failed: ${String(err)}`,
         err,
       );
     }
 
     if (!resp.ok) {
-      throw new OctomilError(
-        "NETWORK_ERROR",
+      throw OctomilError.fromHttpStatus(
+        resp.status,
         `Registration failed: ${resp.status}`,
       );
     }
@@ -147,7 +148,7 @@ export class ControlClient {
   /** Send a heartbeat to the server for the registered device. */
   async heartbeat(): Promise<HeartbeatResponse> {
     if (!this.serverDeviceId) {
-      throw new OctomilError("INVALID_INPUT", "Device not registered");
+      throw new OctomilError(ERROR_CODE_MAP[ErrorCode.InvalidInput], "Device not registered");
     }
 
     const payload = {
@@ -169,15 +170,15 @@ export class ControlClient {
       );
     } catch (err) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        ERROR_CODE_MAP[ErrorCode.NetworkUnavailable],
         `Heartbeat request failed: ${String(err)}`,
         err,
       );
     }
 
     if (!resp.ok) {
-      throw new OctomilError(
-        "NETWORK_ERROR",
+      throw OctomilError.fromHttpStatus(
+        resp.status,
         `Heartbeat failed: ${resp.status}`,
       );
     }

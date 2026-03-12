@@ -10,7 +10,8 @@ import type {
   StreamingChunk,
   StreamingResult,
 } from "./types.js";
-import { OctomilError } from "./types.js";
+import { OctomilError, ERROR_CODE_MAP } from "./types.js";
+import { ErrorCode } from "./_generated/error_code.js";
 import type { TelemetryReporter } from "./telemetry.js";
 
 // ---------------------------------------------------------------------------
@@ -84,22 +85,22 @@ export class StreamingInferenceEngine {
         String(err),
       );
       throw new OctomilError(
-        "NETWORK_ERROR",
+        ERROR_CODE_MAP[ErrorCode.NetworkUnavailable],
         `Streaming request failed: ${String(err)}`,
         err,
       );
     }
 
     if (!response.ok) {
-      throw new OctomilError(
-        "INFERENCE_FAILED",
+      throw OctomilError.fromHttpStatus(
+        response.status,
         `Streaming inference failed: HTTP ${response.status}`,
       );
     }
 
     if (!response.body) {
       throw new OctomilError(
-        "INFERENCE_FAILED",
+        ERROR_CODE_MAP[ErrorCode.InferenceFailed],
         "Server did not return a streaming body.",
       );
     }
@@ -134,15 +135,13 @@ export class StreamingInferenceEngine {
 
           if (ttfc === null) {
             ttfc = performance.now() - startTime;
-            this.telemetry?.reportInferenceChunk(modelId, {
-              chunkIndex: 0,
-              ttfc: true,
-              durationMs: ttfc,
-            });
           }
 
           // Emit per-chunk telemetry for every chunk.
-          this.telemetry?.reportChunkProduced(modelId, chunkCount - 1);
+          // The first chunk includes ttfc metadata.
+          this.telemetry?.reportChunkProduced(modelId, chunkCount - 1,
+            chunkCount === 1 ? { ttfc: true, "ttfc.duration_ms": ttfc! } : undefined,
+          );
 
           yield parsed;
         }

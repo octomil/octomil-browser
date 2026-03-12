@@ -185,7 +185,7 @@ describe("TelemetryReporter", () => {
     const attrs = Object.fromEntries(
       records[0]!.attributes!.map((a) => [a.key, a.value.stringValue ?? a.value.intValue ?? a.value.doubleValue ?? a.value.boolValue]),
     );
-    expect(attrs.modelId).toBe("test-model");
+    expect(attrs["model.id"]).toBe("test-model");
     expect(attrs.target).toBe("device");
     reporter.close();
   });
@@ -201,7 +201,7 @@ describe("TelemetryReporter", () => {
     const attrs = Object.fromEntries(
       records[0]!.attributes!.map((a) => [a.key, a.value.stringValue ?? a.value.intValue ?? a.value.doubleValue ?? a.value.boolValue]),
     );
-    expect(attrs.durationMs).toBe(42.5);
+    expect(attrs["inference.duration_ms"]).toBe(42.5);
     reporter.close();
   });
 

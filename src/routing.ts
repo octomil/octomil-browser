@@ -18,7 +18,8 @@ import type {
   RoutingPreference,
   RoutingRequest,
 } from "./types.js";
-import { OctomilError } from "./types.js";
+import { OctomilError, ERROR_CODE_MAP } from "./types.js";
+import { ErrorCode } from "./_generated/error_code.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -148,15 +149,15 @@ export class RoutingClient {
       });
     } catch (err) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        ERROR_CODE_MAP[ErrorCode.NetworkUnavailable],
         `Cloud inference request failed: ${String(err)}`,
         err,
       );
     }
 
     if (!response.ok) {
-      throw new OctomilError(
-        "INFERENCE_FAILED",
+      throw OctomilError.fromHttpStatus(
+        response.status,
         `Cloud inference failed: HTTP ${response.status}`,
       );
     }

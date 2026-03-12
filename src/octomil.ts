@@ -45,7 +45,8 @@ import type {
   PredictOutput,
   StreamToken,
 } from "./types.js";
-import { OctomilError } from "./types.js";
+import { OctomilError, ERROR_CODE_MAP } from "./types.js";
+import { ErrorCode } from "./_generated/error_code.js";
 
 // ---------------------------------------------------------------------------
 // OctomilClient
@@ -200,7 +201,7 @@ export class OctomilClient {
 
     if (!this.options.serverUrl) {
       throw new OctomilError(
-        "INFERENCE_FAILED",
+        ERROR_CODE_MAP[ErrorCode.InvalidInput],
         "chat() requires serverUrl to be configured.",
       );
     }
@@ -249,7 +250,7 @@ export class OctomilClient {
 
     if (!this.options.serverUrl) {
       throw new OctomilError(
-        "INFERENCE_FAILED",
+        ERROR_CODE_MAP[ErrorCode.InvalidInput],
         "chatStream() requires serverUrl to be configured.",
       );
     }
@@ -309,7 +310,7 @@ export class OctomilClient {
   ): AsyncGenerator<StreamToken> {
     if (!this.options.serverUrl || !this.options.apiKey) {
       throw new OctomilError(
-        "INFERENCE_FAILED",
+        ERROR_CODE_MAP[ErrorCode.InvalidInput],
         "predictStream() requires serverUrl and apiKey to be configured.",
       );
     }
@@ -341,22 +342,22 @@ export class OctomilClient {
       });
     } catch (err) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        ERROR_CODE_MAP[ErrorCode.NetworkUnavailable],
         `predictStream request failed: ${String(err)}`,
         err,
       );
     }
 
     if (!response.ok) {
-      throw new OctomilError(
-        "INFERENCE_FAILED",
+      throw OctomilError.fromHttpStatus(
+        response.status,
         `predictStream failed: HTTP ${response.status}`,
       );
     }
 
     if (!response.body) {
       throw new OctomilError(
-        "INFERENCE_FAILED",
+        ERROR_CODE_MAP[ErrorCode.InferenceFailed],
         "Server did not return a streaming body.",
       );
     }
@@ -424,7 +425,7 @@ export class OctomilClient {
   ): Promise<EmbeddingResult> {
     if (!this.options.serverUrl || !this.options.apiKey) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        ERROR_CODE_MAP[ErrorCode.InvalidInput],
         "embed() requires serverUrl and apiKey to be configured.",
       );
     }

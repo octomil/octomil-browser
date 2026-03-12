@@ -8,7 +8,8 @@
 
 import type * as ort from "onnxruntime-web";
 import type { Backend, NamedTensors, PredictOutput, TensorData } from "./types.js";
-import { OctomilError } from "./types.js";
+import { OctomilError, ERROR_CODE_MAP } from "./types.js";
+import { ErrorCode } from "./_generated/error_code.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -86,14 +87,14 @@ export class InferenceEngine implements ModelRuntime {
           this.resolvedBackend = "wasm";
         } catch (wasmErr) {
           throw new OctomilError(
-            "MODEL_LOAD_FAILED",
+            ERROR_CODE_MAP[ErrorCode.ModelLoadFailed],
             "Failed to create ONNX session with both WebGPU and WASM backends.",
             wasmErr,
           );
         }
       } else {
         throw new OctomilError(
-          "MODEL_LOAD_FAILED",
+          ERROR_CODE_MAP[ErrorCode.ModelLoadFailed],
           `Failed to create ONNX session: ${String(err)}`,
           err,
         );
@@ -127,7 +128,7 @@ export class InferenceEngine implements ModelRuntime {
       results = await session.run(feeds);
     } catch (err) {
       throw new OctomilError(
-        "INFERENCE_FAILED",
+        ERROR_CODE_MAP[ErrorCode.InferenceFailed],
         `Inference run failed: ${String(err)}`,
         err,
       );
@@ -198,7 +199,7 @@ export class InferenceEngine implements ModelRuntime {
       return this.ortModule;
     } catch (err) {
       throw new OctomilError(
-        "BACKEND_UNAVAILABLE",
+        ERROR_CODE_MAP[ErrorCode.RuntimeUnavailable],
         'Failed to import onnxruntime-web. Make sure the package is installed: npm i onnxruntime-web',
         err,
       );
@@ -216,7 +217,7 @@ export class InferenceEngine implements ModelRuntime {
       if (hasWebGPU) return "webgpu";
       if (backend === "webgpu") {
         throw new OctomilError(
-          "BACKEND_UNAVAILABLE",
+          ERROR_CODE_MAP[ErrorCode.RuntimeUnavailable],
           "WebGPU was explicitly requested but is not available in this browser.",
         );
       }

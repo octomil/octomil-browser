@@ -6,7 +6,8 @@
  */
 
 import type { EmbeddingResult, EmbeddingResponse } from "./types.js";
-import { OctomilError } from "./types.js";
+import { OctomilError, ERROR_CODE_MAP } from "./types.js";
+import { ErrorCode } from "./_generated/error_code.js";
 
 /**
  * Generate embeddings via the Octomil cloud endpoint.
@@ -27,12 +28,12 @@ export async function embed(
 ): Promise<EmbeddingResult> {
   if (!serverUrl) {
     throw new OctomilError(
-      "NETWORK_ERROR",
+      ERROR_CODE_MAP[ErrorCode.InvalidInput],
       "serverUrl is required for embed()",
     );
   }
   if (!apiKey) {
-    throw new OctomilError("NETWORK_ERROR", "apiKey is required for embed()");
+    throw new OctomilError(ERROR_CODE_MAP[ErrorCode.InvalidApiKey], "apiKey is required for embed()");
   }
 
   const url = `${serverUrl.replace(/\/+$/, "")}/api/v1/embeddings`;
@@ -50,15 +51,15 @@ export async function embed(
     });
   } catch (err) {
     throw new OctomilError(
-      "NETWORK_ERROR",
+      ERROR_CODE_MAP[ErrorCode.NetworkUnavailable],
       `embed() request failed: ${String(err)}`,
       err,
     );
   }
 
   if (!response.ok) {
-    throw new OctomilError(
-      "INFERENCE_FAILED",
+    throw OctomilError.fromHttpStatus(
+      response.status,
       `embed() failed: HTTP ${response.status}`,
     );
   }

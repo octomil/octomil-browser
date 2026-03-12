@@ -5,7 +5,8 @@
  * authenticated model downloads and training round participation.
  */
 
-import { OctomilError } from "./types.js";
+import { OctomilError, ERROR_CODE_MAP } from "./types.js";
+import { ErrorCode } from "./_generated/error_code.js";
 import type {
   DeviceAuthConfig,
   DeviceAuthToken,
@@ -57,8 +58,8 @@ export class DeviceAuth {
     });
 
     if (!response.ok) {
-      throw new OctomilError(
-        "NETWORK_ERROR",
+      throw OctomilError.fromHttpStatus(
+        response.status,
         `Device registration failed: HTTP ${response.status}`,
       );
     }
@@ -84,7 +85,7 @@ export class DeviceAuth {
 
     if (!this.token) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        ERROR_CODE_MAP[ErrorCode.AuthenticationFailed],
         "Not authenticated. Call bootstrap() first.",
       );
     }
@@ -102,7 +103,7 @@ export class DeviceAuth {
 
     if (!this.token) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        ERROR_CODE_MAP[ErrorCode.AuthenticationFailed],
         "No token to refresh. Call bootstrap() first.",
       );
     }
@@ -119,7 +120,7 @@ export class DeviceAuth {
       // Token expired beyond repair — clear state
       this.token = null;
       throw new OctomilError(
-        "NETWORK_ERROR",
+        ERROR_CODE_MAP[ErrorCode.AuthenticationFailed],
         `Token refresh failed: HTTP ${response.status}`,
       );
     }

@@ -12,7 +12,8 @@ import type {
   FederatedRound,
   WeightMap,
 } from "./types.js";
-import { OctomilError } from "./types.js";
+import { OctomilError, ERROR_CODE_MAP } from "./types.js";
+import { ErrorCode } from "./_generated/error_code.js";
 import type { TelemetryReporter } from "./telemetry.js";
 
 // ---------------------------------------------------------------------------
@@ -32,7 +33,7 @@ export class WeightExtractor {
       const a = after[key];
       if (!b || !a || b.length !== a.length) {
         throw new OctomilError(
-          "INVALID_INPUT",
+          ERROR_CODE_MAP[ErrorCode.InvalidInput],
           `Weight dimension mismatch for "${key}".`,
         );
       }
@@ -106,8 +107,8 @@ export class FederatedClient {
       `/api/v1/federations/${encodeURIComponent(federationId)}/rounds/current`,
     );
     if (!response.ok) {
-      throw new OctomilError(
-        "NETWORK_ERROR",
+      throw OctomilError.fromHttpStatus(
+        response.status,
         `Failed to fetch training round: HTTP ${response.status}`,
       );
     }
@@ -124,8 +125,8 @@ export class FederatedClient {
       },
     );
     if (!response.ok) {
-      throw new OctomilError(
-        "NETWORK_ERROR",
+      throw OctomilError.fromHttpStatus(
+        response.status,
         `Failed to join round: HTTP ${response.status}`,
       );
     }
@@ -194,8 +195,8 @@ export class FederatedClient {
     );
 
     if (!response.ok) {
-      throw new OctomilError(
-        "NETWORK_ERROR",
+      throw OctomilError.fromHttpStatus(
+        response.status,
         `Failed to submit update: HTTP ${response.status}`,
       );
     }

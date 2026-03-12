@@ -298,7 +298,12 @@ export class TelemetryReporter {
   // -----------------------------------------------------------------------
 
   reportDeployStarted(modelId: string, version: string): void {
-    this.track(this.makeEvent("deploy.started", { modelId, version }));
+    this.track(
+      this.makeEvent(TELEMETRY_EVENTS.deployStarted, {
+        "model.id": modelId,
+        "model.version": version,
+      }),
+    );
   }
 
   reportDeployCompleted(
@@ -307,7 +312,11 @@ export class TelemetryReporter {
     durationMs: number,
   ): void {
     this.track(
-      this.makeEvent("deploy.completed", { modelId, version, durationMs }),
+      this.makeEvent(TELEMETRY_EVENTS.deployCompleted, {
+        "model.id": modelId,
+        "deploy.duration_ms": durationMs,
+        "model.version": version,
+      }),
     );
   }
 

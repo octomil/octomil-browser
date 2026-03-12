@@ -12,7 +12,8 @@ import type {
   OctomilOptions,
   ModelMetadata,
 } from "./types.js";
-import { OctomilError } from "./types.js";
+import { OctomilError, ERROR_CODE_MAP } from "./types.js";
+import { ErrorCode } from "./_generated/error_code.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -129,7 +130,7 @@ export class ModelManager {
       response = await fetch(resolverUrl, { headers });
     } catch (err) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        ERROR_CODE_MAP[ErrorCode.NetworkUnavailable],
         `Failed to reach model resolver at ${resolverUrl}`,
         err,
       );
@@ -138,12 +139,12 @@ export class ModelManager {
     if (!response.ok) {
       if (response.status === 404) {
         throw new OctomilError(
-          "MODEL_NOT_FOUND",
+          ERROR_CODE_MAP[ErrorCode.ModelNotFound],
           `Model "${reference}" not found in registry.`,
         );
       }
-      throw new OctomilError(
-        "NETWORK_ERROR",
+      throw OctomilError.fromHttpStatus(
+        response.status,
         `Model resolver returned HTTP ${response.status}: ${response.statusText}`,
       );
     }
@@ -192,7 +193,7 @@ export class ModelManager {
         attempt++;
         if (attempt > MAX_RETRIES) {
           throw new OctomilError(
-            "NETWORK_ERROR",
+            ERROR_CODE_MAP[ErrorCode.DownloadFailed],
             `Failed to download model from ${url} after ${MAX_RETRIES} retries`,
             err,
           );
@@ -209,7 +210,7 @@ export class ModelManager {
         attempt++;
         if (attempt > MAX_RETRIES) {
           throw new OctomilError(
-            "MODEL_LOAD_FAILED",
+            ERROR_CODE_MAP[ErrorCode.DownloadFailed],
             `Model download failed: range request rejected after ${MAX_RETRIES} retries`,
           );
         }
@@ -219,7 +220,7 @@ export class ModelManager {
 
       if (!response.ok && response.status !== 206) {
         throw new OctomilError(
-          "MODEL_LOAD_FAILED",
+          ERROR_CODE_MAP[ErrorCode.DownloadFailed],
           `Model download failed: HTTP ${response.status} ${response.statusText}`,
         );
       }
@@ -265,7 +266,7 @@ export class ModelManager {
         attempt++;
         if (attempt > MAX_RETRIES) {
           throw new OctomilError(
-            "NETWORK_ERROR",
+            ERROR_CODE_MAP[ErrorCode.DownloadFailed],
             `Model download interrupted after ${MAX_RETRIES} retries`,
             err,
           );
@@ -300,7 +301,7 @@ export class ModelManager {
   private validate(data: ArrayBuffer): void {
     if (data.byteLength === 0) {
       throw new OctomilError(
-        "MODEL_LOAD_FAILED",
+        ERROR_CODE_MAP[ErrorCode.ModelLoadFailed],
         "Downloaded model is empty (0 bytes).",
       );
     }
@@ -310,7 +311,7 @@ export class ModelManager {
     const header = new Uint8Array(data, 0, Math.min(4, data.byteLength));
     if (header[0] !== 0x08) {
       throw new OctomilError(
-        "MODEL_LOAD_FAILED",
+        ERROR_CODE_MAP[ErrorCode.ModelLoadFailed],
         "Downloaded file does not appear to be a valid ONNX model.",
       );
     }

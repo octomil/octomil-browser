@@ -3,7 +3,8 @@
  * Matches SDK_FACADE_CONTRACT.md responses.create() and responses.stream().
  */
 
-import { OctomilError } from "./types.js";
+import { OctomilError, ERROR_CODE_MAP } from "./types.js";
+import { ErrorCode } from "./_generated/error_code.js";
 import type { TelemetryReporter } from "./telemetry.js";
 
 // ---------------------------------------------------------------------------
@@ -140,7 +141,7 @@ export class ResponsesClient {
         "network_error",
         String(err),
       );
-      throw new OctomilError("NETWORK_ERROR", `Request failed: ${String(err)}`, err);
+      throw new OctomilError(ERROR_CODE_MAP[ErrorCode.NetworkUnavailable], `Request failed: ${String(err)}`, err);
     }
 
     if (!resp.ok) {
@@ -149,7 +150,7 @@ export class ResponsesClient {
         "http_error",
         `HTTP ${resp.status}`,
       );
-      throw new OctomilError("NETWORK_ERROR", `HTTP ${resp.status}`);
+      throw OctomilError.fromHttpStatus(resp.status, `HTTP ${resp.status}`);
     }
 
     const data = await resp.json();
@@ -204,7 +205,7 @@ export class ResponsesClient {
         "network_error",
         String(err),
       );
-      throw new OctomilError("NETWORK_ERROR", `Request failed: ${String(err)}`, err);
+      throw new OctomilError(ERROR_CODE_MAP[ErrorCode.NetworkUnavailable], `Request failed: ${String(err)}`, err);
     }
 
     if (!resp.ok) {
@@ -213,11 +214,11 @@ export class ResponsesClient {
         "http_error",
         `HTTP ${resp.status}`,
       );
-      throw new OctomilError("NETWORK_ERROR", `HTTP ${resp.status}`);
+      throw OctomilError.fromHttpStatus(resp.status, `HTTP ${resp.status}`);
     }
 
     if (!resp.body) {
-      throw new OctomilError("NETWORK_ERROR", "No response body");
+      throw new OctomilError(ERROR_CODE_MAP[ErrorCode.ServerError], "No response body");
     }
 
     const reader = resp.body.getReader();

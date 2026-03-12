@@ -73,7 +73,7 @@ describe("StreamingInferenceEngine", () => {
 
     const names = trackedEvents.map((e) => e.name);
     expect(names).toContain("inference.started");
-    expect(names).toContain("inference.chunk");
+    expect(names).toContain("inference.chunk_produced");
     expect(names).toContain("inference.completed");
   });
 

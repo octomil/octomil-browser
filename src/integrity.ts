@@ -4,7 +4,8 @@
  * SHA-256 checksum computation and verification using the Web Crypto API.
  */
 
-import { OctomilError } from "./types.js";
+import { OctomilError, ERROR_CODE_MAP } from "./types.js";
+import { ErrorCode } from "./_generated/error_code.js";
 
 /**
  * Compute the SHA-256 hash of an ArrayBuffer, returned as a hex string.
@@ -39,7 +40,7 @@ export async function assertModelIntegrity(
   const match = await verifyModelIntegrity(data, expectedHash);
   if (!match) {
     throw new OctomilError(
-      "MODEL_LOAD_FAILED",
+      ERROR_CODE_MAP[ErrorCode.ChecksumMismatch],
       "Model integrity check failed: SHA-256 hash mismatch. " +
         "The downloaded model may be corrupted or tampered with.",
     );

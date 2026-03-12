@@ -134,8 +134,10 @@ describe("StreamingInferenceEngine — inference.chunk_produced", () => {
     }
 
     const names = trackedEvents.map((e) => e.name);
-    expect(names).toContain("inference.chunk"); // ttfc event
-    expect(names).toContain("inference.chunk_produced"); // per-chunk event
+    expect(names).toContain("inference.chunk_produced"); // per-chunk event (includes ttfc on first)
+    // ttfc metadata is now included as attributes on the first chunk_produced event
+    const firstChunk = trackedEvents.find((e) => e.name === "inference.chunk_produced");
+    expect(firstChunk?.attributes.ttfc).toBe(true);
   });
 
   it("does not emit chunk_produced when telemetry is not configured", async () => {
