@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { InferenceEngine } from "../src/inference.js";
+import { InferenceEngine } from "../src/runtime/engines/onnx-web/engine.js";
 import { OctomilError } from "../src/types.js";
 
 // ---------------------------------------------------------------------------

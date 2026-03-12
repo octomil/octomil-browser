@@ -1,4 +1,4 @@
-import type { BenchmarkResult } from "./types.js";
+import type { BenchmarkResult } from "../../../types.js";
 
 export interface EnginePlugin {
   readonly name: string;
