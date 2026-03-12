@@ -7,8 +7,11 @@
  */
 
 import type * as ort from "onnxruntime-web";
-import type { Backend, NamedTensors, PredictOutput, TensorData } from "./types.js";
-import { OctomilError } from "./types.js";
+import type { Backend, NamedTensors, PredictOutput, TensorData } from "../../../types.js";
+import { OctomilError } from "../../../types.js";
+import type { ModelRuntime } from "../../core/model-runtime.js";
+
+export type { ModelRuntime } from "../../core/model-runtime.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -16,26 +19,6 @@ import { OctomilError } from "./types.js";
 
 /** Resolved ONNX Runtime module — imported dynamically. */
 type OrtModule = typeof ort;
-
-// ---------------------------------------------------------------------------
-// ModelRuntime interface
-// ---------------------------------------------------------------------------
-
-/**
- * Abstraction over inference runtimes. The default `InferenceEngine` uses
- * ONNX Runtime Web, but callers may inject a custom runtime (e.g.
- * TensorFlow.js, WebNN) via the OctomilClient constructor.
- */
-export interface ModelRuntime {
-  /** Create a runtime session from a model buffer. */
-  createSession(modelData: ArrayBuffer, backend?: Backend): Promise<void>;
-  /** Run inference on the given inputs. */
-  run(inputs: NamedTensors): Promise<PredictOutput>;
-  /** Release all resources held by the runtime. */
-  dispose(): void;
-  /** Whether this runtime is available in the current environment. */
-  isAvailable(): Promise<boolean>;
-}
 
 // ---------------------------------------------------------------------------
 // InferenceEngine
