@@ -22,6 +22,7 @@
 
 import { CapabilitiesClient } from "./capabilities.js";
 import { createModelCache, type ModelCache } from "./cache.js";
+import { ChatClient } from "./chat.js";
 import { ControlClient } from "./control.js";
 import { embed as embedFn } from "./embeddings.js";
 import { InferenceEngine, type ModelRuntime } from "./inference.js";
@@ -65,12 +66,14 @@ export class OctomilClient {
   private telemetry: TelemetryReporter | null = null;
   private deviceCaps: DeviceCapabilities | null = null;
   private _responses: ResponsesClient | null = null;
+  private _chat: ChatClient | null = null;
   private _control: ControlClient | null = null;
   private _capabilities: CapabilitiesClient | null = null;
   private _models: ModelsClient | null = null;
 
   private loaded = false;
   private closed = false;
+  private _warmedUp = false;
 
   constructor(options: OctomilOptions & { runtime?: ModelRuntime }) {
     this.options = {
@@ -124,6 +127,52 @@ export class OctomilClient {
 
     this.telemetry?.reportDeployStarted(this.options.model, "latest");
     this.telemetry?.reportDeployCompleted(this.options.model, "latest", durationMs);
+  }
+
+  /**
+   * Explicitly warm up the ONNX runtime by running a minimal dummy inference.
+   *
+   * This pre-allocates internal buffers, compiles GPU shaders, and triggers
+   * any lazy initialisation that would otherwise happen on the first real
+   * `predict()` call.  Useful for latency-sensitive applications that want
+   * predictable first-inference timing.
+   *
+   * Idempotent: calling `warmup()` after it has already completed is a no-op.
+   * Requires `load()` to have been called first.
+   */
+  async warmup(): Promise<void> {
+    this.ensureReady();
+    if (this._warmedUp) return;
+
+    // Build a minimal input tensor (1-element Float32) for the first input.
+    // The goal is to trigger ONNX runtime buffer allocation, not produce
+    // meaningful output.
+    const inputName = this.inferenceEngine
+      ? this.inferenceEngine.inputNames[0]
+      : undefined;
+
+    if (inputName) {
+      const dummyTensors: NamedTensors = {
+        [inputName]: {
+          data: new Float32Array([0]),
+          dims: [1, 1],
+        },
+      };
+
+      try {
+        await this.engine.run(dummyTensors);
+      } catch {
+        // Warmup failures are non-fatal. The runtime may reject the dummy
+        // shape, but the internal buffers will still have been allocated.
+      }
+    }
+
+    this._warmedUp = true;
+  }
+
+  /** Whether `warmup()` has been called and completed successfully. */
+  get isWarmedUp(): boolean {
+    return this._warmedUp;
   }
 
   // -----------------------------------------------------------------------
@@ -188,101 +237,27 @@ export class OctomilClient {
   /**
    * OpenAI-compatible chat completion.
    *
-   * COMPATIBILITY shim — delegates to `this.responses.create()` internally,
-   * converting messages to ResponseRequest input and Response back to
-   * ChatResponse.
+   * @deprecated Use `client.chat.create()` instead. This method will be
+   * removed in the next major version.
    */
-  async chat(
+  async createChat(
     messages: ChatMessage[],
     options: ChatOptions = {},
   ): Promise<ChatResponse> {
-    this.ensureReady();
-
-    if (!this.options.serverUrl) {
-      throw new OctomilError(
-        "INFERENCE_FAILED",
-        "chat() requires serverUrl to be configured.",
-      );
-    }
-
-    const start = performance.now();
-    const { instructions, input } = this.messagesToResponseInput(messages);
-
-    const response = await this.responses.create({
-      model: this.options.model,
-      input,
-      instructions,
-      maxOutputTokens: options.maxTokens,
-      temperature: options.temperature,
-      topP: options.topP,
-    });
-
-    const content = response.output
-      .filter((o) => o.type === "text" && o.text)
-      .map((o) => o.text!)
-      .join("");
-
-    return {
-      message: { role: "assistant", content },
-      latencyMs: performance.now() - start,
-      usage: response.usage
-        ? {
-            promptTokens: response.usage.promptTokens,
-            completionTokens: response.usage.completionTokens,
-            totalTokens: response.usage.totalTokens,
-          }
-        : undefined,
-    };
+    return this.chat.create(messages, options);
   }
 
   /**
    * Streaming chat — yields chunks as they arrive.
    *
-   * COMPATIBILITY shim — delegates to `this.responses.stream()` internally,
-   * converting ResponseStreamEvent back to ChatChunk.
+   * @deprecated Use `client.chat.stream()` instead. This method will be
+   * removed in the next major version.
    */
-  async *chatStream(
+  async *createChatStream(
     messages: ChatMessage[],
     options: ChatOptions = {},
   ): AsyncGenerator<ChatChunk, void, undefined> {
-    this.ensureReady();
-
-    if (!this.options.serverUrl) {
-      throw new OctomilError(
-        "INFERENCE_FAILED",
-        "chatStream() requires serverUrl to be configured.",
-      );
-    }
-
-    const { instructions, input } = this.messagesToResponseInput(messages);
-    let chunkIndex = 0;
-
-    const generator = this.responses.stream({
-      model: this.options.model,
-      input,
-      instructions,
-      maxOutputTokens: options.maxTokens,
-      temperature: options.temperature,
-      topP: options.topP,
-    });
-
-    for await (const event of generator) {
-      if (event.type === "text_delta") {
-        yield {
-          index: chunkIndex++,
-          content: event.delta,
-          done: false,
-          role: "assistant",
-        };
-      } else if (event.type === "done") {
-        yield {
-          index: chunkIndex,
-          content: "",
-          done: true,
-          role: "assistant",
-        };
-      }
-    }
+    yield* this.chat.stream(messages, options);
   }
 
   // -----------------------------------------------------------------------
@@ -493,6 +468,36 @@ export class OctomilClient {
   }
 
   // -----------------------------------------------------------------------
+  // Chat namespace (OpenAI-compatible chat completions)
+  // -----------------------------------------------------------------------
+
+  /**
+   * Lazily-created `ChatClient` providing `chat.create()` and
+   * `chat.stream()` methods for OpenAI-compatible chat completions.
+   *
+   * Requires `serverUrl` to be configured.
+   *
+   * @example
+   * ```ts
+   * const response = await client.chat.create([
+   *   { role: 'user', content: 'Hello!' },
+   * ]);
+   * ```
+   */
+  get chat(): ChatClient {
+    if (!this._chat) {
+      this._chat = new ChatClient({
+        model: this.options.model,
+        serverUrl: this.options.serverUrl,
+        apiKey: this.options.apiKey,
+        getResponses: () => this.responses,
+        ensureReady: () => this.ensureReady(),
+      });
+    }
+    return this._chat;
+  }
+
+  // -----------------------------------------------------------------------
   // Responses namespace (Layer 2 — structured response API)
   // -----------------------------------------------------------------------
 
@@ -590,41 +595,17 @@ export class OctomilClient {
     this.telemetry?.close();
     this.telemetry = null;
     this._responses = null;
+    this._chat = null;
     this._control?.stopHeartbeat();
     this._control = null;
     this._capabilities = null;
     this._models = null;
+    this._warmedUp = false;
   }
 
   // -----------------------------------------------------------------------
   // Private helpers
   // -----------------------------------------------------------------------
-
-  /**
-   * Convert ChatMessage[] to ResponseRequest fields.
-   * Extracts system messages as `instructions`, remaining as `input`.
-   */
-  private messagesToResponseInput(messages: ChatMessage[]): {
-    instructions?: string;
-    input: string;
-  } {
-    const systemParts: string[] = [];
-    const userParts: string[] = [];
-
-    for (const msg of messages) {
-      if (msg.role === "system") {
-        systemParts.push(msg.content);
-      } else {
-        const prefix = msg.role === "assistant" ? "[assistant] " : "";
-        userParts.push(prefix + msg.content);
-      }
-    }
-
-    return {
-      instructions: systemParts.length > 0 ? systemParts.join("\n") : undefined,
-      input: userParts.join("\n"),
-    };
-  }
 
   private ensureNotClosed(): void {
     if (this.closed) {
