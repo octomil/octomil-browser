@@ -308,7 +308,7 @@ describe("RoutingClient", () => {
       expect(callBody.parameters).toEqual({ temperature: 0.5 });
     });
 
-    it("throws NETWORK_ERROR on fetch failure", async () => {
+    it("throws NETWORK_UNAVAILABLE on fetch failure", async () => {
       fetchSpy.mockRejectedValueOnce(new Error("Connection refused"));
 
       await expect(

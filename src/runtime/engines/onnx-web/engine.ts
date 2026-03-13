@@ -181,7 +181,7 @@ export class InferenceEngine implements ModelRuntime {
       return this.ortModule;
     } catch (err) {
       throw new OctomilError(
-        "BACKEND_UNAVAILABLE",
+        "RUNTIME_UNAVAILABLE",
         'Failed to import onnxruntime-web. Make sure the package is installed: npm i onnxruntime-web',
         err,
       );
@@ -199,7 +199,7 @@ export class InferenceEngine implements ModelRuntime {
       if (hasWebGPU) return "webgpu";
       if (backend === "webgpu") {
         throw new OctomilError(
-          "BACKEND_UNAVAILABLE",
+          "RUNTIME_UNAVAILABLE",
           "WebGPU was explicitly requested but is not available in this browser.",
         );
       }
@@ -225,7 +225,7 @@ export class InferenceEngine implements ModelRuntime {
   private ensureSession(): void {
     if (!this.session) {
       throw new OctomilError(
-        "SESSION_DISPOSED",
+        "CANCELLED",
         "No active session. Call load() before running inference.",
       );
     }

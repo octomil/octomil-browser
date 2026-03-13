@@ -173,7 +173,7 @@ export class FederatedAnalyticsClient {
     });
     if (!response.ok) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        "NETWORK_UNAVAILABLE",
         `Analytics request failed: HTTP ${response.status}`,
       );
     }
@@ -188,7 +188,7 @@ export class FederatedAnalyticsClient {
     });
     if (!response.ok) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        "NETWORK_UNAVAILABLE",
         `Analytics request failed: HTTP ${response.status}`,
       );
     }

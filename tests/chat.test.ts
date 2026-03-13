@@ -6,7 +6,7 @@
  * 2. chat.create() delegates to ResponsesClient.create() correctly
  * 3. chat.stream() delegates to ResponsesClient.stream() correctly
  * 4. serverUrl is required for both methods
- * 5. ensureReady is enforced (NOT_LOADED before load())
+ * 5. ensureReady is enforced (MODEL_LOAD_FAILED before load())
  * 6. Deprecated createChat() / createChatStream() delegate correctly
  * 7. messagesToResponseInput() correctly separates system/user messages
  */
@@ -160,7 +160,7 @@ describe("ChatClient", () => {
 
   it("create() calls ensureReady before proceeding", async () => {
     const ensureReady = vi.fn(() => {
-      throw new OctomilError("NOT_LOADED", "not loaded");
+      throw new OctomilError("MODEL_LOAD_FAILED", "not loaded");
     });
 
     const client = new ChatClient({
@@ -226,7 +226,7 @@ describe("OctomilClient.chat namespace", () => {
     ml.close();
   });
 
-  it("chat.create() throws NOT_LOADED when model is not loaded", async () => {
+  it("chat.create() throws MODEL_LOAD_FAILED when model is not loaded", async () => {
     const ml = new OctomilClient({
       model: "https://models.octomil.com/test.onnx",
       cacheStrategy: "none",
@@ -238,7 +238,7 @@ describe("OctomilClient.chat namespace", () => {
       expect.unreachable("should have thrown");
     } catch (err) {
       expect(err).toBeInstanceOf(OctomilError);
-      expect((err as OctomilError).code).toBe("NOT_LOADED");
+      expect((err as OctomilError).code).toBe("MODEL_LOAD_FAILED");
     }
     ml.close();
   });
@@ -312,14 +312,14 @@ describe("OctomilClient.chat namespace", () => {
     expect(chatBefore).toBeDefined();
     ml.close();
 
-    // After close, accessing chat should throw SESSION_CLOSED
+    // After close, accessing chat should throw CANCELLED
     // because the ChatClient's ensureReady calls ensureNotClosed
     try {
       await ml.chat.create([{ role: "user", content: "Hi" }]);
       expect.unreachable("should have thrown");
     } catch (err) {
       expect(err).toBeInstanceOf(OctomilError);
-      expect((err as OctomilError).code).toBe("SESSION_CLOSED");
+      expect((err as OctomilError).code).toBe("CANCELLED");
     }
   });
 });

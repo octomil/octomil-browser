@@ -7,6 +7,7 @@
  */
 
 import type { WeightMap } from "./types.js";
+import { OctomilError } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // SecureAggregation (basic pairwise masking)
@@ -32,7 +33,7 @@ export class SecureAggregation {
   /** Derive a shared secret with a peer using ECDH. */
   async deriveSharedSecret(peerPublicKeyJwk: JsonWebKey): Promise<ArrayBuffer> {
     if (!this.keyPair) {
-      throw new Error("Call generateKeyPair() first.");
+      throw new OctomilError("INVALID_INPUT", "Call generateKeyPair() first.");
     }
     const peerKey = await crypto.subtle.importKey(
       "jwk",
@@ -236,7 +237,8 @@ export class SecAggPlus extends SecureAggregation {
   /** Reconstruct a dropped peer's secret from collected shares. */
   reconstructSecret(shares: SecretShare[]): number {
     if (shares.length < this.threshold) {
-      throw new Error(
+      throw new OctomilError(
+        "INVALID_INPUT",
         `Need at least ${this.threshold} shares, got ${shares.length}.`,
       );
     }

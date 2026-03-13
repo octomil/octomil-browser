@@ -250,7 +250,7 @@ export function createModelCache(strategy: CacheStrategy): ModelCache {
   }
 
   throw new OctomilError(
-    "CACHE_ERROR",
+    "INVALID_INPUT",
     `Unknown cache strategy: ${strategy as string}`,
   );
 }

@@ -144,7 +144,7 @@ describe("OctomilClient", () => {
         expect.unreachable("should have thrown");
       } catch (err) {
         expect(err).toBeInstanceOf(OctomilError);
-        expect((err as OctomilError).code).toBe("NOT_LOADED");
+        expect((err as OctomilError).code).toBe("MODEL_LOAD_FAILED");
       }
       ml.close();
     });

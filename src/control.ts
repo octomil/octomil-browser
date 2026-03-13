@@ -74,7 +74,7 @@ export class ControlClient {
     );
     if (!resp.ok) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        "NETWORK_UNAVAILABLE",
         `Refresh assignments failed: ${resp.status}`,
       );
     }
@@ -121,7 +121,7 @@ export class ControlClient {
       });
     } catch (err) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        "NETWORK_UNAVAILABLE",
         `Registration request failed: ${String(err)}`,
         err,
       );
@@ -129,7 +129,7 @@ export class ControlClient {
 
     if (!resp.ok) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        "NETWORK_UNAVAILABLE",
         `Registration failed: ${resp.status}`,
       );
     }
@@ -169,7 +169,7 @@ export class ControlClient {
       );
     } catch (err) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        "NETWORK_UNAVAILABLE",
         `Heartbeat request failed: ${String(err)}`,
         err,
       );
@@ -177,7 +177,7 @@ export class ControlClient {
 
     if (!resp.ok) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        "NETWORK_UNAVAILABLE",
         `Heartbeat failed: ${resp.status}`,
       );
     }

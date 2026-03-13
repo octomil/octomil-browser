@@ -1,5 +1,5 @@
 /**
- * Tests for expanded OctomilError codes, retryable property, and fromHttpStatus.
+ * Tests for OctomilError codes, retryable property, fromHttpStatus, and fromServerResponse.
  */
 
 import { describe, it, expect } from "vitest";
@@ -7,48 +7,74 @@ import { OctomilError } from "../src/types.js";
 import type { OctomilErrorCode } from "../src/types.js";
 
 // ---------------------------------------------------------------------------
-// All 25 codes (19 canonical + 3 browser-specific + 3 overlap aliases)
+// All 36 canonical codes from octomil-contracts
 // ---------------------------------------------------------------------------
 
 const ALL_CODES: OctomilErrorCode[] = [
-  // Original 10
-  "MODEL_NOT_FOUND",
-  "MODEL_LOAD_FAILED",
-  "INFERENCE_FAILED",
-  "BACKEND_UNAVAILABLE",
-  "CACHE_ERROR",
-  "NETWORK_ERROR",
-  "INVALID_INPUT",
-  "NOT_LOADED",
-  "SESSION_CLOSED",
-  "SESSION_DISPOSED",
-  // Canonical additions
-  "NETWORK_UNAVAILABLE",
-  "REQUEST_TIMEOUT",
-  "SERVER_ERROR",
+  // Auth / Access
   "INVALID_API_KEY",
   "AUTHENTICATION_FAILED",
   "FORBIDDEN",
+  "DEVICE_NOT_REGISTERED",
+  "TOKEN_EXPIRED",
+  "DEVICE_REVOKED",
+  // Network / Transport
+  "NETWORK_UNAVAILABLE",
+  "REQUEST_TIMEOUT",
+  "SERVER_ERROR",
+  "RATE_LIMITED",
+  // Input / Validation
+  "INVALID_INPUT",
+  "UNSUPPORTED_MODALITY",
+  "CONTEXT_TOO_LARGE",
+  // Catalog / Model Resolution
+  "MODEL_NOT_FOUND",
+  "MODEL_LOAD_FAILED",
   "MODEL_DISABLED",
+  "VERSION_NOT_FOUND",
+  // Download / Artifact Integrity
   "DOWNLOAD_FAILED",
   "CHECKSUM_MISMATCH",
+  // Device / Environment
   "INSUFFICIENT_STORAGE",
-  "RUNTIME_UNAVAILABLE",
   "INSUFFICIENT_MEMORY",
-  "RATE_LIMITED",
+  "RUNTIME_UNAVAILABLE",
+  "ACCELERATOR_UNAVAILABLE",
+  // Runtime / Inference
+  "INFERENCE_FAILED",
+  "STREAM_INTERRUPTED",
+  // Policy / Routing
+  "POLICY_DENIED",
+  "CLOUD_FALLBACK_DISALLOWED",
+  "MAX_TOOL_ROUNDS_EXCEEDED",
+  // Training
+  "TRAINING_FAILED",
+  "TRAINING_NOT_SUPPORTED",
+  "WEIGHT_UPLOAD_FAILED",
+  // Control Plane / Rollout
+  "CONTROL_SYNC_FAILED",
+  "ASSIGNMENT_NOT_FOUND",
+  // Cancellation / Lifecycle
   "CANCELLED",
+  "APP_BACKGROUNDED",
+  // Unknown
   "UNKNOWN",
 ];
 
 const RETRYABLE_CODES: OctomilErrorCode[] = [
   "NETWORK_UNAVAILABLE",
-  "NETWORK_ERROR",
   "REQUEST_TIMEOUT",
   "SERVER_ERROR",
+  "RATE_LIMITED",
   "DOWNLOAD_FAILED",
   "CHECKSUM_MISMATCH",
+  "MODEL_LOAD_FAILED",
   "INFERENCE_FAILED",
-  "RATE_LIMITED",
+  "STREAM_INTERRUPTED",
+  "TRAINING_FAILED",
+  "WEIGHT_UPLOAD_FAILED",
+  "CONTROL_SYNC_FAILED",
+  "APP_BACKGROUNDED",
 ];
 
 const NON_RETRYABLE_CODES = ALL_CODES.filter(
@@ -59,7 +85,7 @@ const NON_RETRYABLE_CODES = ALL_CODES.filter(
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("OctomilError — expanded codes", () => {
+describe("OctomilError", () => {
   describe("construction with all codes", () => {
     it.each(ALL_CODES)("accepts code %s", (code) => {
       const err = new OctomilError(code, `test ${code}`);
@@ -71,31 +97,16 @@ describe("OctomilError — expanded codes", () => {
     });
   });
 
-  describe("backward compatibility", () => {
-    it("original 10 codes still work as before", () => {
-      const original: OctomilErrorCode[] = [
-        "MODEL_NOT_FOUND",
-        "MODEL_LOAD_FAILED",
-        "INFERENCE_FAILED",
-        "BACKEND_UNAVAILABLE",
-        "CACHE_ERROR",
-        "NETWORK_ERROR",
-        "INVALID_INPUT",
-        "NOT_LOADED",
-        "SESSION_CLOSED",
-        "SESSION_DISPOSED",
-      ];
-      for (const code of original) {
-        const err = new OctomilError(code, "test");
-        expect(err.code).toBe(code);
-        expect(err.cause).toBeUndefined();
-      }
-    });
-
+  describe("cause parameter", () => {
     it("preserves cause parameter", () => {
       const cause = new TypeError("original");
       const err = new OctomilError("SERVER_ERROR", "wrapped", cause);
       expect(err.cause).toBe(cause);
+    });
+
+    it("cause is undefined when not provided", () => {
+      const err = new OctomilError("UNKNOWN", "test");
+      expect(err.cause).toBeUndefined();
     });
   });
 
@@ -118,9 +129,9 @@ describe("OctomilError — expanded codes", () => {
       expect(err.message).toBe("Bad request");
     });
 
-    it("maps 401 to INVALID_API_KEY", () => {
+    it("maps 401 to AUTHENTICATION_FAILED", () => {
       const err = OctomilError.fromHttpStatus(401);
-      expect(err.code).toBe("INVALID_API_KEY");
+      expect(err.code).toBe("AUTHENTICATION_FAILED");
       expect(err.message).toBe("HTTP 401");
     });
 
@@ -132,11 +143,6 @@ describe("OctomilError — expanded codes", () => {
     it("maps 404 to MODEL_NOT_FOUND", () => {
       const err = OctomilError.fromHttpStatus(404);
       expect(err.code).toBe("MODEL_NOT_FOUND");
-    });
-
-    it("maps 408 to REQUEST_TIMEOUT", () => {
-      const err = OctomilError.fromHttpStatus(408);
-      expect(err.code).toBe("REQUEST_TIMEOUT");
     });
 
     it("maps 429 to RATE_LIMITED", () => {
@@ -166,9 +172,9 @@ describe("OctomilError — expanded codes", () => {
       expect(err.code).toBe("SERVER_ERROR");
     });
 
-    it("maps unknown 4xx to INVALID_INPUT", () => {
+    it("maps unknown 4xx to UNKNOWN", () => {
       const err = OctomilError.fromHttpStatus(422, "Unprocessable");
-      expect(err.code).toBe("INVALID_INPUT");
+      expect(err.code).toBe("UNKNOWN");
     });
 
     it("maps unknown 5xx to SERVER_ERROR", () => {
@@ -199,10 +205,51 @@ describe("OctomilError — expanded codes", () => {
   });
 
   describe("total code count", () => {
-    it("has 25 codes (19 canonical + 3 browser-specific + NETWORK_ERROR/BACKEND_UNAVAILABLE overlap)", () => {
-      expect(ALL_CODES.length).toBe(25);
-      // Verify no duplicates
-      expect(new Set(ALL_CODES).size).toBe(25);
+    it("has 36 canonical codes", () => {
+      expect(ALL_CODES.length).toBe(36);
+      expect(new Set(ALL_CODES).size).toBe(36);
+    });
+  });
+
+  describe("fromServerResponse", () => {
+    it("maps server code field to SDK error code", () => {
+      const err = OctomilError.fromServerResponse(400, {
+        code: "rate_limited",
+        message: "Too many requests",
+      });
+      expect(err.code).toBe("RATE_LIMITED");
+      expect(err.message).toBe("Too many requests");
+    });
+
+    it("falls back to HTTP status when code is absent", () => {
+      const err = OctomilError.fromServerResponse(404, {
+        message: "Not found",
+      });
+      expect(err.code).toBe("MODEL_NOT_FOUND");
+      expect(err.message).toBe("Not found");
+    });
+
+    it("falls back to HTTP status when code is unrecognized", () => {
+      const err = OctomilError.fromServerResponse(500, {
+        code: "something_unknown",
+        message: "Oops",
+      });
+      expect(err.code).toBe("SERVER_ERROR");
+      expect(err.message).toBe("Oops");
+    });
+
+    it("uses error field as fallback message", () => {
+      const err = OctomilError.fromServerResponse(403, {
+        error: "Forbidden zone",
+      });
+      expect(err.code).toBe("FORBIDDEN");
+      expect(err.message).toBe("Forbidden zone");
+    });
+
+    it("uses HTTP status as message when body is null", () => {
+      const err = OctomilError.fromServerResponse(500, null);
+      expect(err.code).toBe("SERVER_ERROR");
+      expect(err.message).toBe("HTTP 500");
     });
   });
 });

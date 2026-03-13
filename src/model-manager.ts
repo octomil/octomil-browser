@@ -129,7 +129,7 @@ export class ModelManager {
       response = await fetch(resolverUrl, { headers });
     } catch (err) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        "NETWORK_UNAVAILABLE",
         `Failed to reach model resolver at ${resolverUrl}`,
         err,
       );
@@ -143,7 +143,7 @@ export class ModelManager {
         );
       }
       throw new OctomilError(
-        "NETWORK_ERROR",
+        "NETWORK_UNAVAILABLE",
         `Model resolver returned HTTP ${response.status}: ${response.statusText}`,
       );
     }
@@ -192,7 +192,7 @@ export class ModelManager {
         attempt++;
         if (attempt > MAX_RETRIES) {
           throw new OctomilError(
-            "NETWORK_ERROR",
+            "NETWORK_UNAVAILABLE",
             `Failed to download model from ${url} after ${MAX_RETRIES} retries`,
             err,
           );
@@ -265,7 +265,7 @@ export class ModelManager {
         attempt++;
         if (attempt > MAX_RETRIES) {
           throw new OctomilError(
-            "NETWORK_ERROR",
+            "NETWORK_UNAVAILABLE",
             `Model download interrupted after ${MAX_RETRIES} retries`,
             err,
           );

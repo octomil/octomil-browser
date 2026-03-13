@@ -7,15 +7,18 @@ import { TELEMETRY_EVENTS } from "../../src/_generated/telemetry_events";
 
 describe("Contract Conformance", () => {
   describe("ErrorCode enum", () => {
-    it("has all 19 canonical error codes", () => {
+    it("has all 36 canonical error codes", () => {
       const codes = Object.values(ErrorCode);
-      expect(codes).toHaveLength(19);
+      expect(codes).toHaveLength(36);
       expect(codes).toContain("network_unavailable");
       expect(codes).toContain("authentication_failed");
       expect(codes).toContain("model_not_found");
       expect(codes).toContain("inference_failed");
       expect(codes).toContain("rate_limited");
       expect(codes).toContain("unknown");
+      expect(codes).toContain("training_failed");
+      expect(codes).toContain("training_not_supported");
+      expect(codes).toContain("weight_upload_failed");
     });
   });
 

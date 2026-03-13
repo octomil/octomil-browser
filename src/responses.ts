@@ -140,7 +140,7 @@ export class ResponsesClient {
         "network_error",
         String(err),
       );
-      throw new OctomilError("NETWORK_ERROR", `Request failed: ${String(err)}`, err);
+      throw new OctomilError("NETWORK_UNAVAILABLE", `Request failed: ${String(err)}`, err);
     }
 
     if (!resp.ok) {
@@ -149,7 +149,7 @@ export class ResponsesClient {
         "http_error",
         `HTTP ${resp.status}`,
       );
-      throw new OctomilError("NETWORK_ERROR", `HTTP ${resp.status}`);
+      throw new OctomilError("NETWORK_UNAVAILABLE", `HTTP ${resp.status}`);
     }
 
     const data = await resp.json();
@@ -204,7 +204,7 @@ export class ResponsesClient {
         "network_error",
         String(err),
       );
-      throw new OctomilError("NETWORK_ERROR", `Request failed: ${String(err)}`, err);
+      throw new OctomilError("NETWORK_UNAVAILABLE", `Request failed: ${String(err)}`, err);
     }
 
     if (!resp.ok) {
@@ -213,11 +213,11 @@ export class ResponsesClient {
         "http_error",
         `HTTP ${resp.status}`,
       );
-      throw new OctomilError("NETWORK_ERROR", `HTTP ${resp.status}`);
+      throw new OctomilError("NETWORK_UNAVAILABLE", `HTTP ${resp.status}`);
     }
 
     if (!resp.body) {
-      throw new OctomilError("NETWORK_ERROR", "No response body");
+      throw new OctomilError("NETWORK_UNAVAILABLE", "No response body");
     }
 
     const reader = resp.body.getReader();
