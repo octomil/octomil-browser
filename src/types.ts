@@ -4,6 +4,41 @@
  * All public interfaces and types for the browser inference SDK.
  */
 
+export { AuthType } from "./_generated/auth_type.js";
+export { PrincipalType } from "./_generated/principal_type.js";
+export { Scope } from "./_generated/scope.js";
+
+// ---------------------------------------------------------------------------
+// Auth Config (discriminated union)
+// ---------------------------------------------------------------------------
+
+/**
+ * Organization-scoped API key authentication.
+ * Used by server-side SDKs, CLI tools, and CI/CD pipelines.
+ */
+export interface OrgApiKeyAuth {
+  type: "org_api_key";
+  apiKey: string;
+  orgId: string;
+  serverUrl?: string;
+}
+
+/**
+ * Short-lived device token authentication.
+ * Used by edge devices that go through a bootstrap/registration flow.
+ */
+export interface DeviceTokenAuth {
+  type: "device_token";
+  deviceId: string;
+  bootstrapToken: string;
+  serverUrl?: string;
+}
+
+/**
+ * Discriminated union of supported authentication configurations.
+ */
+export type AuthConfig = OrgApiKeyAuth | DeviceTokenAuth;
+
 // ---------------------------------------------------------------------------
 // Control
 // ---------------------------------------------------------------------------
@@ -36,10 +71,22 @@ export interface OctomilOptions {
    */
   model: string;
 
-  /** Octomil server URL (used to resolve registry model names). */
+  /**
+   * Authentication configuration. Use `{ type: "org_api_key", ... }` for
+   * API key auth or `{ type: "device_token", ... }` for device token auth.
+   */
+  auth: AuthConfig;
+
+  /**
+   * Server URL derived from auth config. Set internally by the constructor.
+   * @internal
+   */
   serverUrl?: string;
 
-  /** Octomil API key for authenticated model downloads. */
+  /**
+   * API key or bootstrap token derived from auth config. Set internally.
+   * @internal
+   */
   apiKey?: string;
 
   /**
@@ -520,7 +567,10 @@ export type OctomilErrorCode =
   | "MAX_TOOL_ROUNDS_EXCEEDED"
   | "CONTROL_SYNC_FAILED"
   | "ASSIGNMENT_NOT_FOUND"
-  | "APP_BACKGROUNDED";
+  | "APP_BACKGROUNDED"
+  // --- Auth lifecycle codes ---
+  | "TOKEN_EXPIRED"
+  | "DEVICE_REVOKED";
 
 /**
  * Map from contract `ErrorCode` enum values (snake_case) to the SDK's
@@ -561,6 +611,8 @@ export const ERROR_CODE_MAP: Readonly<Record<ErrorCode, OctomilErrorCode>> = {
   [ErrorCode.ControlSyncFailed]: "CONTROL_SYNC_FAILED",
   [ErrorCode.AssignmentNotFound]: "ASSIGNMENT_NOT_FOUND",
   [ErrorCode.AppBackgrounded]: "APP_BACKGROUNDED",
+  [ErrorCode.TokenExpired]: "TOKEN_EXPIRED",
+  [ErrorCode.DeviceRevoked]: "DEVICE_REVOKED",
 } as const;
 
 /** Reverse map: SDK error code -> contract ErrorCode. */

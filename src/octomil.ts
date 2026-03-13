@@ -77,11 +77,19 @@ export class OctomilClient {
   private _warmedUp = false;
 
   constructor(options: OctomilOptions & { runtime?: ModelRuntime }) {
+    // Extract serverUrl and apiKey from the auth config
+    const auth = options.auth;
+    const serverUrl = auth.serverUrl;
+    const apiKey = auth.type === "org_api_key" ? auth.apiKey : auth.bootstrapToken;
+
     this.options = {
       telemetry: false,
       cacheStrategy: "cache-api",
       ...options,
-    };
+      // Map auth fields into legacy locations for internal consumers
+      serverUrl,
+      apiKey,
+    } as typeof this.options;
 
     this.cache = createModelCache(this.options.cacheStrategy);
     this.loader = new ModelManager(this.options, this.cache);
@@ -90,10 +98,10 @@ export class OctomilClient {
     this.inferenceEngine = defaultEngine;
 
     // Routing is opt-in: only enabled when serverUrl + apiKey + routing are set.
-    if (this.options.serverUrl && this.options.apiKey && this.options.routing) {
+    if (serverUrl && apiKey && this.options.routing) {
       this.routingClient = new RoutingClient({
-        serverUrl: this.options.serverUrl,
-        apiKey: this.options.apiKey,
+        serverUrl,
+        apiKey,
         cacheTtlMs: this.options.routing.cacheTtlMs,
         prefer: this.options.routing.prefer,
       });
@@ -102,7 +110,7 @@ export class OctomilClient {
     if (this.options.telemetry) {
       this.telemetry = new TelemetryReporter({
         url: this.options.telemetryUrl,
-        apiKey: this.options.apiKey,
+        apiKey,
       });
     }
   }

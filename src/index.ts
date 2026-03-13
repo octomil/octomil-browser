@@ -139,6 +139,9 @@ export { RoutingClient, detectDeviceCapabilities } from "./routing.js";
 
 // Types
 export type {
+  AuthConfig,
+  OrgApiKeyAuth,
+  DeviceTokenAuth,
   OctomilOptions,
   Backend,
   CacheStrategy,
@@ -205,7 +208,7 @@ export type {
 
 export type { QuantizedWeightMap } from "./privacy.js";
 
-export { OctomilError, ERROR_CODE_MAP } from "./types.js";
+export { OctomilError, ERROR_CODE_MAP, AuthType, PrincipalType, Scope } from "./types.js";
 
 // Contract-generated enums and constants (from octomil-contracts)
 export {
