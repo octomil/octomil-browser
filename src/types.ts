@@ -687,13 +687,11 @@ export class OctomilError extends Error {
       case 400:
         return new OctomilError(ERROR_CODE_MAP[ErrorCode.InvalidInput], msg);
       case 401:
-        return new OctomilError(ERROR_CODE_MAP[ErrorCode.InvalidApiKey], msg);
+        return new OctomilError(ERROR_CODE_MAP[ErrorCode.AuthenticationFailed], msg);
       case 403:
         return new OctomilError(ERROR_CODE_MAP[ErrorCode.Forbidden], msg);
       case 404:
         return new OctomilError(ERROR_CODE_MAP[ErrorCode.ModelNotFound], msg);
-      case 408:
-        return new OctomilError(ERROR_CODE_MAP[ErrorCode.RequestTimeout], msg);
       case 429:
         return new OctomilError(ERROR_CODE_MAP[ErrorCode.RateLimited], msg);
       case 500:
@@ -702,9 +700,6 @@ export class OctomilError extends Error {
       case 504:
         return new OctomilError(ERROR_CODE_MAP[ErrorCode.ServerError], msg);
       default:
-        if (status >= 400 && status < 500) {
-          return new OctomilError(ERROR_CODE_MAP[ErrorCode.InvalidInput], msg);
-        }
         if (status >= 500) {
           return new OctomilError(ERROR_CODE_MAP[ErrorCode.ServerError], msg);
         }

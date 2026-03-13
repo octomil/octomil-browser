@@ -118,9 +118,9 @@ describe("OctomilError — expanded codes", () => {
       expect(err.message).toBe("Bad request");
     });
 
-    it("maps 401 to INVALID_API_KEY", () => {
+    it("maps 401 to AUTHENTICATION_FAILED", () => {
       const err = OctomilError.fromHttpStatus(401);
-      expect(err.code).toBe("INVALID_API_KEY");
+      expect(err.code).toBe("AUTHENTICATION_FAILED");
       expect(err.message).toBe("HTTP 401");
     });
 
@@ -132,11 +132,6 @@ describe("OctomilError — expanded codes", () => {
     it("maps 404 to MODEL_NOT_FOUND", () => {
       const err = OctomilError.fromHttpStatus(404);
       expect(err.code).toBe("MODEL_NOT_FOUND");
-    });
-
-    it("maps 408 to REQUEST_TIMEOUT", () => {
-      const err = OctomilError.fromHttpStatus(408);
-      expect(err.code).toBe("REQUEST_TIMEOUT");
     });
 
     it("maps 429 to RATE_LIMITED", () => {
@@ -166,9 +161,9 @@ describe("OctomilError — expanded codes", () => {
       expect(err.code).toBe("SERVER_ERROR");
     });
 
-    it("maps unknown 4xx to INVALID_INPUT", () => {
+    it("maps unknown 4xx to UNKNOWN", () => {
       const err = OctomilError.fromHttpStatus(422, "Unprocessable");
-      expect(err.code).toBe("INVALID_INPUT");
+      expect(err.code).toBe("UNKNOWN");
     });
 
     it("maps unknown 5xx to SERVER_ERROR", () => {
