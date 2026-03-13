@@ -107,7 +107,7 @@ export class FederatedClient {
     );
     if (!response.ok) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        "NETWORK_UNAVAILABLE",
         `Failed to fetch training round: HTTP ${response.status}`,
       );
     }
@@ -125,7 +125,7 @@ export class FederatedClient {
     );
     if (!response.ok) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        "NETWORK_UNAVAILABLE",
         `Failed to join round: HTTP ${response.status}`,
       );
     }
@@ -195,7 +195,7 @@ export class FederatedClient {
 
     if (!response.ok) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        "NETWORK_UNAVAILABLE",
         `Failed to submit update: HTTP ${response.status}`,
       );
     }

@@ -27,12 +27,12 @@ export async function embed(
 ): Promise<EmbeddingResult> {
   if (!serverUrl) {
     throw new OctomilError(
-      "NETWORK_ERROR",
+      "INVALID_INPUT",
       "serverUrl is required for embed()",
     );
   }
   if (!apiKey) {
-    throw new OctomilError("NETWORK_ERROR", "apiKey is required for embed()");
+    throw new OctomilError("INVALID_INPUT", "apiKey is required for embed()");
   }
 
   const url = `${serverUrl.replace(/\/+$/, "")}/api/v1/embeddings`;
@@ -50,7 +50,7 @@ export async function embed(
     });
   } catch (err) {
     throw new OctomilError(
-      "NETWORK_ERROR",
+      "NETWORK_UNAVAILABLE",
       `embed() request failed: ${String(err)}`,
       err,
     );

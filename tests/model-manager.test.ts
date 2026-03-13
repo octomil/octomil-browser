@@ -206,7 +206,7 @@ describe("ModelManager", () => {
       await expect(loader.load()).rejects.toThrow("valid ONNX");
     });
 
-    it("throws NETWORK_ERROR when fetch fails", { timeout: 15_000 }, async () => {
+    it("throws NETWORK_UNAVAILABLE when fetch fails", { timeout: 15_000 }, async () => {
       globalThis.fetch = vi.fn(async () => {
         throw new TypeError("Failed to fetch");
       }) as unknown as typeof fetch;

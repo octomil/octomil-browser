@@ -55,7 +55,7 @@ export class ExperimentsClient {
     const response = await fetch(url, { headers });
     if (!response.ok) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        "NETWORK_UNAVAILABLE",
         `Failed to fetch experiments: HTTP ${response.status}`,
       );
     }
@@ -77,7 +77,7 @@ export class ExperimentsClient {
     const response = await fetch(url, { headers });
     if (!response.ok) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        "NETWORK_UNAVAILABLE",
         `Failed to fetch experiment: HTTP ${response.status}`,
       );
     }

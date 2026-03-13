@@ -58,7 +58,7 @@ export class DeviceAuth {
 
     if (!response.ok) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        "NETWORK_UNAVAILABLE",
         `Device registration failed: HTTP ${response.status}`,
       );
     }
@@ -84,7 +84,7 @@ export class DeviceAuth {
 
     if (!this.token) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        "NETWORK_UNAVAILABLE",
         "Not authenticated. Call bootstrap() first.",
       );
     }
@@ -102,7 +102,7 @@ export class DeviceAuth {
 
     if (!this.token) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        "NETWORK_UNAVAILABLE",
         "No token to refresh. Call bootstrap() first.",
       );
     }
@@ -119,7 +119,7 @@ export class DeviceAuth {
       // Token expired beyond repair — clear state
       this.token = null;
       throw new OctomilError(
-        "NETWORK_ERROR",
+        "NETWORK_UNAVAILABLE",
         `Token refresh failed: HTTP ${response.status}`,
       );
     }

@@ -80,7 +80,7 @@ export class RolloutsManager {
     const response = await fetch(url, { headers });
     if (!response.ok) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        "NETWORK_UNAVAILABLE",
         `Failed to fetch rollout config: HTTP ${response.status}`,
       );
     }

@@ -42,11 +42,11 @@ const ALL_CODES: OctomilErrorCode[] = [
 
 const RETRYABLE_CODES: OctomilErrorCode[] = [
   "NETWORK_UNAVAILABLE",
-  "NETWORK_ERROR",
   "REQUEST_TIMEOUT",
   "SERVER_ERROR",
   "DOWNLOAD_FAILED",
   "CHECKSUM_MISMATCH",
+  "MODEL_LOAD_FAILED",
   "INFERENCE_FAILED",
   "RATE_LIMITED",
 ];
@@ -203,6 +203,48 @@ describe("OctomilError — expanded codes", () => {
       expect(ALL_CODES.length).toBe(25);
       // Verify no duplicates
       expect(new Set(ALL_CODES).size).toBe(25);
+    });
+  });
+
+  describe("fromServerResponse", () => {
+    it("maps server code field to SDK error code", () => {
+      const err = OctomilError.fromServerResponse(400, {
+        code: "rate_limited",
+        message: "Too many requests",
+      });
+      expect(err.code).toBe("RATE_LIMITED");
+      expect(err.message).toBe("Too many requests");
+    });
+
+    it("falls back to HTTP status when code is absent", () => {
+      const err = OctomilError.fromServerResponse(404, {
+        message: "Not found",
+      });
+      expect(err.code).toBe("MODEL_NOT_FOUND");
+      expect(err.message).toBe("Not found");
+    });
+
+    it("falls back to HTTP status when code is unrecognized", () => {
+      const err = OctomilError.fromServerResponse(500, {
+        code: "something_unknown",
+        message: "Oops",
+      });
+      expect(err.code).toBe("SERVER_ERROR");
+      expect(err.message).toBe("Oops");
+    });
+
+    it("uses error field as fallback message", () => {
+      const err = OctomilError.fromServerResponse(403, {
+        error: "Forbidden zone",
+      });
+      expect(err.code).toBe("FORBIDDEN");
+      expect(err.message).toBe("Forbidden zone");
+    });
+
+    it("uses HTTP status as message when body is null", () => {
+      const err = OctomilError.fromServerResponse(500, null);
+      expect(err.code).toBe("SERVER_ERROR");
+      expect(err.message).toBe("HTTP 500");
     });
   });
 });

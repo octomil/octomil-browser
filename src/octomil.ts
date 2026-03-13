@@ -325,7 +325,7 @@ export class OctomilClient {
       });
     } catch (err) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        "NETWORK_UNAVAILABLE",
         `predictStream request failed: ${String(err)}`,
         err,
       );
@@ -408,7 +408,7 @@ export class OctomilClient {
   ): Promise<EmbeddingResult> {
     if (!this.options.serverUrl || !this.options.apiKey) {
       throw new OctomilError(
-        "NETWORK_ERROR",
+        "NETWORK_UNAVAILABLE",
         "embed() requires serverUrl and apiKey to be configured.",
       );
     }

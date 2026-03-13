@@ -84,7 +84,7 @@ export class StreamingInferenceEngine {
         String(err),
       );
       throw new OctomilError(
-        "NETWORK_ERROR",
+        "NETWORK_UNAVAILABLE",
         `Streaming request failed: ${String(err)}`,
         err,
       );

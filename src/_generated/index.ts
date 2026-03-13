@@ -5,6 +5,9 @@
  * To update, copy the latest files from octomil-contracts/generated/typescript/.
  */
 
+export { AuthType } from "./auth_type.js";
+export { PrincipalType } from "./principal_type.js";
+export { Scope } from "./scope.js";
 export { ErrorCode } from "./error_code.js";
 export { ModelStatus } from "./model_status.js";
 export { DeviceClass } from "./device_class.js";
