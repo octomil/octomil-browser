@@ -19,8 +19,8 @@ describe("OctomilError", () => {
   });
 
   it("works without a cause", () => {
-    const err = new OctomilError("NETWORK_ERROR", "timeout");
-    expect(err.code).toBe("NETWORK_ERROR");
+    const err = new OctomilError("NETWORK_UNAVAILABLE", "timeout");
+    expect(err.code).toBe("NETWORK_UNAVAILABLE");
     expect(err.cause).toBeUndefined();
   });
 

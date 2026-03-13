@@ -619,7 +619,7 @@ export class OctomilClient {
   private ensureNotClosed(): void {
     if (this.closed) {
       throw new OctomilError(
-        "SESSION_CLOSED",
+        "CANCELLED",
         "This OctomilClient instance has been closed. Create a new one.",
       );
     }
@@ -629,7 +629,7 @@ export class OctomilClient {
     this.ensureNotClosed();
     if (!this.loaded) {
       throw new OctomilError(
-        "NOT_LOADED",
+        "MODEL_LOAD_FAILED",
         "Model not loaded. Call load() before predict() or chat().",
       );
     }

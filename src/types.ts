@@ -523,58 +523,57 @@ import { ErrorCode, ERROR_CLASSIFICATION, type ErrorCategory, type RetryClass, t
 export type { ErrorCategory, RetryClass, SuggestedAction, ErrorClassification } from "./_generated/error_code.js";
 
 /**
- * Error codes emitted by the SDK.
- *
- * 31 canonical codes shared across all Octomil SDKs (Python, Node, Browser,
- * iOS, Android) plus 6 browser-specific codes for backward compatibility.
+ * Canonical error codes — 36 codes from octomil-contracts.
  */
 export type OctomilErrorCode =
-  // --- Original 10 (backward-compatible) ---
-  | "MODEL_NOT_FOUND"
-  | "MODEL_LOAD_FAILED"
-  | "INFERENCE_FAILED"
-  | "BACKEND_UNAVAILABLE"
-  | "CACHE_ERROR"
-  | "NETWORK_ERROR"
-  | "INVALID_INPUT"
-  | "NOT_LOADED"
-  | "SESSION_CLOSED"
-  | "SESSION_DISPOSED"
-  // --- Canonical additions ---
-  | "NETWORK_UNAVAILABLE"
-  | "REQUEST_TIMEOUT"
-  | "SERVER_ERROR"
+  // --- Auth / Access ---
   | "INVALID_API_KEY"
   | "AUTHENTICATION_FAILED"
   | "FORBIDDEN"
-  | "MODEL_DISABLED"
-  | "DOWNLOAD_FAILED"
-  | "CHECKSUM_MISMATCH"
-  | "INSUFFICIENT_STORAGE"
-  | "RUNTIME_UNAVAILABLE"
-  | "INSUFFICIENT_MEMORY"
-  | "RATE_LIMITED"
-  | "CANCELLED"
-  | "UNKNOWN"
   | "DEVICE_NOT_REGISTERED"
+  | "TOKEN_EXPIRED"
+  | "DEVICE_REVOKED"
+  // --- Network / Transport ---
+  | "NETWORK_UNAVAILABLE"
+  | "REQUEST_TIMEOUT"
+  | "SERVER_ERROR"
+  | "RATE_LIMITED"
+  // --- Input / Validation ---
+  | "INVALID_INPUT"
   | "UNSUPPORTED_MODALITY"
   | "CONTEXT_TOO_LARGE"
+  // --- Catalog / Model Resolution ---
+  | "MODEL_NOT_FOUND"
+  | "MODEL_LOAD_FAILED"
+  | "MODEL_DISABLED"
   | "VERSION_NOT_FOUND"
+  // --- Download / Artifact Integrity ---
+  | "DOWNLOAD_FAILED"
+  | "CHECKSUM_MISMATCH"
+  // --- Device / Environment ---
+  | "INSUFFICIENT_STORAGE"
+  | "INSUFFICIENT_MEMORY"
+  | "RUNTIME_UNAVAILABLE"
   | "ACCELERATOR_UNAVAILABLE"
+  // --- Runtime / Inference ---
+  | "INFERENCE_FAILED"
   | "STREAM_INTERRUPTED"
+  // --- Policy / Routing ---
   | "POLICY_DENIED"
   | "CLOUD_FALLBACK_DISALLOWED"
   | "MAX_TOOL_ROUNDS_EXCEEDED"
-  | "CONTROL_SYNC_FAILED"
-  | "ASSIGNMENT_NOT_FOUND"
-  | "APP_BACKGROUNDED"
-  // --- Training codes ---
+  // --- Training ---
   | "TRAINING_FAILED"
   | "TRAINING_NOT_SUPPORTED"
   | "WEIGHT_UPLOAD_FAILED"
-  // --- Auth lifecycle codes ---
-  | "TOKEN_EXPIRED"
-  | "DEVICE_REVOKED";
+  // --- Control Plane / Rollout ---
+  | "CONTROL_SYNC_FAILED"
+  | "ASSIGNMENT_NOT_FOUND"
+  // --- Cancellation / Lifecycle ---
+  | "CANCELLED"
+  | "APP_BACKGROUNDED"
+  // --- Unknown ---
+  | "UNKNOWN";
 
 /**
  * Map from contract `ErrorCode` enum values (snake_case) to the SDK's

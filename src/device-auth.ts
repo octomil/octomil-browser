@@ -262,7 +262,7 @@ export class DeviceAuth {
   private ensureNotDisposed(): void {
     if (this.disposed) {
       throw new OctomilError(
-        "SESSION_DISPOSED",
+        "CANCELLED",
         "DeviceAuth has been disposed.",
       );
     }
