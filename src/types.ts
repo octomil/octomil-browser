@@ -472,12 +472,13 @@ export interface EmbeddingUsage {
 // Errors
 // ---------------------------------------------------------------------------
 
-import { ErrorCode } from "./_generated/error_code.js";
+import { ErrorCode, ERROR_CLASSIFICATION, type ErrorCategory, type RetryClass, type SuggestedAction, type ErrorClassification } from "./_generated/error_code.js";
+export type { ErrorCategory, RetryClass, SuggestedAction, ErrorClassification } from "./_generated/error_code.js";
 
 /**
  * Error codes emitted by the SDK.
  *
- * 19 canonical codes shared across all Octomil SDKs (Python, Node, Browser,
+ * 31 canonical codes shared across all Octomil SDKs (Python, Node, Browser,
  * iOS, Android) plus 6 browser-specific codes for backward compatibility.
  */
 export type OctomilErrorCode =
@@ -507,7 +508,19 @@ export type OctomilErrorCode =
   | "INSUFFICIENT_MEMORY"
   | "RATE_LIMITED"
   | "CANCELLED"
-  | "UNKNOWN";
+  | "UNKNOWN"
+  | "DEVICE_NOT_REGISTERED"
+  | "UNSUPPORTED_MODALITY"
+  | "CONTEXT_TOO_LARGE"
+  | "VERSION_NOT_FOUND"
+  | "ACCELERATOR_UNAVAILABLE"
+  | "STREAM_INTERRUPTED"
+  | "POLICY_DENIED"
+  | "CLOUD_FALLBACK_DISALLOWED"
+  | "MAX_TOOL_ROUNDS_EXCEEDED"
+  | "CONTROL_SYNC_FAILED"
+  | "ASSIGNMENT_NOT_FOUND"
+  | "APP_BACKGROUNDED";
 
 /**
  * Map from contract `ErrorCode` enum values (snake_case) to the SDK's
@@ -536,19 +549,24 @@ export const ERROR_CODE_MAP: Readonly<Record<ErrorCode, OctomilErrorCode>> = {
   [ErrorCode.InvalidInput]: "INVALID_INPUT",
   [ErrorCode.Cancelled]: "CANCELLED",
   [ErrorCode.Unknown]: "UNKNOWN",
+  [ErrorCode.DeviceNotRegistered]: "DEVICE_NOT_REGISTERED",
+  [ErrorCode.UnsupportedModality]: "UNSUPPORTED_MODALITY",
+  [ErrorCode.ContextTooLarge]: "CONTEXT_TOO_LARGE",
+  [ErrorCode.VersionNotFound]: "VERSION_NOT_FOUND",
+  [ErrorCode.AcceleratorUnavailable]: "ACCELERATOR_UNAVAILABLE",
+  [ErrorCode.StreamInterrupted]: "STREAM_INTERRUPTED",
+  [ErrorCode.PolicyDenied]: "POLICY_DENIED",
+  [ErrorCode.CloudFallbackDisallowed]: "CLOUD_FALLBACK_DISALLOWED",
+  [ErrorCode.MaxToolRoundsExceeded]: "MAX_TOOL_ROUNDS_EXCEEDED",
+  [ErrorCode.ControlSyncFailed]: "CONTROL_SYNC_FAILED",
+  [ErrorCode.AssignmentNotFound]: "ASSIGNMENT_NOT_FOUND",
+  [ErrorCode.AppBackgrounded]: "APP_BACKGROUNDED",
 } as const;
 
-/** Codes that indicate a transient failure safe to retry. */
-const RETRYABLE_CODES: ReadonlySet<OctomilErrorCode> = new Set([
-  "NETWORK_UNAVAILABLE",
-  "NETWORK_ERROR",
-  "REQUEST_TIMEOUT",
-  "SERVER_ERROR",
-  "DOWNLOAD_FAILED",
-  "CHECKSUM_MISMATCH",
-  "INFERENCE_FAILED",
-  "RATE_LIMITED",
-]);
+/** Reverse map: SDK error code -> contract ErrorCode. */
+const SDK_TO_CONTRACT: Readonly<Partial<Record<OctomilErrorCode, ErrorCode>>> = Object.fromEntries(
+  Object.entries(ERROR_CODE_MAP).map(([k, v]) => [v, k as unknown as ErrorCode]),
+) as Partial<Record<OctomilErrorCode, ErrorCode>>;
 
 /** Structured error thrown by the SDK. */
 export class OctomilError extends Error {
@@ -564,7 +582,32 @@ export class OctomilError extends Error {
 
   /** Whether this error represents a transient failure that can be retried. */
   get retryable(): boolean {
-    return RETRYABLE_CODES.has(this.code);
+    const cc = SDK_TO_CONTRACT[this.code];
+    return cc != null && ERROR_CLASSIFICATION[cc].retryClass !== "never";
+  }
+
+  /** The error category from the contract taxonomy. */
+  get category(): ErrorCategory | undefined {
+    const cc = SDK_TO_CONTRACT[this.code];
+    return cc != null ? ERROR_CLASSIFICATION[cc].category : undefined;
+  }
+
+  /** The retry classification from the contract taxonomy. */
+  get retryClass(): RetryClass | undefined {
+    const cc = SDK_TO_CONTRACT[this.code];
+    return cc != null ? ERROR_CLASSIFICATION[cc].retryClass : undefined;
+  }
+
+  /** Whether this error is eligible for cloud fallback. */
+  get fallbackEligible(): boolean {
+    const cc = SDK_TO_CONTRACT[this.code];
+    return cc != null ? ERROR_CLASSIFICATION[cc].fallbackEligible : false;
+  }
+
+  /** The suggested remediation action. */
+  get suggestedAction(): SuggestedAction | undefined {
+    const cc = SDK_TO_CONTRACT[this.code];
+    return cc != null ? ERROR_CLASSIFICATION[cc].suggestedAction : undefined;
   }
 
   /**
