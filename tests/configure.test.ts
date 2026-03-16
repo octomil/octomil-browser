@@ -5,6 +5,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { configure, getDeviceContext } from "../src/configure.js";
 import { DeviceContext } from "../src/device-context.js";
+import {
+  validatePublishableKey,
+  getPublishableKeyEnvironment,
+} from "../src/silent-auth-config.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -21,7 +25,59 @@ function mockFetch(body: unknown, status = 200) {
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// validatePublishableKey
+// ---------------------------------------------------------------------------
+
+describe("validatePublishableKey", () => {
+  it("accepts oct_pub_test_ prefix", () => {
+    expect(() => validatePublishableKey("oct_pub_test_abc123")).not.toThrow();
+  });
+
+  it("accepts oct_pub_live_ prefix", () => {
+    expect(() => validatePublishableKey("oct_pub_live_abc123")).not.toThrow();
+  });
+
+  it("rejects bare oct_pub_ without environment", () => {
+    expect(() => validatePublishableKey("oct_pub_abc123")).toThrow(
+      "oct_pub_test_",
+    );
+  });
+
+  it("rejects empty string", () => {
+    expect(() => validatePublishableKey("")).toThrow("oct_pub_test_");
+  });
+
+  it("rejects unrelated prefix", () => {
+    expect(() => validatePublishableKey("sk_test_abc123")).toThrow(
+      "oct_pub_test_",
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getPublishableKeyEnvironment
+// ---------------------------------------------------------------------------
+
+describe("getPublishableKeyEnvironment", () => {
+  it("returns 'test' for oct_pub_test_ key", () => {
+    expect(getPublishableKeyEnvironment("oct_pub_test_abc")).toBe("test");
+  });
+
+  it("returns 'live' for oct_pub_live_ key", () => {
+    expect(getPublishableKeyEnvironment("oct_pub_live_abc")).toBe("live");
+  });
+
+  it("returns null for bare oct_pub_ key", () => {
+    expect(getPublishableKeyEnvironment("oct_pub_abc")).toBeNull();
+  });
+
+  it("returns null for empty string", () => {
+    expect(getPublishableKeyEnvironment("")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// configure()
 // ---------------------------------------------------------------------------
 
 describe("configure", () => {
@@ -60,6 +116,22 @@ describe("configure", () => {
     expect(ctx.appId).toBe("my-app");
   });
 
+  it("throws when publishable key has bare oct_pub_ prefix", async () => {
+    await expect(
+      configure({
+        auth: { type: "publishable_key", key: "oct_pub_bad" },
+      }),
+    ).rejects.toThrow("oct_pub_test_");
+  });
+
+  it("throws when publishable key has no oct_pub prefix at all", async () => {
+    await expect(
+      configure({
+        auth: { type: "publishable_key", key: "sk_test_abc" },
+      }),
+    ).rejects.toThrow("oct_pub_test_");
+  });
+
   it("does not trigger registration when auth is undefined", async () => {
     const fetchSpy = mockFetch({});
     await configure({ monitoring: { enabled: true } });
@@ -71,7 +143,7 @@ describe("configure", () => {
   it("does not trigger registration when monitoring is disabled", async () => {
     const fetchSpy = mockFetch({});
     await configure({
-      auth: { type: "publishable_key", key: "oct_pub_test" },
+      auth: { type: "publishable_key", key: "oct_pub_test_abc" },
       monitoring: { enabled: false },
     });
     await new Promise((r) => setTimeout(r, 10));
@@ -86,7 +158,7 @@ describe("configure", () => {
     });
 
     const ctx = await configure({
-      auth: { type: "publishable_key", key: "oct_pub_test" },
+      auth: { type: "publishable_key", key: "oct_pub_test_abc" },
       monitoring: { enabled: true },
       baseUrl: "https://test.octomil.com",
     });
@@ -98,7 +170,7 @@ describe("configure", () => {
     const [url, init] = fetchSpy.mock.calls[0]!;
     expect(url).toBe("https://test.octomil.com/api/v1/devices/register");
     expect((init!.headers as Record<string, string>)["X-API-Key"]).toBe(
-      "oct_pub_test",
+      "oct_pub_test_abc",
     );
 
     expect(ctx.isRegistered).toBe(true);
@@ -130,7 +202,7 @@ describe("configure", () => {
     mockFetch({ error: "forbidden" }, 403);
 
     const ctx = await configure({
-      auth: { type: "publishable_key", key: "oct_pub_bad" },
+      auth: { type: "publishable_key", key: "oct_pub_test_bad" },
       monitoring: { enabled: true },
     });
 
@@ -146,7 +218,7 @@ describe("configure", () => {
     });
 
     const ctx = await configure({
-      auth: { type: "publishable_key", key: "oct_pub_test" },
+      auth: { type: "publishable_key", key: "oct_pub_test_abc" },
       monitoring: { enabled: true },
     });
 
