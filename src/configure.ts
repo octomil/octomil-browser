@@ -7,7 +7,10 @@
  */
 
 import { DeviceContext } from "./device-context.js";
-import type { SilentAuthConfig } from "./silent-auth-config.js";
+import {
+  type SilentAuthConfig,
+  validatePublishableKey,
+} from "./silent-auth-config.js";
 import type { MonitoringConfig } from "./monitoring-config.js";
 
 // ---------------------------------------------------------------------------
@@ -37,6 +40,11 @@ export function getDeviceContext(): DeviceContext | null {
 export async function configure(
   options: ConfigureOptions = {},
 ): Promise<DeviceContext> {
+  // Validate publishable key prefix at configure-time
+  if (options.auth?.type === "publishable_key") {
+    validatePublishableKey(options.auth.key);
+  }
+
   const installationId = DeviceContext.getOrCreateInstallationId();
 
   const context = new DeviceContext({

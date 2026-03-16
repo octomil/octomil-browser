@@ -71,7 +71,8 @@ export { configure, getDeviceContext } from "./configure.js";
 export type { ConfigureOptions } from "./configure.js";
 export { DeviceContext } from "./device-context.js";
 export type { RegistrationState, TokenState } from "./device-context.js";
-export type { SilentAuthConfig } from "./silent-auth-config.js";
+export type { SilentAuthConfig, PublishableKeyEnvironment } from "./silent-auth-config.js";
+export { validatePublishableKey, getPublishableKeyEnvironment } from "./silent-auth-config.js";
 export type { MonitoringConfig } from "./monitoring-config.js";
 
 // Model integrity
