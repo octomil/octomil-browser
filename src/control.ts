@@ -8,6 +8,9 @@
 
 import { OctomilError } from "./types.js";
 import type { ControlSyncResult } from "./types.js";
+import { SPAN_NAMES } from "./_generated/span_names.js";
+import { SPAN_ATTRIBUTES } from "./_generated/span_attributes.js";
+import type { TelemetryReporter } from "./telemetry.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -29,6 +32,7 @@ export interface ControlClientOptions {
   serverUrl?: string;
   apiKey?: string;
   orgId?: string;
+  telemetry?: TelemetryReporter | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -41,6 +45,8 @@ export class ControlClient {
   private orgId: string | undefined;
   private serverDeviceId: string | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private heartbeatSequence = 0;
+  private readonly telemetry: TelemetryReporter | null;
 
   constructor(options: ControlClientOptions) {
     this.serverUrl = (options.serverUrl || "https://api.octomil.com").replace(
@@ -49,6 +55,7 @@ export class ControlClient {
     );
     this.apiKey = options.apiKey;
     this.orgId = options.orgId;
+    this.telemetry = options.telemetry ?? null;
   }
 
   // -----------------------------------------------------------------------
@@ -149,6 +156,15 @@ export class ControlClient {
     if (!this.serverDeviceId) {
       throw new OctomilError("INVALID_INPUT", "Device not registered");
     }
+
+    const seq = this.heartbeatSequence++;
+    this.telemetry?.track({
+      name: SPAN_NAMES.octomilControlHeartbeat,
+      timestamp: new Date().toISOString(),
+      attributes: {
+        [SPAN_ATTRIBUTES.heartbeatSequence]: seq,
+      },
+    });
 
     const payload = {
       sdk_version: "1.0.0",
