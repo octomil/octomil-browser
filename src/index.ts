@@ -22,6 +22,12 @@
 // Main class
 export { OctomilClient } from "./octomil.js";
 
+// Audio namespace (transcriptions)
+export { OctomilAudio } from "./audio/octomil-audio.js";
+export { AudioTranscriptions } from "./audio/audio-transcriptions.js";
+export type { TranscriptionRequest } from "./audio/audio-transcriptions.js";
+export type { TranscriptionResult, TranscriptionSegment } from "./audio/transcription-types.js";
+
 // Chat namespace (OpenAI-compatible chat completions)
 export { ChatClient, messagesToResponseInput } from "./chat.js";
 export type { ChatClientOptions } from "./chat.js";

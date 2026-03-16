@@ -20,6 +20,7 @@
  * ```
  */
 
+import { OctomilAudio } from "./audio/octomil-audio.js";
 import { CapabilitiesClient } from "./capabilities.js";
 import { createModelCache, type ModelCache } from "./cache.js";
 import { ChatClient } from "./chat.js";
@@ -71,6 +72,7 @@ export class OctomilClient {
   private _control: ControlClient | null = null;
   private _capabilities: CapabilitiesClient | null = null;
   private _models: ModelsClient | null = null;
+  private _audio: OctomilAudio | null = null;
 
   private loaded = false;
   private closed = false;
@@ -591,6 +593,38 @@ export class OctomilClient {
   }
 
   // -----------------------------------------------------------------------
+  // Audio namespace (transcriptions)
+  // -----------------------------------------------------------------------
+
+  /**
+   * Lazily-created `OctomilAudio` providing
+   * `audio.transcriptions.create()` for speech-to-text.
+   *
+   * Requires `serverUrl` and `apiKey` to be configured.
+   *
+   * @example
+   * ```ts
+   * const result = await client.audio.transcriptions.create({
+   *   file: audioBlob,
+   *   model: 'whisper-large-v3',
+   * });
+   * console.log(result.text);
+   * ```
+   */
+  get audio(): OctomilAudio {
+    if (!this._audio) {
+      if (!this.options.serverUrl || !this.options.apiKey) {
+        throw new OctomilError(
+          "INVALID_INPUT",
+          "audio requires serverUrl and apiKey to be configured.",
+        );
+      }
+      this._audio = new OctomilAudio(this.options.serverUrl, this.options.apiKey);
+    }
+    return this._audio;
+  }
+
+  // -----------------------------------------------------------------------
   // Cleanup
   // -----------------------------------------------------------------------
 
@@ -609,6 +643,7 @@ export class OctomilClient {
     this._control = null;
     this._capabilities = null;
     this._models = null;
+    this._audio = null;
     this._warmedUp = false;
   }
 
