@@ -133,6 +133,7 @@ export class ResponsesClient {
     this.telemetry?.reportInferenceStarted(request.model, {
       target: "cloud",
       method: "responses.create",
+      locality: "cloud",
     });
 
     const start = performance.now();
@@ -168,6 +169,7 @@ export class ResponsesClient {
     this.telemetry?.reportInferenceCompleted(request.model, durationMs, {
       target: "cloud",
       method: "responses.create",
+      locality: "cloud",
     });
 
     // Cache the response for previousResponseId chaining.
@@ -202,6 +204,7 @@ export class ResponsesClient {
     this.telemetry?.reportInferenceStarted(request.model, {
       target: "cloud",
       method: "responses.stream",
+      locality: "cloud",
     });
 
     const start = performance.now();
@@ -351,6 +354,7 @@ export class ResponsesClient {
     this.telemetry?.reportInferenceCompleted(request.model, durationMs, {
       target: "cloud",
       method: "responses.stream",
+      locality: "cloud",
     });
 
     yield { type: "done", response } as DoneEvent;
