@@ -5,6 +5,7 @@
 
 import { OctomilError } from "./types.js";
 import type { TelemetryReporter } from "./telemetry.js";
+import type { DeviceContext } from "./device-context.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -90,6 +91,7 @@ export interface ResponsesClientOptions {
   serverUrl?: string;
   apiKey?: string;
   telemetry?: TelemetryReporter | null;
+  deviceContext?: DeviceContext | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -100,6 +102,7 @@ export class ResponsesClient {
   private serverUrl: string;
   private apiKey: string | undefined;
   private readonly telemetry: TelemetryReporter | null;
+  private readonly deviceContext: DeviceContext | null;
   private responseCache = new Map<string, Response>();
   private readonly MAX_CACHE = 100;
 
@@ -107,6 +110,7 @@ export class ResponsesClient {
     this.serverUrl = options.serverUrl || "https://api.octomil.com";
     this.apiKey = options.apiKey;
     this.telemetry = options.telemetry ?? null;
+    this.deviceContext = options.deviceContext ?? null;
   }
 
   /**
@@ -119,7 +123,12 @@ export class ResponsesClient {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
-    if (this.apiKey) headers["Authorization"] = `Bearer ${this.apiKey}`;
+    const deviceHeaders = this.deviceContext?.authHeaders();
+    if (deviceHeaders) {
+      Object.assign(headers, deviceHeaders);
+    } else if (this.apiKey) {
+      headers["Authorization"] = `Bearer ${this.apiKey}`;
+    }
 
     this.telemetry?.reportInferenceStarted(request.model, {
       target: "cloud",
@@ -183,7 +192,12 @@ export class ResponsesClient {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
-    if (this.apiKey) headers["Authorization"] = `Bearer ${this.apiKey}`;
+    const deviceStreamHeaders = this.deviceContext?.authHeaders();
+    if (deviceStreamHeaders) {
+      Object.assign(headers, deviceStreamHeaders);
+    } else if (this.apiKey) {
+      headers["Authorization"] = `Bearer ${this.apiKey}`;
+    }
 
     this.telemetry?.reportInferenceStarted(request.model, {
       target: "cloud",

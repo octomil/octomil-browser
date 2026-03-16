@@ -66,6 +66,14 @@ export type { ControlSyncResult } from "./types.js";
 // Device auth
 export { DeviceAuth } from "./device-auth.js";
 
+// Silent device registration
+export { configure, getDeviceContext } from "./configure.js";
+export type { ConfigureOptions } from "./configure.js";
+export { DeviceContext } from "./device-context.js";
+export type { RegistrationState, TokenState } from "./device-context.js";
+export type { SilentAuthConfig } from "./silent-auth-config.js";
+export type { MonitoringConfig } from "./monitoring-config.js";
+
 // Model integrity
 export {
   computeHash,

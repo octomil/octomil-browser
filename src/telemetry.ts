@@ -138,6 +138,23 @@ export class TelemetryReporter {
   }
 
   // -----------------------------------------------------------------------
+  // Public — resource updates
+  // -----------------------------------------------------------------------
+
+  /**
+   * Merge additional fields into the telemetry resource.
+   * Typically called with DeviceContext.telemetryResource() after
+   * silent registration completes.
+   */
+  updateResource(fields: Record<string, string>): void {
+    for (const [key, value] of Object.entries(fields)) {
+      if (key === "device.id") this.resource.device_id = value;
+      else if (key === "org.id") this.resource.org_id = value;
+      else if (key === "platform") this.resource.platform = value;
+    }
+  }
+
+  // -----------------------------------------------------------------------
   // Public — low-level
   // -----------------------------------------------------------------------
 
