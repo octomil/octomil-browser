@@ -11,6 +11,8 @@
 
 import type { TelemetryEvent } from "./types.js";
 import { TELEMETRY_EVENTS } from "./_generated/telemetry_events.js";
+import { OTLP_RESOURCE_ATTRIBUTES } from "./_generated/otlp_resource_attributes.js";
+import { getInstallId } from "./install-id.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -423,13 +425,21 @@ export class TelemetryReporter {
   }
 
   private resourceToOtlpAttributes(): OtlpKeyValue[] {
-    return [
+    const attrs: OtlpKeyValue[] = [
       { key: "sdk", value: { stringValue: this.resource.sdk } },
       { key: "sdk_version", value: { stringValue: this.resource.sdk_version } },
       { key: "device_id", value: { stringValue: this.resource.device_id } },
       { key: "platform", value: { stringValue: this.resource.platform } },
       { key: "org_id", value: { stringValue: this.resource.org_id } },
     ];
+    const installId = getInstallId();
+    if (installId) {
+      attrs.push({
+        key: OTLP_RESOURCE_ATTRIBUTES.octomilInstallId,
+        value: { stringValue: installId },
+      });
+    }
+    return attrs;
   }
 
   private eventToLogRecord(event: TelemetryEvent): OtlpLogRecord {
