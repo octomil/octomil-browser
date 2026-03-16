@@ -35,6 +35,31 @@ export interface ControlClientOptions {
   telemetry?: TelemetryReporter | null;
 }
 
+/** Per-artifact status in an observed state report. */
+export interface ArtifactStatus {
+  artifactId: string;
+  status: string;
+  bytesDownloaded?: number;
+  totalBytes?: number;
+  errorCode?: string;
+}
+
+/** Server-authoritative desired state for this device. */
+export interface DesiredState {
+  schemaVersion: string;
+  deviceId: string;
+  generatedAt: string;
+  activeBinding?: Record<string, unknown>;
+  artifacts?: Array<Record<string, unknown>>;
+  policyConfig?: Record<string, unknown>;
+  federationOffers?: Array<{
+    roundId: string;
+    jobId: string;
+    expiresAt: string;
+  }>;
+  gcEligibleArtifactIds?: string[];
+}
+
 // ---------------------------------------------------------------------------
 // ControlClient
 // ---------------------------------------------------------------------------
@@ -203,6 +228,91 @@ export class ControlClient {
       server_time?: string;
     };
     return { status: data.status || "ok", serverTime: data.server_time };
+  }
+
+  /**
+   * Report observed device state to the server (GAP-05).
+   * POSTs artifact statuses and runtime metadata to
+   * `/api/v1/devices/{id}/observed-state`.
+   */
+  async reportObservedState(
+    artifactStatuses: ArtifactStatus[] = [],
+  ): Promise<void> {
+    if (!this.serverDeviceId) {
+      throw new OctomilError("INVALID_INPUT", "Device not registered");
+    }
+
+    const payload = {
+      schemaVersion: "1.4.0",
+      deviceId: this.serverDeviceId,
+      reportedAt: new Date().toISOString(),
+      artifactStatuses,
+      sdkVersion: "1.0.0",
+      osVersion:
+        typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
+    };
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (this.apiKey) headers["Authorization"] = `Bearer ${this.apiKey}`;
+
+    let resp: Response;
+    try {
+      resp = await fetch(
+        `${this.serverUrl}/api/v1/devices/${this.serverDeviceId}/observed-state`,
+        { method: "POST", headers, body: JSON.stringify(payload) },
+      );
+    } catch (err) {
+      throw new OctomilError(
+        "NETWORK_UNAVAILABLE",
+        `Report observed state failed: ${String(err)}`,
+        err,
+      );
+    }
+
+    if (!resp.ok) {
+      throw new OctomilError(
+        "NETWORK_UNAVAILABLE",
+        `Report observed state failed: ${resp.status}`,
+      );
+    }
+  }
+
+  /**
+   * Fetch server-authoritative desired state (GAP-13).
+   * GETs `/api/v1/devices/{id}/desired-state`.
+   */
+  async fetchDesiredState(): Promise<DesiredState> {
+    if (!this.serverDeviceId) {
+      throw new OctomilError("INVALID_INPUT", "Device not registered");
+    }
+
+    const headers: Record<string, string> = {};
+    if (this.apiKey) headers["Authorization"] = `Bearer ${this.apiKey}`;
+
+    let resp: Response;
+    try {
+      resp = await fetch(
+        `${this.serverUrl}/api/v1/devices/${this.serverDeviceId}/desired-state`,
+        { headers },
+      );
+    } catch (err) {
+      throw new OctomilError(
+        "NETWORK_UNAVAILABLE",
+        `Fetch desired state failed: ${String(err)}`,
+        err,
+      );
+    }
+
+    if (!resp.ok) {
+      throw new OctomilError(
+        "NETWORK_UNAVAILABLE",
+        `Fetch desired state failed: ${resp.status}`,
+      );
+    }
+
+    return (await resp.json()) as DesiredState;
   }
 
   /** Start periodic heartbeats at the given interval. */
