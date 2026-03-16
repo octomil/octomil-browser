@@ -140,6 +140,9 @@ export {
   dequantize,
 } from "./privacy.js";
 
+// Install ID (telemetry resource attribute)
+export { getInstallId, resetInstallIdCache } from "./install-id.js";
+
 // Gradient cache
 export { GradientCache } from "./gradient-cache.js";
 
