@@ -48,7 +48,6 @@ export interface ControlSyncResult {
   updated: boolean;
   configVersion: string;
   assignmentsChanged: boolean;
-  rolloutsChanged: boolean;
   /** ISO-8601 timestamp of when the data was fetched. */
   fetchedAt: string;
 }
@@ -385,24 +384,6 @@ export interface GradientCacheEntry {
 }
 
 // ---------------------------------------------------------------------------
-// Rollouts
-// ---------------------------------------------------------------------------
-
-export type RolloutStatus = "pending" | "canary" | "active" | "rolled_back";
-
-export interface RolloutVersion {
-  version: string;
-  status: RolloutStatus;
-  percentage: number;
-  createdAt: string;
-}
-
-export interface RolloutConfig {
-  modelId: string;
-  versions: RolloutVersion[];
-}
-
-// ---------------------------------------------------------------------------
 // Experiments / A/B Testing
 // ---------------------------------------------------------------------------
 
@@ -519,8 +500,20 @@ export interface EmbeddingUsage {
 // Errors
 // ---------------------------------------------------------------------------
 
-import { ErrorCode, ERROR_CLASSIFICATION, type ErrorCategory, type RetryClass, type SuggestedAction, type ErrorClassification } from "./_generated/error_code.js";
-export type { ErrorCategory, RetryClass, SuggestedAction, ErrorClassification } from "./_generated/error_code.js";
+import {
+  ErrorCode,
+  ERROR_CLASSIFICATION,
+  type ErrorCategory,
+  type RetryClass,
+  type SuggestedAction,
+  type ErrorClassification,
+} from "./_generated/error_code.js";
+export type {
+  ErrorCategory,
+  RetryClass,
+  SuggestedAction,
+  ErrorClassification,
+} from "./_generated/error_code.js";
 
 /**
  * Canonical error codes — 36 codes from octomil-contracts.
@@ -622,9 +615,13 @@ export const ERROR_CODE_MAP: Readonly<Record<ErrorCode, OctomilErrorCode>> = {
 } as const;
 
 /** Reverse map: SDK error code -> contract ErrorCode. */
-const SDK_TO_CONTRACT: Readonly<Partial<Record<OctomilErrorCode, ErrorCode>>> = Object.fromEntries(
-  Object.entries(ERROR_CODE_MAP).map(([k, v]) => [v, k as unknown as ErrorCode]),
-) as Partial<Record<OctomilErrorCode, ErrorCode>>;
+const SDK_TO_CONTRACT: Readonly<Partial<Record<OctomilErrorCode, ErrorCode>>> =
+  Object.fromEntries(
+    Object.entries(ERROR_CODE_MAP).map(([k, v]) => [
+      v,
+      k as unknown as ErrorCode,
+    ]),
+  ) as Partial<Record<OctomilErrorCode, ErrorCode>>;
 
 /** Structured error thrown by the SDK. */
 export class OctomilError extends Error {
@@ -693,7 +690,10 @@ export class OctomilError extends Error {
       case 400:
         return new OctomilError(ERROR_CODE_MAP[ErrorCode.InvalidInput], msg);
       case 401:
-        return new OctomilError(ERROR_CODE_MAP[ErrorCode.AuthenticationFailed], msg);
+        return new OctomilError(
+          ERROR_CODE_MAP[ErrorCode.AuthenticationFailed],
+          msg,
+        );
       case 403:
         return new OctomilError(ERROR_CODE_MAP[ErrorCode.Forbidden], msg);
       case 404:

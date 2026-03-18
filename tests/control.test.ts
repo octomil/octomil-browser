@@ -114,7 +114,9 @@ describe("ControlClient", () => {
       });
 
       await expect(client.register("d1")).rejects.toThrow(OctomilError);
-      await expect(client.register("d1")).rejects.toThrow("Registration failed");
+      await expect(client.register("d1")).rejects.toThrow(
+        "Registration failed",
+      );
     });
 
     it("throws on network failure", async () => {
@@ -182,10 +184,7 @@ describe("ControlClient", () => {
     });
 
     it("throws on HTTP error during heartbeat", async () => {
-      mockFetchSequence([
-        { body: { id: "srv-1" } },
-        { body: {}, status: 503 },
-      ]);
+      mockFetchSequence([{ body: { id: "srv-1" } }, { body: {}, status: 503 }]);
 
       const client = new ControlClient({
         serverUrl: "https://api.test.com",
@@ -226,7 +225,7 @@ describe("ControlClient", () => {
       expect(result.updated).toBe(false);
       expect(result.configVersion).toBe("");
       expect(result.assignmentsChanged).toBe(false);
-      expect(result.rolloutsChanged).toBe(false);
+
       expect(result.fetchedAt).toBeTruthy();
     });
 
@@ -238,7 +237,6 @@ describe("ControlClient", () => {
             updated: true,
             config_version: "v42",
             assignments_changed: true,
-            rollouts_changed: false,
           },
         },
       ]);
@@ -254,21 +252,16 @@ describe("ControlClient", () => {
       expect(result.updated).toBe(true);
       expect(result.configVersion).toBe("v42");
       expect(result.assignmentsChanged).toBe(true);
-      expect(result.rolloutsChanged).toBe(false);
+
       expect(result.fetchedAt).toBeTruthy();
 
       const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
       const [url] = fetchMock.mock.calls[1]!;
-      expect(url).toBe(
-        "https://api.test.com/api/v1/devices/srv-1/assignments",
-      );
+      expect(url).toBe("https://api.test.com/api/v1/devices/srv-1/assignments");
     });
 
     it("returns defaults when server omits optional fields", async () => {
-      mockFetchSequence([
-        { body: { id: "srv-1" } },
-        { body: {} },
-      ]);
+      mockFetchSequence([{ body: { id: "srv-1" } }, { body: {} }]);
 
       const client = new ControlClient({
         serverUrl: "https://api.test.com",
@@ -280,14 +273,10 @@ describe("ControlClient", () => {
       expect(result.updated).toBe(true);
       expect(result.configVersion).toBe("");
       expect(result.assignmentsChanged).toBe(false);
-      expect(result.rolloutsChanged).toBe(false);
     });
 
     it("throws on HTTP error during refresh", async () => {
-      mockFetchSequence([
-        { body: { id: "srv-1" } },
-        { body: {}, status: 500 },
-      ]);
+      mockFetchSequence([{ body: { id: "srv-1" } }, { body: {}, status: 500 }]);
 
       const client = new ControlClient({
         serverUrl: "https://api.test.com",

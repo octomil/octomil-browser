@@ -26,7 +26,10 @@ export { OctomilClient } from "./octomil.js";
 export { OctomilAudio } from "./audio/octomil-audio.js";
 export { AudioTranscriptions } from "./audio/audio-transcriptions.js";
 export type { TranscriptionRequest } from "./audio/audio-transcriptions.js";
-export type { TranscriptionResult, TranscriptionSegment } from "./audio/transcription-types.js";
+export type {
+  TranscriptionResult,
+  TranscriptionSegment,
+} from "./audio/transcription-types.js";
 
 // Chat namespace (OpenAI-compatible chat completions)
 export { ChatClient, messagesToResponseInput } from "./chat.js";
@@ -77,8 +80,14 @@ export { configure, getDeviceContext } from "./configure.js";
 export type { ConfigureOptions } from "./configure.js";
 export { DeviceContext } from "./device-context.js";
 export type { RegistrationState, TokenState } from "./device-context.js";
-export type { SilentAuthConfig, PublishableKeyEnvironment } from "./silent-auth-config.js";
-export { validatePublishableKey, getPublishableKeyEnvironment } from "./silent-auth-config.js";
+export type {
+  SilentAuthConfig,
+  PublishableKeyEnvironment,
+} from "./silent-auth-config.js";
+export {
+  validatePublishableKey,
+  getPublishableKeyEnvironment,
+} from "./silent-auth-config.js";
 export type { MonitoringConfig } from "./monitoring-config.js";
 
 // Model integrity
@@ -89,7 +98,10 @@ export {
 } from "./integrity.js";
 
 // Responses namespace (Layer 2 — structured response API)
-export { ResponsesClient, generateId as generateResponseId } from "./responses.js";
+export {
+  ResponsesClient,
+  generateId as generateResponseId,
+} from "./responses.js";
 export type {
   ResponseRequest,
   ContentBlock,
@@ -146,9 +158,6 @@ export { getInstallId, resetInstallIdCache } from "./install-id.js";
 // Gradient cache
 export { GradientCache } from "./gradient-cache.js";
 
-// Rollouts
-export { RolloutsManager } from "./rollouts.js";
-
 // Experiments / A/B testing
 export { ExperimentsClient } from "./experiments.js";
 
@@ -189,9 +198,6 @@ export type {
   TrainingConfig,
   TrainStepResult,
   FederatedRound,
-  RolloutStatus,
-  RolloutVersion,
-  RolloutConfig,
   Experiment,
   ExperimentVariant,
   DeviceCapabilities,
@@ -226,7 +232,13 @@ export type {
 
 export type { QuantizedWeightMap } from "./privacy.js";
 
-export { OctomilError, ERROR_CODE_MAP, AuthType, PrincipalType, Scope } from "./types.js";
+export {
+  OctomilError,
+  ERROR_CODE_MAP,
+  AuthType,
+  PrincipalType,
+  Scope,
+} from "./types.js";
 
 // Contract-generated enums and constants (from octomil-contracts)
 export {

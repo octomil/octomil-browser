@@ -94,7 +94,6 @@ export class ControlClient {
         updated: false,
         configVersion: "",
         assignmentsChanged: false,
-        rolloutsChanged: false,
         fetchedAt: new Date().toISOString(),
       };
     }
@@ -115,14 +114,12 @@ export class ControlClient {
       updated?: boolean;
       config_version?: string;
       assignments_changed?: boolean;
-      rollouts_changed?: boolean;
     };
 
     return {
       updated: data.updated ?? true,
       configVersion: data.config_version ?? "",
       assignmentsChanged: data.assignments_changed ?? false,
-      rolloutsChanged: data.rollouts_changed ?? false,
       fetchedAt: new Date().toISOString(),
     };
   }
