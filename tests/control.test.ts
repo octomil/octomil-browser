@@ -368,4 +368,161 @@ describe("ControlClient", () => {
       expect(client.registeredDeviceId).toBe("srv-42");
     });
   });
+
+  describe("fetchDesiredState", () => {
+    it("fetches desired state and returns typed response", async () => {
+      const desired = {
+        schemaVersion: "1.4.0",
+        deviceId: "srv-1",
+        generatedAt: "2026-03-18T12:00:00Z",
+        activeBinding: { modelId: "phi-4-mini" },
+        artifacts: [{ modelId: "phi-4-mini", desiredVersion: "1.0" }],
+        gcEligibleArtifactIds: ["old-1"],
+      };
+
+      mockFetchSequence([
+        { body: { id: "srv-1" } },
+        { body: desired },
+      ]);
+
+      const client = new ControlClient({
+        serverUrl: "https://api.test.com",
+        apiKey: "key-1",
+      });
+
+      await client.register("d1");
+      const result = await client.fetchDesiredState();
+
+      expect(result.schemaVersion).toBe("1.4.0");
+      expect(result.deviceId).toBe("srv-1");
+      expect(result.artifacts).toHaveLength(1);
+      expect(result.gcEligibleArtifactIds).toEqual(["old-1"]);
+
+      const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
+      const [url] = fetchMock.mock.calls[1]!;
+      expect(url).toBe("https://api.test.com/api/v1/devices/srv-1/desired-state");
+    });
+
+    it("throws when device is not registered", async () => {
+      const client = new ControlClient({});
+      await expect(client.fetchDesiredState()).rejects.toThrow("Device not registered");
+    });
+
+    it("throws on HTTP error", async () => {
+      mockFetchSequence([
+        { body: { id: "srv-1" } },
+        { body: {}, status: 500 },
+      ]);
+
+      const client = new ControlClient({
+        serverUrl: "https://api.test.com",
+      });
+
+      await client.register("d1");
+      await expect(client.fetchDesiredState()).rejects.toThrow("Fetch desired state failed");
+    });
+
+    it("throws on network failure", async () => {
+      let callCount = 0;
+      globalThis.fetch = vi.fn(async () => {
+        callCount++;
+        if (callCount === 1) {
+          return { ok: true, status: 200, json: async () => ({ id: "srv-1" }) };
+        }
+        throw new TypeError("Network down");
+      }) as unknown as typeof fetch;
+
+      const client = new ControlClient({
+        serverUrl: "https://api.test.com",
+      });
+
+      await client.register("d1");
+      await expect(client.fetchDesiredState()).rejects.toThrow(OctomilError);
+    });
+  });
+
+  describe("reportObservedState", () => {
+    it("sends observed state to the server", async () => {
+      mockFetchSequence([
+        { body: { id: "srv-1" } },
+        { body: {} },
+      ]);
+
+      const client = new ControlClient({
+        serverUrl: "https://api.test.com",
+        apiKey: "key-1",
+      });
+
+      await client.register("d1");
+      await client.reportObservedState([
+        { artifactId: "phi-4-mini", status: "active" },
+      ]);
+
+      const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
+      const [url, init] = fetchMock.mock.calls[1]!;
+      expect(url).toBe("https://api.test.com/api/v1/devices/srv-1/observed-state");
+      expect(init.method).toBe("POST");
+
+      const body = JSON.parse(init.body);
+      expect(body.schemaVersion).toBe("1.4.0");
+      expect(body.deviceId).toBe("srv-1");
+      expect(body.artifactStatuses).toHaveLength(1);
+      expect(body.artifactStatuses[0].artifactId).toBe("phi-4-mini");
+    });
+
+    it("sends empty statuses by default", async () => {
+      mockFetchSequence([
+        { body: { id: "srv-1" } },
+        { body: {} },
+      ]);
+
+      const client = new ControlClient({
+        serverUrl: "https://api.test.com",
+      });
+
+      await client.register("d1");
+      await client.reportObservedState();
+
+      const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
+      const body = JSON.parse(fetchMock.mock.calls[1]![1].body);
+      expect(body.artifactStatuses).toEqual([]);
+    });
+
+    it("throws when device is not registered", async () => {
+      const client = new ControlClient({});
+      await expect(client.reportObservedState()).rejects.toThrow("Device not registered");
+    });
+
+    it("throws on HTTP error", async () => {
+      mockFetchSequence([
+        { body: { id: "srv-1" } },
+        { body: {}, status: 500 },
+      ]);
+
+      const client = new ControlClient({
+        serverUrl: "https://api.test.com",
+      });
+
+      await client.register("d1");
+      await expect(client.reportObservedState()).rejects.toThrow("Report observed state failed");
+    });
+
+    it("throws on network failure", async () => {
+      let callCount = 0;
+      globalThis.fetch = vi.fn(async () => {
+        callCount++;
+        if (callCount === 1) {
+          return { ok: true, status: 200, json: async () => ({ id: "srv-1" }) };
+        }
+        throw new TypeError("Network down");
+      }) as unknown as typeof fetch;
+
+      const client = new ControlClient({
+        serverUrl: "https://api.test.com",
+      });
+
+      await client.register("d1");
+      await expect(client.reportObservedState()).rejects.toThrow(OctomilError);
+    });
+  });
 });
