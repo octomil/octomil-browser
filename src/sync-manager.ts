@@ -9,29 +9,17 @@
  * Opt-in: consumers create and start the SyncManager explicitly.
  */
 
-import type { ControlClient, DesiredState, ArtifactStatus } from "./control.js";
+import type { ControlClient, DesiredState, DesiredModelEntry, ObservedModelStatus } from "./control.js";
 import type { ModelCache } from "./cache.js";
 import { computeHash } from "./integrity.js";
 import { OctomilError } from "./types.js";
 
+// Re-export for convenience
+export type { DesiredModelEntry } from "./control.js";
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-/** Per-model entry within the desired state. */
-export interface DesiredModelEntry {
-  modelId: string;
-  desiredVersion: string;
-  currentChannel?: string;
-  deliveryMode?: string;
-  activationPolicy?: string;
-  artifactManifest?: {
-    downloadUrl: string;
-    sizeBytes?: number;
-    sha256?: string;
-  };
-  rolloutId?: string;
-}
 
 /** Persisted metadata for a locally cached model artifact. */
 export interface LocalModelMeta {
@@ -260,16 +248,7 @@ export class SyncManager {
   // -----------------------------------------------------------------------
 
   private parseDesiredEntries(desired: DesiredState): DesiredModelEntry[] {
-    if (!desired.artifacts || !Array.isArray(desired.artifacts)) return [];
-    return desired.artifacts.map((a) => ({
-      modelId: (a as Record<string, unknown>)["modelId"] as string,
-      desiredVersion: (a as Record<string, unknown>)["desiredVersion"] as string,
-      currentChannel: (a as Record<string, unknown>)["currentChannel"] as string | undefined,
-      deliveryMode: (a as Record<string, unknown>)["deliveryMode"] as string | undefined,
-      activationPolicy: (a as Record<string, unknown>)["activationPolicy"] as string | undefined,
-      artifactManifest: (a as Record<string, unknown>)["artifactManifest"] as DesiredModelEntry["artifactManifest"],
-      rolloutId: (a as Record<string, unknown>)["rolloutId"] as string | undefined,
-    }));
+    return desired.models;
   }
 
   private async reconcileEntry(
@@ -406,13 +385,14 @@ export class SyncManager {
 
   private async reportState(): Promise<void> {
     const allLocal = await this.meta.getAll();
-    const statuses: ArtifactStatus[] = allLocal.map((m) => ({
-      artifactId: m.modelId,
+    const models: ObservedModelStatus[] = allLocal.map((m) => ({
+      modelId: m.modelId,
       status: m.status,
+      version: m.modelVersion,
     }));
 
     try {
-      await this.control.reportObservedState(statuses);
+      await this.control.reportObservedState(models);
     } catch {
       // best-effort — don't fail the sync cycle for report failures
     }

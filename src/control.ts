@@ -35,13 +35,33 @@ export interface ControlClientOptions {
   telemetry?: TelemetryReporter | null;
 }
 
-/** Per-artifact status in an observed state report. */
-export interface ArtifactStatus {
-  artifactId: string;
+/** Per-model status in an observed state report. */
+export interface ObservedModelStatus {
+  modelId: string;
   status: string;
+  version?: string;
   bytesDownloaded?: number;
   totalBytes?: number;
   errorCode?: string;
+}
+
+/** Per-model entry in server-authoritative desired state. */
+export interface DesiredModelEntry {
+  modelId: string;
+  desiredVersion: string;
+  currentChannel?: string;
+  deliveryMode?: string;
+  activationPolicy?: string;
+  enginePolicy?: {
+    allowed?: string[];
+    forced?: string;
+  };
+  artifactManifest?: {
+    downloadUrl: string;
+    sizeBytes?: number;
+    sha256?: string;
+  };
+  rolloutId?: string;
 }
 
 /** Server-authoritative desired state for this device. */
@@ -50,7 +70,7 @@ export interface DesiredState {
   deviceId: string;
   generatedAt: string;
   activeBinding?: Record<string, unknown>;
-  artifacts?: Array<Record<string, unknown>>;
+  models: DesiredModelEntry[];
   policyConfig?: Record<string, unknown>;
   federationOffers?: Array<{
     roundId: string;
@@ -229,14 +249,14 @@ export class ControlClient {
 
   /**
    * Report observed device state to the server (GAP-05).
-   * POSTs artifact statuses and runtime metadata to
+   * POSTs per-model statuses and runtime metadata to
    * `/api/v1/devices/{id}/observed-state`.
    *
    * Typically called by {@link SyncManager} after a reconcile cycle, but can
    * also be invoked manually for custom reporting.
    */
   async reportObservedState(
-    artifactStatuses: ArtifactStatus[] = [],
+    models: ObservedModelStatus[] = [],
   ): Promise<void> {
     if (!this.serverDeviceId) {
       throw new OctomilError("INVALID_INPUT", "Device not registered");
@@ -246,7 +266,7 @@ export class ControlClient {
       schemaVersion: "1.4.0",
       deviceId: this.serverDeviceId,
       reportedAt: new Date().toISOString(),
-      artifactStatuses,
+      models,
       sdkVersion: "1.0.0",
       osVersion:
         typeof navigator !== "undefined" ? navigator.userAgent : "unknown",

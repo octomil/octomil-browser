@@ -69,6 +69,9 @@ export type {
   DeviceRegistration,
   HeartbeatResponse,
   ControlClientOptions,
+  DesiredState,
+  DesiredModelEntry,
+  ObservedModelStatus,
 } from "./control.js";
 export type { ControlSyncResult } from "./types.js";
 
@@ -78,7 +81,6 @@ export type {
   SyncManagerOptions,
   SyncEvent,
   SyncEventListener,
-  DesiredModelEntry,
   LocalModelMeta,
 } from "./sync-manager.js";
 

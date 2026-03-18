@@ -376,7 +376,7 @@ describe("ControlClient", () => {
         deviceId: "srv-1",
         generatedAt: "2026-03-18T12:00:00Z",
         activeBinding: { modelId: "phi-4-mini" },
-        artifacts: [{ modelId: "phi-4-mini", desiredVersion: "1.0" }],
+        models: [{ modelId: "phi-4-mini", desiredVersion: "1.0" }],
         gcEligibleArtifactIds: ["old-1"],
       };
 
@@ -395,7 +395,7 @@ describe("ControlClient", () => {
 
       expect(result.schemaVersion).toBe("1.4.0");
       expect(result.deviceId).toBe("srv-1");
-      expect(result.artifacts).toHaveLength(1);
+      expect(result.models).toHaveLength(1);
       expect(result.gcEligibleArtifactIds).toEqual(["old-1"]);
 
       const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
@@ -455,7 +455,7 @@ describe("ControlClient", () => {
 
       await client.register("d1");
       await client.reportObservedState([
-        { artifactId: "phi-4-mini", status: "active" },
+        { modelId: "phi-4-mini", status: "active", version: "1.0" },
       ]);
 
       const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
@@ -466,8 +466,8 @@ describe("ControlClient", () => {
       const body = JSON.parse(init.body);
       expect(body.schemaVersion).toBe("1.4.0");
       expect(body.deviceId).toBe("srv-1");
-      expect(body.artifactStatuses).toHaveLength(1);
-      expect(body.artifactStatuses[0].artifactId).toBe("phi-4-mini");
+      expect(body.models).toHaveLength(1);
+      expect(body.models[0].modelId).toBe("phi-4-mini");
     });
 
     it("sends empty statuses by default", async () => {
@@ -485,7 +485,7 @@ describe("ControlClient", () => {
 
       const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
       const body = JSON.parse(fetchMock.mock.calls[1]![1].body);
-      expect(body.artifactStatuses).toEqual([]);
+      expect(body.models).toEqual([]);
     });
 
     it("throws when device is not registered", async () => {

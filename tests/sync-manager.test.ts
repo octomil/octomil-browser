@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { SyncManager } from "../src/sync-manager.js";
 import type { SyncEvent, LocalModelMeta } from "../src/sync-manager.js";
-import type { ControlClient, DesiredState, ArtifactStatus } from "../src/control.js";
+import type { ControlClient, DesiredState, ObservedModelStatus } from "../src/control.js";
 import type { ModelCache } from "../src/cache.js";
 import type { CacheInfo } from "../src/types.js";
 
@@ -19,9 +19,9 @@ function createMockControl(overrides: Partial<ControlClient> = {}): ControlClien
       schemaVersion: "1.4.0",
       deviceId: "dev-1",
       generatedAt: new Date().toISOString(),
-      artifacts: [],
+      models: [],
     }),
-    reportObservedState: vi.fn<[ArtifactStatus[]], Promise<void>>().mockResolvedValue(undefined),
+    reportObservedState: vi.fn<[ObservedModelStatus[]], Promise<void>>().mockResolvedValue(undefined),
     register: vi.fn(),
     heartbeat: vi.fn(),
     refresh: vi.fn(),
@@ -144,14 +144,14 @@ function installFakeIndexedDB() {
 // ---------------------------------------------------------------------------
 
 function makeDesiredState(
-  artifacts: Record<string, unknown>[] = [],
+  models: Array<Record<string, unknown>> = [],
   gcEligibleArtifactIds: string[] = [],
 ): DesiredState {
   return {
     schemaVersion: "1.4.0",
     deviceId: "dev-1",
     generatedAt: new Date().toISOString(),
-    artifacts,
+    models: models as DesiredState["models"],
     gcEligibleArtifactIds,
   };
 }
@@ -261,9 +261,9 @@ describe("SyncManager", () => {
       );
 
       // Verify reported state
-      const reportCall = (control.reportObservedState as ReturnType<typeof vi.fn>).mock.calls[0]![0] as ArtifactStatus[];
+      const reportCall = (control.reportObservedState as ReturnType<typeof vi.fn>).mock.calls[0]![0] as ObservedModelStatus[];
       expect(reportCall).toContainEqual(
-        expect.objectContaining({ artifactId: "phi-4-mini", status: "active" }),
+        expect.objectContaining({ modelId: "phi-4-mini", status: "active", version: "1.0" }),
       );
     });
 
@@ -743,7 +743,7 @@ describe("SyncManager", () => {
   describe("reportObservedState failure tolerance", () => {
     it("does not fail sync when reportObservedState throws", async () => {
       const control = createMockControl({
-        reportObservedState: vi.fn<[ArtifactStatus[]], Promise<void>>().mockRejectedValue(
+        reportObservedState: vi.fn<[ObservedModelStatus[]], Promise<void>>().mockRejectedValue(
           new Error("Report failed"),
         ),
       });
