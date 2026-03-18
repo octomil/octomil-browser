@@ -231,6 +231,9 @@ export class ControlClient {
    * Report observed device state to the server (GAP-05).
    * POSTs artifact statuses and runtime metadata to
    * `/api/v1/devices/{id}/observed-state`.
+   *
+   * Typically called by {@link SyncManager} after a reconcile cycle, but can
+   * also be invoked manually for custom reporting.
    */
   async reportObservedState(
     artifactStatuses: ArtifactStatus[] = [],
@@ -279,6 +282,9 @@ export class ControlClient {
   /**
    * Fetch server-authoritative desired state (GAP-13).
    * GETs `/api/v1/devices/{id}/desired-state`.
+   *
+   * Typically called by {@link SyncManager} during reconciliation, but can
+   * also be invoked manually for inspection.
    */
   async fetchDesiredState(): Promise<DesiredState> {
     if (!this.serverDeviceId) {

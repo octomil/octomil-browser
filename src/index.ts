@@ -72,6 +72,16 @@ export type {
 } from "./control.js";
 export type { ControlSyncResult } from "./types.js";
 
+// Sync (desired-state reconciliation)
+export { SyncManager } from "./sync-manager.js";
+export type {
+  SyncManagerOptions,
+  SyncEvent,
+  SyncEventListener,
+  DesiredModelEntry,
+  LocalModelMeta,
+} from "./sync-manager.js";
+
 // Device auth
 export { DeviceAuth } from "./device-auth.js";
 
