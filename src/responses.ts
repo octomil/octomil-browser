@@ -26,9 +26,25 @@ export interface ResponseRequest {
 }
 
 export interface ContentBlock {
-  type: "text" | "image";
+  type: "text" | "image" | "audio" | "video" | "file";
   text?: string;
+  /** Image URL for cloud inference */
   imageUrl?: string;
+  /** Base64-encoded binary data */
+  data?: string;
+  /** MIME type (e.g. "image/png", "audio/wav", "video/mp4") */
+  mediaType?: string;
+}
+
+/**
+ * Chat-level content part for the OpenAI-compatible messages array.
+ * Supports text, image_url (images and video frames), and input_audio.
+ */
+export interface ChatContentPart {
+  type: "text" | "image_url" | "input_audio";
+  text?: string;
+  image_url?: { url: string };
+  input_audio?: { data: string; format: string };
 }
 
 export interface ToolDef {
@@ -150,7 +166,11 @@ export class ResponsesClient {
         "network_error",
         String(err),
       );
-      throw new OctomilError("NETWORK_UNAVAILABLE", `Request failed: ${String(err)}`, err);
+      throw new OctomilError(
+        "NETWORK_UNAVAILABLE",
+        `Request failed: ${String(err)}`,
+        err,
+      );
     }
 
     if (!resp.ok) {
@@ -185,9 +205,7 @@ export class ResponsesClient {
   /**
    * Streaming response creation. Returns async generator of events.
    */
-  async *stream(
-    request: ResponseRequest,
-  ): AsyncGenerator<ResponseStreamEvent> {
+  async *stream(request: ResponseRequest): AsyncGenerator<ResponseStreamEvent> {
     const body = this.buildRequestBody(request, true);
     const url = `${this.serverUrl}/v1/chat/completions`;
 
@@ -221,7 +239,11 @@ export class ResponsesClient {
         "network_error",
         String(err),
       );
-      throw new OctomilError("NETWORK_UNAVAILABLE", `Request failed: ${String(err)}`, err);
+      throw new OctomilError(
+        "NETWORK_UNAVAILABLE",
+        `Request failed: ${String(err)}`,
+        err,
+      );
     }
 
     if (!resp.ok) {
@@ -271,10 +293,7 @@ export class ResponsesClient {
             const delta = choice.delta;
             if (delta?.content) {
               textParts.push(delta.content);
-              this.telemetry?.reportChunkProduced(
-                request.model,
-                chunkIndex,
-              );
+              this.telemetry?.reportChunkProduced(request.model, chunkIndex);
               chunkIndex++;
               yield {
                 type: "text_delta",
@@ -293,10 +312,7 @@ export class ResponsesClient {
                   existing.arguments += tc.function.arguments;
                 toolCallBuffers.set(tc.index, existing);
 
-                this.telemetry?.reportChunkProduced(
-                  request.model,
-                  chunkIndex,
-                );
+                this.telemetry?.reportChunkProduced(request.model, chunkIndex);
                 chunkIndex++;
                 yield {
                   type: "tool_call_delta",
@@ -382,8 +398,13 @@ export class ResponsesClient {
     };
   }
 
-  private buildMessages(request: ResponseRequest) {
-    const messages: Array<{ role: string; content: string }> = [];
+  private buildMessages(
+    request: ResponseRequest,
+  ): Array<{ role: string; content: string | ChatContentPart[] }> {
+    const messages: Array<{
+      role: string;
+      content: string | ChatContentPart[];
+    }> = [];
 
     // Add instructions as system message.
     if (request.instructions) {
@@ -408,29 +429,99 @@ export class ResponsesClient {
     if (typeof request.input === "string") {
       messages.push({ role: "user", content: request.input });
     } else {
-      const text = request.input
-        .filter((b) => b.type === "text" && b.text)
-        .map((b) => b.text!)
-        .join("\n");
-      if (text) messages.push({ role: "user", content: text });
+      const parts = request.input.map((block) =>
+        this.contentBlockToPart(block),
+      );
+      messages.push({ role: "user", content: parts });
     }
 
     return messages;
+  }
+
+  /**
+   * Map a public ContentBlock to an OpenAI-compatible ChatContentPart.
+   */
+  private contentBlockToPart(block: ContentBlock): ChatContentPart {
+    switch (block.type) {
+      case "text":
+        return { type: "text", text: block.text ?? "" };
+
+      case "image":
+        if (block.imageUrl) {
+          return { type: "image_url", image_url: { url: block.imageUrl } };
+        }
+        if (block.data) {
+          const mime = block.mediaType ?? "image/png";
+          return {
+            type: "image_url",
+            image_url: { url: `data:${mime};base64,${block.data}` },
+          };
+        }
+        return { type: "text", text: block.text ?? "[image]" };
+
+      case "audio":
+        if (block.data) {
+          const audioMime = block.mediaType ?? "audio/wav";
+          const format = audioMime.split("/")[1] ?? "wav";
+          return {
+            type: "input_audio",
+            input_audio: { data: block.data, format },
+          };
+        }
+        return { type: "text", text: block.text ?? "[audio]" };
+
+      case "video":
+        if (block.data) {
+          const videoMime = block.mediaType ?? "video/mp4";
+          return {
+            type: "image_url",
+            image_url: { url: `data:${videoMime};base64,${block.data}` },
+          };
+        }
+        return { type: "text", text: block.text ?? "[video]" };
+
+      case "file": {
+        const mime = block.mediaType ?? "";
+        if (block.data && mime.startsWith("image/")) {
+          return {
+            type: "image_url",
+            image_url: { url: `data:${mime};base64,${block.data}` },
+          };
+        }
+        if (block.data && mime.startsWith("audio/")) {
+          const format = mime.split("/")[1] ?? "wav";
+          return {
+            type: "input_audio",
+            input_audio: { data: block.data, format },
+          };
+        }
+        if (block.data && mime.startsWith("video/")) {
+          return {
+            type: "image_url",
+            image_url: { url: `data:${mime};base64,${block.data}` },
+          };
+        }
+        // Fallback: treat as text placeholder
+        return {
+          type: "text",
+          text: block.text ?? `[file: ${mime || "unknown"}]`,
+        };
+      }
+
+      default:
+        return { type: "text", text: block.text ?? "" };
+    }
   }
 
   private parseResponse(
     model: string,
     data: Record<string, unknown>,
   ): Response {
-    const choices = data.choices as
-      | Array<Record<string, unknown>>
-      | undefined;
+    const choices = data.choices as Array<Record<string, unknown>> | undefined;
     const choice = choices?.[0];
     const output: ResponseOutput[] = [];
 
-    const message = choice?.message as
-      | Record<string, unknown>
-      | undefined;
+    const message = choice?.message as Record<string, unknown> | undefined;
 
     if (message?.content) {
       output.push({ type: "text", text: message.content as string });
@@ -451,15 +542,18 @@ export class ResponsesClient {
     }
 
     const usage = data.usage as
-      | { prompt_tokens: number; completion_tokens: number; total_tokens: number }
+      | {
+          prompt_tokens: number;
+          completion_tokens: number;
+          total_tokens: number;
+        }
       | undefined;
 
     return {
       id: (data.id as string) || generateId(),
       model,
       output,
-      finishReason:
-        (choice?.finish_reason as string) || "stop",
+      finishReason: (choice?.finish_reason as string) || "stop",
       usage: usage
         ? {
             promptTokens: usage.prompt_tokens,

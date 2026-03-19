@@ -28,7 +28,11 @@ function chatCompletionResponse(
       id: string;
       function: { name: string; arguments: string };
     }>;
-    usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+    usage?: {
+      prompt_tokens: number;
+      completion_tokens: number;
+      total_tokens: number;
+    };
   } = {},
 ): globalThis.Response {
   const body: Record<string, unknown> = {
@@ -39,7 +43,14 @@ function chatCompletionResponse(
         message: {
           role: "assistant",
           content,
-          ...(opts.toolCalls ? { tool_calls: opts.toolCalls.map((tc) => ({ ...tc, type: "function" })) } : {}),
+          ...(opts.toolCalls
+            ? {
+                tool_calls: opts.toolCalls.map((tc) => ({
+                  ...tc,
+                  type: "function",
+                })),
+              }
+            : {}),
         },
         finish_reason: opts.finishReason ?? "stop",
       },
@@ -187,7 +198,7 @@ describe("ResponsesClient.create()", () => {
     expect(body.messages[1]).toEqual({ role: "user", content: "Hi" });
   });
 
-  it("builds messages from ContentBlock array input", async () => {
+  it("builds messages from ContentBlock array input (text blocks)", async () => {
     fetchSpy.mockResolvedValue(chatCompletionResponse("ok"));
 
     const client = new ResponsesClient();
@@ -200,10 +211,246 @@ describe("ResponsesClient.create()", () => {
     });
 
     const body = JSON.parse(fetchSpy.mock.calls[0]![1].body);
-    expect(body.messages).toContainEqual({
-      role: "user",
-      content: "Hello\nWorld",
+    const userMsg = body.messages.find(
+      (m: { role: string }) => m.role === "user",
+    );
+    expect(userMsg.content).toEqual([
+      { type: "text", text: "Hello" },
+      { type: "text", text: "World" },
+    ]);
+  });
+
+  it("builds messages from ContentBlock with image URL", async () => {
+    fetchSpy.mockResolvedValue(chatCompletionResponse("ok"));
+
+    const client = new ResponsesClient();
+    await client.create({
+      model: "gpt-4",
+      input: [
+        { type: "text", text: "What is this?" },
+        { type: "image", imageUrl: "https://example.com/img.png" },
+      ],
     });
+
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1].body);
+    const userMsg = body.messages.find(
+      (m: { role: string }) => m.role === "user",
+    );
+    expect(userMsg.content).toEqual([
+      { type: "text", text: "What is this?" },
+      { type: "image_url", image_url: { url: "https://example.com/img.png" } },
+    ]);
+  });
+
+  it("builds messages from ContentBlock with base64 image", async () => {
+    fetchSpy.mockResolvedValue(chatCompletionResponse("ok"));
+
+    const client = new ResponsesClient();
+    await client.create({
+      model: "gpt-4",
+      input: [{ type: "image", data: "iVBORw0KGgo=", mediaType: "image/png" }],
+    });
+
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1].body);
+    const userMsg = body.messages.find(
+      (m: { role: string }) => m.role === "user",
+    );
+    expect(userMsg.content).toEqual([
+      {
+        type: "image_url",
+        image_url: { url: "data:image/png;base64,iVBORw0KGgo=" },
+      },
+    ]);
+  });
+
+  it("builds messages from ContentBlock with audio data", async () => {
+    fetchSpy.mockResolvedValue(chatCompletionResponse("ok"));
+
+    const client = new ResponsesClient();
+    await client.create({
+      model: "gpt-4",
+      input: [
+        { type: "text", text: "Transcribe this" },
+        { type: "audio", data: "UklGRg==", mediaType: "audio/wav" },
+      ],
+    });
+
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1].body);
+    const userMsg = body.messages.find(
+      (m: { role: string }) => m.role === "user",
+    );
+    expect(userMsg.content).toEqual([
+      { type: "text", text: "Transcribe this" },
+      { type: "input_audio", input_audio: { data: "UklGRg==", format: "wav" } },
+    ]);
+  });
+
+  it("builds messages from ContentBlock with video data", async () => {
+    fetchSpy.mockResolvedValue(chatCompletionResponse("ok"));
+
+    const client = new ResponsesClient();
+    await client.create({
+      model: "gpt-4",
+      input: [
+        { type: "text", text: "What happens in this video?" },
+        { type: "video", data: "AAAA", mediaType: "video/mp4" },
+      ],
+    });
+
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1].body);
+    const userMsg = body.messages.find(
+      (m: { role: string }) => m.role === "user",
+    );
+    expect(userMsg.content).toEqual([
+      { type: "text", text: "What happens in this video?" },
+      { type: "image_url", image_url: { url: "data:video/mp4;base64,AAAA" } },
+    ]);
+  });
+
+  it("builds messages from ContentBlock with file (image/* mediaType)", async () => {
+    fetchSpy.mockResolvedValue(chatCompletionResponse("ok"));
+
+    const client = new ResponsesClient();
+    await client.create({
+      model: "gpt-4",
+      input: [{ type: "file", data: "iVBORw0KGgo=", mediaType: "image/jpeg" }],
+    });
+
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1].body);
+    const userMsg = body.messages.find(
+      (m: { role: string }) => m.role === "user",
+    );
+    expect(userMsg.content).toEqual([
+      {
+        type: "image_url",
+        image_url: { url: "data:image/jpeg;base64,iVBORw0KGgo=" },
+      },
+    ]);
+  });
+
+  it("builds messages from ContentBlock with file (audio/* mediaType)", async () => {
+    fetchSpy.mockResolvedValue(chatCompletionResponse("ok"));
+
+    const client = new ResponsesClient();
+    await client.create({
+      model: "gpt-4",
+      input: [{ type: "file", data: "UklGRg==", mediaType: "audio/mp3" }],
+    });
+
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1].body);
+    const userMsg = body.messages.find(
+      (m: { role: string }) => m.role === "user",
+    );
+    expect(userMsg.content).toEqual([
+      { type: "input_audio", input_audio: { data: "UklGRg==", format: "mp3" } },
+    ]);
+  });
+
+  it("builds messages from ContentBlock with file (video/* mediaType)", async () => {
+    fetchSpy.mockResolvedValue(chatCompletionResponse("ok"));
+
+    const client = new ResponsesClient();
+    await client.create({
+      model: "gpt-4",
+      input: [{ type: "file", data: "AAAA", mediaType: "video/webm" }],
+    });
+
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1].body);
+    const userMsg = body.messages.find(
+      (m: { role: string }) => m.role === "user",
+    );
+    expect(userMsg.content).toEqual([
+      { type: "image_url", image_url: { url: "data:video/webm;base64,AAAA" } },
+    ]);
+  });
+
+  it("builds messages from ContentBlock with file (unknown mediaType falls back to text)", async () => {
+    fetchSpy.mockResolvedValue(chatCompletionResponse("ok"));
+
+    const client = new ResponsesClient();
+    await client.create({
+      model: "gpt-4",
+      input: [{ type: "file", data: "abc", mediaType: "application/pdf" }],
+    });
+
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1].body);
+    const userMsg = body.messages.find(
+      (m: { role: string }) => m.role === "user",
+    );
+    expect(userMsg.content).toEqual([
+      { type: "text", text: "[file: application/pdf]" },
+    ]);
+  });
+
+  it("falls back to text placeholder for audio block without data", async () => {
+    fetchSpy.mockResolvedValue(chatCompletionResponse("ok"));
+
+    const client = new ResponsesClient();
+    await client.create({
+      model: "gpt-4",
+      input: [{ type: "audio" }],
+    });
+
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1].body);
+    const userMsg = body.messages.find(
+      (m: { role: string }) => m.role === "user",
+    );
+    expect(userMsg.content).toEqual([{ type: "text", text: "[audio]" }]);
+  });
+
+  it("falls back to text placeholder for video block without data", async () => {
+    fetchSpy.mockResolvedValue(chatCompletionResponse("ok"));
+
+    const client = new ResponsesClient();
+    await client.create({
+      model: "gpt-4",
+      input: [{ type: "video" }],
+    });
+
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1].body);
+    const userMsg = body.messages.find(
+      (m: { role: string }) => m.role === "user",
+    );
+    expect(userMsg.content).toEqual([{ type: "text", text: "[video]" }]);
+  });
+
+  it("defaults audio mediaType to audio/wav when not specified", async () => {
+    fetchSpy.mockResolvedValue(chatCompletionResponse("ok"));
+
+    const client = new ResponsesClient();
+    await client.create({
+      model: "gpt-4",
+      input: [{ type: "audio", data: "UklGRg==" }],
+    });
+
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1].body);
+    const userMsg = body.messages.find(
+      (m: { role: string }) => m.role === "user",
+    );
+    expect(userMsg.content).toEqual([
+      { type: "input_audio", input_audio: { data: "UklGRg==", format: "wav" } },
+    ]);
+  });
+
+  it("defaults image mediaType to image/png when not specified", async () => {
+    fetchSpy.mockResolvedValue(chatCompletionResponse("ok"));
+
+    const client = new ResponsesClient();
+    await client.create({
+      model: "gpt-4",
+      input: [{ type: "image", data: "iVBORw0KGgo=" }],
+    });
+
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1].body);
+    const userMsg = body.messages.find(
+      (m: { role: string }) => m.role === "user",
+    );
+    expect(userMsg.content).toEqual([
+      {
+        type: "image_url",
+        image_url: { url: "data:image/png;base64,iVBORw0KGgo=" },
+      },
+    ]);
   });
 
   it("throws OctomilError on HTTP error", async () => {
@@ -357,9 +604,7 @@ describe("ResponsesClient.create()", () => {
       tracked.push(e);
     });
 
-    fetchSpy.mockResolvedValue(
-      new globalThis.Response("err", { status: 500 }),
-    );
+    fetchSpy.mockResolvedValue(new globalThis.Response("err", { status: 500 }));
 
     const client = new ResponsesClient({ telemetry });
     try {
@@ -481,9 +726,7 @@ describe("ResponsesClient.stream()", () => {
     const done = events[2] as DoneEvent;
     expect(done.response.finishReason).toBe("tool_calls");
     expect(done.response.output).toHaveLength(1);
-    expect(done.response.output[0]!.toolCall!.arguments).toBe(
-      '{"city":"NYC"}',
-    );
+    expect(done.response.output[0]!.toolCall!.arguments).toBe('{"city":"NYC"}');
   });
 
   it("includes usage in done event when present in chunks", async () => {
@@ -517,9 +760,7 @@ describe("ResponsesClient.stream()", () => {
 
   it("sends stream: true in request body", async () => {
     fetchSpy.mockResolvedValue(
-      sseStreamResponse([
-        { choices: [{ delta: { content: "x" } }] },
-      ]),
+      sseStreamResponse([{ choices: [{ delta: { content: "x" } }] }]),
     );
 
     const client = new ResponsesClient({
@@ -568,9 +809,7 @@ describe("ResponsesClient.stream()", () => {
   });
 
   it("throws OctomilError when response body is null", async () => {
-    fetchSpy.mockResolvedValue(
-      new globalThis.Response(null, { status: 200 }),
-    );
+    fetchSpy.mockResolvedValue(new globalThis.Response(null, { status: 200 }));
 
     const client = new ResponsesClient();
     await expect(async () => {
@@ -586,7 +825,7 @@ describe("ResponsesClient.stream()", () => {
   it("skips malformed SSE data lines gracefully", async () => {
     const encoder = new TextEncoder();
     const lines =
-      "data: not-json\ndata: {\"choices\":[{\"delta\":{\"content\":\"ok\"}}]}\ndata: [DONE]\n";
+      'data: not-json\ndata: {"choices":[{"delta":{"content":"ok"}}]}\ndata: [DONE]\n';
     const stream = new ReadableStream({
       start(controller) {
         controller.enqueue(encoder.encode(lines));

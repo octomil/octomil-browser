@@ -117,6 +117,7 @@ export {
 export type {
   ResponseRequest,
   ContentBlock,
+  ChatContentPart,
   ToolDef,
   ResponseOutput,
   Response as ResponseObject,
