@@ -8,7 +8,7 @@ Run ML models in the browser. WebGPU-accelerated, WASM fallback, zero server req
 
 ## What is this?
 
-A TypeScript SDK that runs ONNX models directly in the browser using WebGPU or WASM. No server round-trips for inference -- the model downloads once, caches locally, and runs on the user's device. Useful for classification, embeddings, image recognition, or any ONNX-compatible model where you want sub-10ms latency and offline support.
+A TypeScript SDK for running ONNX models directly in the browser with WebGPU or WASM. The model downloads once, caches locally, and runs on the user's device. It is a good fit for classification, embeddings, image recognition, and other browser-safe ONNX workloads where low latency and offline support matter.
 
 ## Install
 
@@ -20,11 +20,11 @@ npm install @octomil/browser
 
 ## Authentication
 
-The `OctomilClient` constructor requires an `auth` field. Two authentication types are supported:
+`OctomilClient` requires an `auth` field. Two auth modes are supported:
 
 ### Organization API key
 
-Used by server-side SDKs, CLI tools, CI/CD pipelines, and browser apps with a backend that provisions keys.
+Use this when your app has a backend that can provision org-scoped credentials.
 
 ```typescript
 auth: {
@@ -37,7 +37,7 @@ auth: {
 
 ### Device token
 
-Used by edge devices that go through a bootstrap/registration flow.
+Use this for device-style bootstrap and registration flows.
 
 ```typescript
 auth: {
@@ -69,7 +69,7 @@ console.log(result.label, result.score); // "1" 0.97
 ml.close();
 ```
 
-Model auto-downloads, caches via the Cache API, and picks the fastest backend (WebGPU > WASM).
+The SDK downloads the model, caches it via the Cache API, and picks the fastest backend available (`WebGPU` first, `WASM` fallback).
 
 ## Features
 
@@ -88,7 +88,7 @@ await ml.predict({ raw: new Float32Array(784), dims: [1, 1, 28, 28] });
 
 ### Automatic model caching
 
-Models cache locally after the first download. Subsequent loads skip the network.
+Models cache locally after the first download. Later loads can skip the network entirely.
 
 ```typescript
 const ml = new OctomilClient({
@@ -106,7 +106,7 @@ await ml.isCached();   // true on next visit
 
 ### Smart routing (device vs. cloud)
 
-The SDK can auto-decide between local and cloud inference based on model size and device capabilities. Falls back to on-device when offline.
+The SDK can choose between local and cloud inference based on model size and device capabilities, then fall back cleanly when conditions change.
 
 ```typescript
 const ml = new OctomilClient({

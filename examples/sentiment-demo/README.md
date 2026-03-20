@@ -1,6 +1,6 @@
 # Sentiment Demo — @octomil/browser
 
-Runs a sentiment classifier entirely in the browser using WebGPU or WASM. No server, no API key.
+Runs a sentiment classifier entirely in the browser with WebGPU or WASM. No server and no API key required.
 
 ## Setup
 
@@ -11,9 +11,9 @@ pnpm install
 pnpm dev
 ```
 
-Open `http://localhost:5173` in your browser, type some text, and click **Classify sentiment**.
+Open `http://localhost:5173`, enter some text, and click **Classify sentiment**.
 
-## What it demonstrates
+## What it shows
 
 - `OctomilClient` init with a model URL
 - `ml.load()` — downloads the ONNX model once, caches it in the browser Cache API
