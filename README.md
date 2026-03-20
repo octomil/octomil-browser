@@ -18,6 +18,36 @@ pnpm add @octomil/browser
 npm install @octomil/browser
 ```
 
+## Authentication
+
+The `OctomilClient` constructor requires an `auth` field. Two authentication types are supported:
+
+### Organization API key
+
+Used by server-side SDKs, CLI tools, CI/CD pipelines, and browser apps with a backend that provisions keys.
+
+```typescript
+auth: {
+  type: 'org_api_key',
+  apiKey: 'your-api-key',
+  orgId: 'your-org-id',
+  serverUrl: 'https://api.octomil.com', // optional, defaults to production
+}
+```
+
+### Device token
+
+Used by edge devices that go through a bootstrap/registration flow.
+
+```typescript
+auth: {
+  type: 'device_token',
+  deviceId: 'device-uuid',
+  bootstrapToken: 'bootstrap-token',
+  serverUrl: 'https://api.octomil.com', // optional
+}
+```
+
 ## Quick Start
 
 ```typescript
@@ -25,6 +55,12 @@ import { OctomilClient } from '@octomil/browser';
 
 const ml = new OctomilClient({
   model: 'https://models.octomil.com/sentiment-v1.onnx',
+  auth: {
+    type: 'org_api_key',
+    apiKey: 'your-api-key',
+    orgId: 'your-org-id',
+    serverUrl: 'https://api.octomil.com',
+  },
 });
 
 await ml.load();
@@ -57,6 +93,11 @@ Models cache locally after the first download. Subsequent loads skip the network
 ```typescript
 const ml = new OctomilClient({
   model: 'https://models.octomil.com/sentiment-v1.onnx',
+  auth: {
+    type: 'org_api_key',
+    apiKey: 'your-api-key',
+    orgId: 'your-org-id',
+  },
   cacheStrategy: 'cache-api', // default; also 'indexeddb' or 'none'
 });
 await ml.load();       // downloads once
@@ -70,8 +111,12 @@ The SDK can auto-decide between local and cloud inference based on model size an
 ```typescript
 const ml = new OctomilClient({
   model: 'phi-4-mini',
-  serverUrl: 'https://api.octomil.com',
-  apiKey: 'your-api-key',
+  auth: {
+    type: 'org_api_key',
+    apiKey: 'your-api-key',
+    orgId: 'your-org-id',
+    serverUrl: 'https://api.octomil.com',
+  },
   routing: { prefer: 'fastest' }, // 'device' | 'cloud' | 'cheapest' | 'fastest'
 });
 ```
@@ -134,7 +179,14 @@ OctomilClient → ModelManager (download/cache) → InferenceEngine (ONNX Runtim
 ```html
 <script src="https://unpkg.com/@octomil/browser/dist/octomil.min.js"></script>
 <script>
-  const ml = new OctomilClient({ model: 'model.onnx' });
+  const ml = new OctomilClient({
+    model: 'model.onnx',
+    auth: {
+      type: 'org_api_key',
+      apiKey: 'your-api-key',
+      orgId: 'your-org-id',
+    },
+  });
   ml.load().then(() => ml.predict({ text: 'hello' })).then(console.log);
 </script>
 ```
