@@ -33,7 +33,11 @@ export type {
 
 // Chat namespace (OpenAI-compatible chat completions)
 export { ChatClient, messagesToResponseInput } from "./chat.js";
-export type { ChatClientOptions } from "./chat.js";
+export type {
+  ChatClientOptions,
+  ChatThread,
+  ChatTurnRequest,
+} from "./chat.js";
 
 // Sub-modules (for advanced usage)
 export { InferenceEngine } from "./runtime/engines/onnx-web/engine.js";
@@ -58,6 +62,19 @@ export type {
   OtlpResourceLogs,
   ExportLogsServiceRequest,
 } from "./telemetry.js";
+export { MonitoringClient } from "./monitoring.js";
+export type { AlertRule, UpdateAlertRuleRequest } from "./monitoring.js";
+export { SettingsClient } from "./settings.js";
+export type {
+  BillingSession,
+  BillingState,
+  UsageLimits,
+  Integration,
+  IntegrationValidation,
+  IntegrationPatch,
+} from "./settings.js";
+export { TrainingClient } from "./training.js";
+export type { TrainingJob, TrainingJobStatus } from "./training.js";
 
 // Capabilities
 export { CapabilitiesClient } from "./capabilities.js";
@@ -71,9 +88,12 @@ export type {
   ControlClientOptions,
   DesiredState,
   DesiredModelEntry,
+  DeviceSyncRequest,
+  DeviceSyncResponse,
   ObservedModelStatus,
 } from "./control.js";
 export type { ControlSyncResult } from "./types.js";
+export { DevicesClient } from "./devices.js";
 
 // Sync (desired-state reconciliation)
 export { SyncManager } from "./sync-manager.js";
@@ -86,6 +106,12 @@ export type {
 
 // Device auth
 export { DeviceAuth } from "./device-auth.js";
+export { ArtifactsClient } from "./artifacts.js";
+export type {
+  ArtifactManifest,
+  ArtifactDownloadUrls,
+  ArtifactDownloadUrlsRequest,
+} from "./artifacts.js";
 
 // Silent device registration
 export { configure, getDeviceContext } from "./configure.js";
@@ -142,6 +168,11 @@ export type { EnginePlugin } from "./runtime/index.js";
 
 // Embeddings
 export { embed } from "./embeddings.js";
+export { OctomilText, TextPredictionsClient } from "./text/octomil-text.js";
+export type {
+  TextPredictionRequest,
+  TextPredictionResult,
+} from "./text/octomil-text.js";
 
 // Federated training
 export { FederatedClient, WeightExtractor } from "./federated.js";

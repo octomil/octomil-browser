@@ -80,6 +80,40 @@ export interface DesiredState {
   gcEligibleArtifactIds?: string[];
 }
 
+export interface ModelInventoryEntry {
+  modelId: string;
+  version: string;
+  artifactId?: string;
+  status?: string;
+}
+
+export interface DeviceSyncRequest {
+  schemaVersion?: string;
+  requestedAt?: string;
+  knownStateVersion?: string;
+  sdkVersion?: string;
+  platform?: string;
+  appId?: string;
+  appVersion?: string;
+  modelInventory?: ModelInventoryEntry[];
+  activeVersions?: Array<Record<string, string>>;
+  availableStorageBytes?: number;
+}
+
+export interface DeviceSyncResponse {
+  schemaVersion: string;
+  deviceId: string;
+  generatedAt?: string;
+  stateChanged: boolean;
+  models: DesiredModelEntry[];
+  gcEligibleArtifactIds: string[];
+  nextPollIntervalSeconds: number;
+  serverTimestamp?: string;
+  serving?: Array<Record<string, unknown>>;
+  training_policy?: Record<string, unknown> | null;
+  round_offers?: Array<Record<string, unknown>>;
+}
+
 // ---------------------------------------------------------------------------
 // ControlClient
 // ---------------------------------------------------------------------------
@@ -336,6 +370,56 @@ export class ControlClient {
     }
 
     return (await resp.json()) as DesiredState;
+  }
+
+  async sync(request: DeviceSyncRequest = {}): Promise<DeviceSyncResponse> {
+    if (!this.serverDeviceId) {
+      throw new OctomilError("INVALID_INPUT", "Device not registered");
+    }
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (this.apiKey) headers["Authorization"] = `Bearer ${this.apiKey}`;
+
+    let resp: Response;
+    try {
+      resp = await fetch(
+        `${this.serverUrl}/api/v1/devices/${this.serverDeviceId}/sync`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            schemaVersion: request.schemaVersion ?? "1.12.0",
+            deviceId: this.serverDeviceId,
+            requestedAt: request.requestedAt ?? new Date().toISOString(),
+            knownStateVersion: request.knownStateVersion,
+            sdkVersion: request.sdkVersion,
+            platform: request.platform ?? "browser",
+            appId: request.appId,
+            appVersion: request.appVersion,
+            modelInventory: request.modelInventory ?? [],
+            activeVersions: request.activeVersions ?? [],
+            availableStorageBytes: request.availableStorageBytes,
+          }),
+        },
+      );
+    } catch (err) {
+      throw new OctomilError(
+        "NETWORK_UNAVAILABLE",
+        `Device sync failed: ${String(err)}`,
+        err,
+      );
+    }
+
+    if (!resp.ok) {
+      throw new OctomilError(
+        "NETWORK_UNAVAILABLE",
+        `Device sync failed: ${resp.status}`,
+      );
+    }
+
+    return (await resp.json()) as DeviceSyncResponse;
   }
 
   /** Start periodic heartbeats at the given interval. */

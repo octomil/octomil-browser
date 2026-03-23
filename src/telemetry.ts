@@ -178,6 +178,13 @@ export class TelemetryReporter {
     await this.send(batch);
   }
 
+  async batch(events: TelemetryEvent[]): Promise<void> {
+    if (events.length === 0) {
+      return;
+    }
+    await this.send(events);
+  }
+
   /** Stop the flush timer and send remaining events. */
   close(): void {
     if (this.disposed) return;

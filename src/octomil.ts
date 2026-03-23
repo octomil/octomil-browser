@@ -33,6 +33,7 @@ import { ModelsClient } from "./models.js";
 import { ResponsesClient } from "./responses.js";
 import { RoutingClient, detectDeviceCapabilities } from "./routing.js";
 import { TelemetryReporter } from "./telemetry.js";
+import { OctomilText } from "./text/octomil-text.js";
 import type {
   Backend,
   CacheInfo,
@@ -73,6 +74,7 @@ export class OctomilClient {
   private _capabilities: CapabilitiesClient | null = null;
   private _models: ModelsClient | null = null;
   private _audio: OctomilAudio | null = null;
+  private _text: OctomilText | null = null;
 
   private loaded = false;
   private closed = false;
@@ -624,6 +626,17 @@ export class OctomilClient {
     return this._audio;
   }
 
+  /**
+   * Lazily-created `OctomilText` providing `text.predictions.create()`
+   * for browser-local text inference via the loaded model.
+   */
+  get text(): OctomilText {
+    if (!this._text) {
+      this._text = new OctomilText((input) => this.predict(input));
+    }
+    return this._text;
+  }
+
   // -----------------------------------------------------------------------
   // Cleanup
   // -----------------------------------------------------------------------
@@ -644,6 +657,7 @@ export class OctomilClient {
     this._capabilities = null;
     this._models = null;
     this._audio = null;
+    this._text = null;
     this._warmedUp = false;
   }
 
