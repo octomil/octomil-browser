@@ -25,6 +25,12 @@ export type { DesiredModelEntry } from "./control.js";
 export interface LocalModelMeta {
   modelId: string;
   modelVersion: string;
+  bindingKey?: string;
+  useCase?: string;
+  deploymentId?: string;
+  deploymentKey?: string;
+  modelName?: string;
+  modelRef?: string;
   artifactUrl: string;
   sha256?: string;
   installedAt: string;
@@ -308,6 +314,12 @@ export class SyncManager {
     const meta: LocalModelMeta = {
       modelId: entry.modelId,
       modelVersion: entry.desiredVersion,
+      bindingKey: entry.bindingKey,
+      useCase: entry.useCase,
+      deploymentId: entry.deploymentId,
+      deploymentKey: entry.deploymentKey,
+      modelName: entry.modelName,
+      modelRef: entry.modelRef,
       artifactUrl: cacheKey,
       sha256: entry.artifactManifest.sha256,
       installedAt: new Date().toISOString(),
@@ -389,6 +401,12 @@ export class SyncManager {
       modelId: m.modelId,
       status: m.status,
       version: m.modelVersion,
+      bindingKey: m.bindingKey,
+      useCase: m.useCase,
+      deploymentId: m.deploymentId,
+      deploymentKey: m.deploymentKey,
+      modelName: m.modelName,
+      modelRef: m.modelRef,
     }));
 
     try {
