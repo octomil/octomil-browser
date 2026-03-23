@@ -78,6 +78,17 @@ export interface DesiredModelEntry {
   rolloutId?: string;
 }
 
+export interface ServingBindingEntry {
+  binding_key?: string;
+  use_case?: string;
+  base_model_id: string;
+  base_version: string;
+  deployment_id?: string;
+  deployment_key?: string;
+  model_name?: string;
+  model_ref?: string;
+}
+
 /** Server-authoritative desired state for this device. */
 export interface DesiredState {
   schemaVersion: string;
@@ -85,6 +96,7 @@ export interface DesiredState {
   generatedAt: string;
   activeBinding?: Record<string, unknown>;
   models: DesiredModelEntry[];
+  serving?: ServingBindingEntry[];
   policyConfig?: Record<string, unknown>;
   federationOffers?: Array<{
     roundId: string;
@@ -123,7 +135,7 @@ export interface DeviceSyncResponse {
   gcEligibleArtifactIds: string[];
   nextPollIntervalSeconds: number;
   serverTimestamp?: string;
-  serving?: Array<Record<string, unknown>>;
+  serving?: ServingBindingEntry[];
   training_policy?: Record<string, unknown> | null;
   round_offers?: Array<Record<string, unknown>>;
 }
