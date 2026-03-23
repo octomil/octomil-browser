@@ -68,7 +68,7 @@ describe("ControlClient", () => {
 
   describe("register", () => {
     it("registers a device and returns registration data", async () => {
-      mockFetchOnce({ id: "srv-device-1", status: "active" });
+      mockFetchOnce({ device_id: "srv-device-1", status: "active" });
 
       const client = new ControlClient({
         serverUrl: "https://api.test.com",
@@ -87,13 +87,13 @@ describe("ControlClient", () => {
       const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
       expect(fetchMock).toHaveBeenCalledTimes(1);
       const [url, init] = fetchMock.mock.calls[0]!;
-      expect(url).toBe("https://api.test.com/api/v1/devices/register");
+      expect(url).toBe("https://api.test.com/api/v1/devices/register?org_id=org-1");
       expect(init.method).toBe("POST");
       expect(init.headers["Authorization"]).toBe("Bearer key-1");
     });
 
     it("generates a device ID when none provided", async () => {
-      mockFetchOnce({ id: "srv-device-2", status: "active" });
+      mockFetchOnce({ device_id: "srv-device-2", status: "active" });
 
       const client = new ControlClient({
         serverUrl: "https://api.test.com",
@@ -132,7 +132,7 @@ describe("ControlClient", () => {
     });
 
     it("defaults status to active when server omits it", async () => {
-      mockFetchOnce({ id: "srv-device-3" }); // no status field
+      mockFetchOnce({ device_id: "srv-device-3" }); // no status field
 
       const client = new ControlClient({});
       const reg = await client.register("d1");
@@ -140,7 +140,7 @@ describe("ControlClient", () => {
     });
 
     it("sends auth header only when apiKey is set", async () => {
-      mockFetchOnce({ id: "srv-1" });
+      mockFetchOnce({ device_id: "srv-1" });
 
       const client = new ControlClient({
         serverUrl: "https://api.test.com",
@@ -158,7 +158,7 @@ describe("ControlClient", () => {
   describe("heartbeat", () => {
     it("sends heartbeat for registered device", async () => {
       mockFetchSequence([
-        { body: { id: "srv-1", status: "active" } },
+        { body: { device_id: "srv-1", status: "active" } },
         { body: { status: "ok", server_time: "2026-03-12T00:00:00Z" } },
       ]);
 
@@ -174,8 +174,9 @@ describe("ControlClient", () => {
       expect(hb.serverTime).toBe("2026-03-12T00:00:00Z");
 
       const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
-      const [url] = fetchMock.mock.calls[1]!;
+      const [url, init] = fetchMock.mock.calls[1]!;
       expect(url).toBe("https://api.test.com/api/v1/devices/srv-1/heartbeat");
+      expect(init.method).toBe("PUT");
     });
 
     it("throws when device is not registered", async () => {
@@ -184,7 +185,10 @@ describe("ControlClient", () => {
     });
 
     it("throws on HTTP error during heartbeat", async () => {
-      mockFetchSequence([{ body: { id: "srv-1" } }, { body: {}, status: 503 }]);
+      mockFetchSequence([
+        { body: { device_id: "srv-1" } },
+        { body: {}, status: 503 },
+      ]);
 
       const client = new ControlClient({
         serverUrl: "https://api.test.com",
@@ -203,7 +207,7 @@ describe("ControlClient", () => {
           return {
             ok: true,
             status: 200,
-            json: async () => ({ id: "srv-1" }),
+            json: async () => ({ device_id: "srv-1" }),
           };
         }
         throw new TypeError("Network down");
@@ -231,7 +235,7 @@ describe("ControlClient", () => {
 
     it("calls assignments endpoint and returns ControlSyncResult", async () => {
       mockFetchSequence([
-        { body: { id: "srv-1" } },
+        { body: { device_id: "srv-1" } },
         {
           body: {
             updated: true,
@@ -261,7 +265,7 @@ describe("ControlClient", () => {
     });
 
     it("returns defaults when server omits optional fields", async () => {
-      mockFetchSequence([{ body: { id: "srv-1" } }, { body: {} }]);
+      mockFetchSequence([{ body: { device_id: "srv-1" } }, { body: {} }]);
 
       const client = new ControlClient({
         serverUrl: "https://api.test.com",
@@ -276,7 +280,10 @@ describe("ControlClient", () => {
     });
 
     it("throws on HTTP error during refresh", async () => {
-      mockFetchSequence([{ body: { id: "srv-1" } }, { body: {}, status: 500 }]);
+      mockFetchSequence([
+        { body: { device_id: "srv-1" } },
+        { body: {}, status: 500 },
+      ]);
 
       const client = new ControlClient({
         serverUrl: "https://api.test.com",
@@ -294,7 +301,7 @@ describe("ControlClient", () => {
       vi.useFakeTimers();
 
       mockFetchSequence([
-        { body: { id: "srv-1" } },
+        { body: { device_id: "srv-1" } },
         { body: { status: "ok" } },
         { body: { status: "ok" } },
       ]);
@@ -334,7 +341,7 @@ describe("ControlClient", () => {
       vi.useFakeTimers();
 
       mockFetchSequence([
-        { body: { id: "srv-1" } },
+        { body: { device_id: "srv-1" } },
         { body: { status: "ok" } },
         { body: { status: "ok" } },
       ]);
@@ -362,7 +369,7 @@ describe("ControlClient", () => {
     });
 
     it("is set after registration", async () => {
-      mockFetchOnce({ id: "srv-42" });
+      mockFetchOnce({ device_id: "srv-42" });
       const client = new ControlClient({});
       await client.register("d1");
       expect(client.registeredDeviceId).toBe("srv-42");
@@ -381,7 +388,7 @@ describe("ControlClient", () => {
       };
 
       mockFetchSequence([
-        { body: { id: "srv-1" } },
+        { body: { device_id: "srv-1" } },
         { body: desired },
       ]);
 
@@ -410,7 +417,7 @@ describe("ControlClient", () => {
 
     it("throws on HTTP error", async () => {
       mockFetchSequence([
-        { body: { id: "srv-1" } },
+        { body: { device_id: "srv-1" } },
         { body: {}, status: 500 },
       ]);
 
@@ -427,7 +434,11 @@ describe("ControlClient", () => {
       globalThis.fetch = vi.fn(async () => {
         callCount++;
         if (callCount === 1) {
-          return { ok: true, status: 200, json: async () => ({ id: "srv-1" }) };
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ device_id: "srv-1" }),
+          };
         }
         throw new TypeError("Network down");
       }) as unknown as typeof fetch;
@@ -444,7 +455,7 @@ describe("ControlClient", () => {
   describe("reportObservedState", () => {
     it("sends observed state to the server", async () => {
       mockFetchSequence([
-        { body: { id: "srv-1" } },
+        { body: { device_id: "srv-1" } },
         { body: {} },
       ]);
 
@@ -472,7 +483,7 @@ describe("ControlClient", () => {
 
     it("sends empty statuses by default", async () => {
       mockFetchSequence([
-        { body: { id: "srv-1" } },
+        { body: { device_id: "srv-1" } },
         { body: {} },
       ]);
 
@@ -495,7 +506,7 @@ describe("ControlClient", () => {
 
     it("throws on HTTP error", async () => {
       mockFetchSequence([
-        { body: { id: "srv-1" } },
+        { body: { device_id: "srv-1" } },
         { body: {}, status: 500 },
       ]);
 
@@ -512,7 +523,11 @@ describe("ControlClient", () => {
       globalThis.fetch = vi.fn(async () => {
         callCount++;
         if (callCount === 1) {
-          return { ok: true, status: 200, json: async () => ({ id: "srv-1" }) };
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ device_id: "srv-1" }),
+          };
         }
         throw new TypeError("Network down");
       }) as unknown as typeof fetch;
@@ -523,6 +538,55 @@ describe("ControlClient", () => {
 
       await client.register("d1");
       await expect(client.reportObservedState()).rejects.toThrow(OctomilError);
+    });
+  });
+
+  describe("sync", () => {
+    it("posts a unified sync payload with requestedAt", async () => {
+      mockFetchSequence([
+        { body: { device_id: "srv-1" } },
+        {
+          body: {
+            schemaVersion: "1.12.0",
+            deviceId: "srv-1",
+            generatedAt: "2026-03-22T12:00:00Z",
+            stateChanged: true,
+            models: [],
+            gcEligibleArtifactIds: [],
+            nextPollIntervalSeconds: 60,
+          },
+        },
+      ]);
+
+      const client = new ControlClient({
+        serverUrl: "https://api.test.com",
+        apiKey: "key-1",
+      });
+
+      await client.register("d1");
+      await client.sync({
+        knownStateVersion: "42",
+        modelInventory: [
+          {
+            modelId: "phi-4-mini",
+            version: "1.0",
+            artifactId: "artifact-1",
+            status: "READY",
+          },
+        ],
+      });
+
+      const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
+      const [url, init] = fetchMock.mock.calls[1]!;
+      expect(url).toBe("https://api.test.com/api/v1/devices/srv-1/sync");
+      expect(init.method).toBe("POST");
+
+      const body = JSON.parse(init.body);
+      expect(body.deviceId).toBe("srv-1");
+      expect(body.requestedAt).toBeTruthy();
+      expect(body.knownStateVersion).toBe("42");
+      expect(body.platform).toBe("browser");
+      expect(body.modelInventory[0].artifactId).toBe("artifact-1");
     });
   });
 });

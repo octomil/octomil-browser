@@ -6,6 +6,10 @@
 import { OctomilError } from "./types.js";
 import type { TelemetryReporter } from "./telemetry.js";
 import type { DeviceContext } from "./device-context.js";
+import type {
+  LocalResponsesRuntime,
+  LocalResponsesRuntimeResolver,
+} from "./responses-runtime.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -13,7 +17,7 @@ import type { DeviceContext } from "./device-context.js";
 
 export interface ResponseRequest {
   model: string;
-  input: string | ContentBlock[];
+  input: string | ContentBlock[] | ResponseInputItem[];
   tools?: ToolDef[];
   instructions?: string;
   previousResponseId?: string;
@@ -56,14 +60,22 @@ export interface ToolDef {
   };
 }
 
+export interface ResponseToolCall {
+  id: string;
+  name: string;
+  arguments: string;
+}
+
 export interface ResponseOutput {
   type: "text" | "tool_call";
   text?: string;
-  toolCall?: {
-    id: string;
-    name: string;
-    arguments: string;
-  };
+  toolCall?: ResponseToolCall;
+}
+
+export interface ResponseInputItem {
+  role: "system" | "user" | "assistant" | "tool";
+  content?: string | ContentBlock[] | ResponseOutput[] | null;
+  toolCallId?: string;
 }
 
 export interface Response {
@@ -108,6 +120,7 @@ export interface ResponsesClientOptions {
   apiKey?: string;
   telemetry?: TelemetryReporter | null;
   deviceContext?: DeviceContext | null;
+  localRuntime?: LocalResponsesRuntime | LocalResponsesRuntimeResolver | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -119,6 +132,10 @@ export class ResponsesClient {
   private apiKey: string | undefined;
   private readonly telemetry: TelemetryReporter | null;
   private readonly deviceContext: DeviceContext | null;
+  private readonly localRuntime:
+    | LocalResponsesRuntime
+    | LocalResponsesRuntimeResolver
+    | null;
   private responseCache = new Map<string, Response>();
   private readonly MAX_CACHE = 100;
 
@@ -127,12 +144,18 @@ export class ResponsesClient {
     this.apiKey = options.apiKey;
     this.telemetry = options.telemetry ?? null;
     this.deviceContext = options.deviceContext ?? null;
+    this.localRuntime = options.localRuntime ?? null;
   }
 
   /**
    * Non-streaming response creation.
    */
   async create(request: ResponseRequest): Promise<Response> {
+    const localRuntime = this.resolveLocalRuntime(request.model);
+    if (localRuntime) {
+      return this.createLocal(request, localRuntime);
+    }
+
     const body = this.buildRequestBody(request, false);
     const url = `${this.serverUrl}/v1/chat/completions`;
 
@@ -192,12 +215,7 @@ export class ResponsesClient {
       locality: "cloud",
     });
 
-    // Cache the response for previousResponseId chaining.
-    if (this.responseCache.size >= this.MAX_CACHE) {
-      const first = this.responseCache.keys().next().value;
-      if (first) this.responseCache.delete(first);
-    }
-    this.responseCache.set(response.id, response);
+    this.cacheResponse(response);
 
     return response;
   }
@@ -206,6 +224,12 @@ export class ResponsesClient {
    * Streaming response creation. Returns async generator of events.
    */
   async *stream(request: ResponseRequest): AsyncGenerator<ResponseStreamEvent> {
+    const localRuntime = this.resolveLocalRuntime(request.model);
+    if (localRuntime) {
+      yield* this.streamLocal(request, localRuntime);
+      return;
+    }
+
     const body = this.buildRequestBody(request, true);
     const url = `${this.serverUrl}/v1/chat/completions`;
 
@@ -373,6 +397,7 @@ export class ResponsesClient {
       locality: "cloud",
     });
 
+    this.cacheResponse(response);
     yield { type: "done", response } as DoneEvent;
   }
 
@@ -380,8 +405,133 @@ export class ResponsesClient {
   // Private
   // -----------------------------------------------------------------------
 
+  private resolveLocalRuntime(model: string): LocalResponsesRuntime | null {
+    if (!this.localRuntime) return null;
+    if (typeof this.localRuntime === "function") {
+      return this.localRuntime(model) ?? null;
+    }
+    return this.localRuntime;
+  }
+
+  private cacheResponse(response: Response): void {
+    if (this.responseCache.size >= this.MAX_CACHE) {
+      const first = this.responseCache.keys().next().value;
+      if (first) this.responseCache.delete(first);
+    }
+    this.responseCache.set(response.id, response);
+  }
+
+  private async createLocal(
+    request: ResponseRequest,
+    localRuntime: LocalResponsesRuntime,
+  ): Promise<Response> {
+    const effectiveRequest = this.buildEffectiveRequest(request);
+
+    this.telemetry?.reportInferenceStarted(request.model, {
+      target: "device",
+      method: "responses.create",
+      locality: "local",
+    });
+
+    const start = performance.now();
+    try {
+      const response = await localRuntime.create(effectiveRequest);
+      this.cacheResponse(response);
+
+      this.telemetry?.reportInferenceCompleted(
+        request.model,
+        performance.now() - start,
+        {
+          target: "device",
+          method: "responses.create",
+          locality: "local",
+        },
+      );
+
+      return response;
+    } catch (error) {
+      this.telemetry?.reportInferenceFailed(
+        request.model,
+        "local_runtime_error",
+        String(error),
+      );
+      throw error;
+    }
+  }
+
+  private async *streamLocal(
+    request: ResponseRequest,
+    localRuntime: LocalResponsesRuntime,
+  ): AsyncGenerator<ResponseStreamEvent> {
+    const effectiveRequest = this.buildEffectiveRequest(request);
+
+    this.telemetry?.reportInferenceStarted(request.model, {
+      target: "device",
+      method: "responses.stream",
+      locality: "local",
+    });
+
+    const start = performance.now();
+    let chunkIndex = 0;
+    try {
+      for await (const event of localRuntime.stream(effectiveRequest)) {
+        if (event.type !== "done") {
+          this.telemetry?.reportChunkProduced(request.model, chunkIndex);
+          chunkIndex++;
+        } else {
+          this.cacheResponse(event.response);
+          this.telemetry?.reportInferenceCompleted(
+            request.model,
+            performance.now() - start,
+            {
+              target: "device",
+              method: "responses.stream",
+              locality: "local",
+            },
+          );
+        }
+        yield event;
+      }
+    } catch (error) {
+      this.telemetry?.reportInferenceFailed(
+        request.model,
+        "local_runtime_error",
+        String(error),
+      );
+      throw error;
+    }
+  }
+
+  private buildEffectiveRequest(request: ResponseRequest): ResponseRequest {
+    const input = this.normalizeInput(request.input);
+
+    if (request.previousResponseId) {
+      const previous = this.responseCache.get(request.previousResponseId);
+      if (previous) {
+        input.unshift({
+          role: "assistant",
+          content: previous.output,
+        });
+      }
+    }
+
+    if (request.instructions) {
+      input.unshift({
+        role: "system",
+        content: request.instructions,
+      });
+    }
+
+    return {
+      ...request,
+      input,
+      instructions: undefined,
+      previousResponseId: undefined,
+    };
+  }
+
   private buildRequestBody(request: ResponseRequest, stream: boolean) {
-    const messages = this.buildMessages(request);
+    const messages = this.buildMessages(this.buildEffectiveRequest(request));
 
     return {
       model: request.model,
@@ -398,44 +548,139 @@ export class ResponsesClient {
     };
   }
 
-  private buildMessages(
-    request: ResponseRequest,
-  ): Array<{ role: string; content: string | ChatContentPart[] }> {
-    const messages: Array<{
-      role: string;
-      content: string | ChatContentPart[];
-    }> = [];
+  private buildMessages(request: ResponseRequest): Array<Record<string, unknown>> {
+    const input = this.normalizeInput(request.input);
+    return input.map((item) => this.inputItemToMessage(item));
+  }
 
-    // Add instructions as system message.
-    if (request.instructions) {
-      messages.push({ role: "system", content: request.instructions });
+  private normalizeInput(
+    input: ResponseRequest["input"],
+  ): ResponseInputItem[] {
+    if (typeof input === "string") {
+      return [{ role: "user", content: input }];
     }
 
-    // Add previous response context.
-    if (request.previousResponseId) {
-      const prev = this.responseCache.get(request.previousResponseId);
-      if (prev) {
-        const assistantText = prev.output
-          .filter((o) => o.type === "text" && o.text)
-          .map((o) => o.text!)
-          .join("");
-        if (assistantText) {
-          messages.push({ role: "assistant", content: assistantText });
-        }
-      }
+    if (this.isResponseInputItems(input)) {
+      return input.map((item) => ({ ...item }));
     }
 
-    // Add current input.
-    if (typeof request.input === "string") {
-      messages.push({ role: "user", content: request.input });
-    } else {
-      const parts = request.input.map((block) =>
-        this.contentBlockToPart(block),
-      );
-      messages.push({ role: "user", content: parts });
+    return [{ role: "user", content: input }];
+  }
+
+  private isResponseInputItems(
+    input: ContentBlock[] | ResponseInputItem[],
+  ): input is ResponseInputItem[] {
+    return input.every((item) => "role" in item);
+  }
+
+  private inputItemToMessage(item: ResponseInputItem): Record<string, unknown> {
+    switch (item.role) {
+      case "system":
+        return {
+          role: "system",
+          content: typeof item.content === "string" ? item.content : "",
+        };
+      case "user":
+        return {
+          role: "user",
+          content: this.inputContentToMessageContent(item.content),
+        };
+      case "assistant":
+        return this.assistantInputToMessage(item);
+      case "tool":
+        return {
+          role: "tool",
+          content: typeof item.content === "string" ? item.content : "",
+          tool_call_id: item.toolCallId,
+        };
+      default:
+        return {
+          role: item.role,
+          content: typeof item.content === "string" ? item.content : "",
+        };
+    }
+  }
+
+  private assistantInputToMessage(item: ResponseInputItem): Record<string, unknown> {
+    if (typeof item.content === "string" || item.content == null) {
+      return {
+        role: "assistant",
+        content: item.content ?? "",
+      };
     }
 
-    return messages;
+    if (this.isResponseOutputItems(item.content)) {
+      const textContent = item.content
+        .filter(
+          (
+            output,
+          ): output is ResponseOutput & { type: "text"; text: string } =>
+            output.type === "text" && typeof output.text === "string",
+        )
+        .map((output) => output.text);
+      const toolCalls = item.content
+        .filter(
+          (
+            output,
+          ): output is ResponseOutput & {
+            type: "tool_call";
+            toolCall: ResponseToolCall;
+          } => output.type === "tool_call" && !!output.toolCall,
+        )
+        .map((output) => ({
+          id: output.toolCall.id,
+          type: "function",
+          function: {
+            name: output.toolCall.name,
+            arguments: output.toolCall.arguments,
+          },
+        }));
+
+      return {
+        role: "assistant",
+        content: textContent.join(""),
+        ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
+      };
+    }
+
+    return {
+      role: "assistant",
+      content: this.contentBlocksToParts(item.content),
+    };
+  }
+
+  private isResponseOutputItems(
+    content: ContentBlock[] | ResponseOutput[],
+  ): content is ResponseOutput[] {
+    return content.every(
+      (item) => item.type === "text" || item.type === "tool_call",
+    );
+  }
+
+  private inputContentToMessageContent(
+    content: ResponseInputItem["content"],
+  ): string | ChatContentPart[] {
+    if (typeof content === "string" || content == null) {
+      return content ?? "";
+    }
+
+    if (this.isResponseOutputItems(content)) {
+      return content
+        .filter(
+          (
+            output,
+          ): output is ResponseOutput & { type: "text"; text: string } =>
+            output.type === "text" && typeof output.text === "string",
+        )
+        .map((output) => output.text)
+        .join("");
+    }
+
+    return this.contentBlocksToParts(content);
+  }
+
+  private contentBlocksToParts(blocks: ContentBlock[]): ChatContentPart[] {
+    return blocks.map((block) => this.contentBlockToPart(block));
   }
 
   /**

@@ -9,8 +9,8 @@
 export type PublishableKeyEnvironment = "test" | "live";
 
 export type SilentAuthConfig =
-  | { type: "publishable_key"; key: string }
-  | { type: "bootstrap_token"; token: string }
+  | { type: "publishable_key"; key: string; orgId?: string; appId?: string }
+  | { type: "bootstrap_token"; token: string; orgId?: string; appId?: string }
   | { type: "anonymous"; appId: string };
 
 const VALID_PREFIXES = ["oct_pub_test_", "oct_pub_live_"] as const;

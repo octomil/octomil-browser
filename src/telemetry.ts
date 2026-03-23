@@ -103,6 +103,8 @@ export interface TelemetryReporterOptions {
   maxBatchSize?: number;
   /** API key included in the `Authorization` header. */
   apiKey?: string;
+  /** Optional auth header provider for device-token-authenticated browser clients. */
+  authHeadersProvider?: () => Record<string, string> | null;
   /** Organisation identifier included in the resource envelope. */
   orgId?: string;
   /** Stable device identifier included in the resource envelope. */
@@ -116,6 +118,9 @@ export class TelemetryReporter {
   private readonly flushIntervalMs: number;
   private readonly maxBatchSize: number;
   private readonly apiKey: string | undefined;
+  private readonly authHeadersProvider:
+    | (() => Record<string, string> | null)
+    | undefined;
   private readonly resource: TelemetryResource;
 
   private queue: TelemetryEvent[] = [];
@@ -128,6 +133,7 @@ export class TelemetryReporter {
       options.flushIntervalMs ?? DEFAULT_FLUSH_INTERVAL_MS;
     this.maxBatchSize = options.maxBatchSize ?? DEFAULT_MAX_BATCH_SIZE;
     this.apiKey = options.apiKey;
+    this.authHeadersProvider = options.authHeadersProvider;
     this.resource = {
       sdk: SDK_NAME,
       sdk_version: options.sdkVersion ?? DEFAULT_SDK_VERSION,
@@ -198,7 +204,10 @@ export class TelemetryReporter {
     // Best-effort final flush via beacon.
     if (this.queue.length > 0) {
       const remaining = this.queue.splice(0);
-      this.sendBeaconPayload(this.buildEnvelope(remaining));
+      const envelope = this.buildEnvelope(remaining);
+      if (!this.sendBeaconPayload(envelope)) {
+        void this.send(remaining);
+      }
     }
   }
 
@@ -480,16 +489,19 @@ export class TelemetryReporter {
   private async send(events: TelemetryEvent[]): Promise<void> {
     const envelope = this.buildEnvelope(events);
     const body = JSON.stringify(envelope);
+    const authHeaders = this.authHeadersProvider?.() ?? null;
 
     try {
       // Try sendBeacon first — it survives page unload.
-      if (this.sendBeaconPayload(envelope)) return;
+      if (!authHeaders && this.sendBeaconPayload(envelope)) return;
 
       // Fallback to fetch with keepalive.
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
-      if (this.apiKey) {
+      if (authHeaders) {
+        Object.assign(headers, authHeaders);
+      } else if (this.apiKey) {
         headers["Authorization"] = `Bearer ${this.apiKey}`;
       }
 

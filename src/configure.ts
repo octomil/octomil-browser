@@ -46,11 +46,15 @@ export async function configure(
   }
 
   const installationId = DeviceContext.getOrCreateInstallationId();
+  const authAppId =
+    options.auth?.type === "anonymous" ? options.auth.appId : options.auth?.appId;
+  const authOrgId =
+    options.auth?.type === "anonymous" ? null : options.auth?.orgId ?? null;
 
   const context = new DeviceContext({
     installationId,
-    orgId: null, // extracted server-side from publishable key
-    appId: options.auth?.type === "anonymous" ? options.auth.appId : null,
+    orgId: authOrgId,
+    appId: authAppId ?? null,
   });
 
   _deviceContext = context;
@@ -79,6 +83,8 @@ async function silentRegister(
 ): Promise<void> {
   const maxAttempts = 10;
   const maxDelayMs = 300_000; // 5 minutes
+  const authOrgId =
+    options.auth?.type === "anonymous" ? null : options.auth?.orgId ?? null;
 
   try {
     const baseUrl = options.baseUrl || "https://api.octomil.com";
@@ -87,16 +93,25 @@ async function silentRegister(
     };
 
     if (options.auth?.type === "publishable_key") {
-      headers["X-API-Key"] = options.auth.key;
+      headers["Authorization"] = `Bearer ${options.auth.key}`;
     } else if (options.auth?.type === "bootstrap_token") {
       headers["Authorization"] = `Bearer ${options.auth.token}`;
     }
+    if (context.appId) {
+      headers["X-App-Id"] = context.appId;
+    }
 
-    const response = await fetch(`${baseUrl}/api/v1/devices/register`, {
+    const registerUrl = new URL(`${baseUrl.replace(/\/+$/, "")}/api/v1/devices/register`);
+    if (authOrgId) {
+      registerUrl.searchParams.set("org_id", authOrgId);
+    }
+
+    const response = await fetch(registerUrl.toString(), {
       method: "POST",
       headers,
       body: JSON.stringify({
         device_identifier: context.installationId,
+        installation_id: context.installationId,
         platform: "browser",
         app_id: context.appId,
       }),
@@ -113,15 +128,16 @@ async function silentRegister(
     }
 
     const data = (await response.json()) as {
-      device_id: string;
-      access_token: string;
-      expires_at: string;
+      device_id?: string;
+      id?: string;
+      access_token?: string;
+      expires_at?: string;
     };
-    context._updateRegistered(
-      data.device_id,
-      data.access_token,
-      new Date(data.expires_at),
-    );
+    const serverDeviceId = data.device_id ?? data.id;
+    if (!serverDeviceId || !data.access_token || !data.expires_at) {
+      throw new Error("Registration response missing device token fields");
+    }
+    context._updateRegistered(serverDeviceId, data.access_token, new Date(data.expires_at));
 
     // Start heartbeat if monitoring enabled
     if (options.monitoring?.enabled) {
@@ -162,13 +178,17 @@ function startHeartbeat(
 
     try {
       const baseUrl = options.baseUrl || "https://api.octomil.com";
-      await fetch(`${baseUrl}/api/v1/devices/heartbeat`, {
-        method: "POST",
-        headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          device_identifier: context.installationId,
-        }),
-      });
+      if (!context.serverDeviceId) return;
+      await fetch(
+        `${baseUrl.replace(/\/+$/, "")}/api/v1/devices/${context.serverDeviceId}/heartbeat`,
+        {
+          method: "PUT",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            device_identifier: context.installationId,
+          }),
+        },
+      );
     } catch {
       // Heartbeat failures are non-fatal
     }

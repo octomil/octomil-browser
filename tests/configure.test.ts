@@ -158,7 +158,12 @@ describe("configure", () => {
     });
 
     const ctx = await configure({
-      auth: { type: "publishable_key", key: "oct_pub_test_abc" },
+      auth: {
+        type: "publishable_key",
+        key: "oct_pub_test_abc",
+        orgId: "org-123",
+        appId: "dashboard-web",
+      },
       monitoring: { enabled: true },
       baseUrl: "https://test.octomil.com",
     });
@@ -168,9 +173,14 @@ describe("configure", () => {
 
     expect(fetchSpy).toHaveBeenCalled();
     const [url, init] = fetchSpy.mock.calls[0]!;
-    expect(url).toBe("https://test.octomil.com/api/v1/devices/register");
-    expect((init!.headers as Record<string, string>)["X-API-Key"]).toBe(
-      "oct_pub_test_abc",
+    expect(url).toBe(
+      "https://test.octomil.com/api/v1/devices/register?org_id=org-123",
+    );
+    expect((init!.headers as Record<string, string>)["Authorization"]).toBe(
+      "Bearer oct_pub_test_abc",
+    );
+    expect((init!.headers as Record<string, string>)["X-App-Id"]).toBe(
+      "dashboard-web",
     );
 
     expect(ctx.isRegistered).toBe(true);

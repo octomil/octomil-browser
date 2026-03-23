@@ -140,11 +140,22 @@ export {
   ResponsesClient,
   generateId as generateResponseId,
 } from "./responses.js";
+export { ToolRunner } from "./responses-tools.js";
+export type {
+  ToolExecutor,
+  ToolResult,
+} from "./responses-tools.js";
+export type {
+  LocalResponsesRuntime,
+  LocalResponsesRuntimeResolver,
+} from "./responses-runtime.js";
 export type {
   ResponseRequest,
   ContentBlock,
+  ResponseInputItem,
   ChatContentPart,
   ToolDef,
+  ResponseToolCall,
   ResponseOutput,
   Response as ResponseObject,
   ResponseUsage,
