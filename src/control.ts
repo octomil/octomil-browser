@@ -42,6 +42,12 @@ export interface ObservedModelStatus {
   modelId: string;
   status: string;
   version?: string;
+  bindingKey?: string;
+  useCase?: string;
+  deploymentId?: string;
+  deploymentKey?: string;
+  modelName?: string;
+  modelRef?: string;
   bytesDownloaded?: number;
   totalBytes?: number;
   errorCode?: string;
@@ -51,6 +57,12 @@ export interface ObservedModelStatus {
 export interface DesiredModelEntry {
   modelId: string;
   desiredVersion: string;
+  useCase?: string;
+  bindingKey?: string;
+  deploymentId?: string;
+  deploymentKey?: string;
+  modelName?: string;
+  modelRef?: string;
   currentChannel?: string;
   deliveryMode?: string;
   activationPolicy?: string;
@@ -339,6 +351,18 @@ export class ControlClient {
       deviceId: this.serverDeviceId,
       reportedAt: new Date().toISOString(),
       models,
+      active_bindings: models
+        .filter((model) => model.status === "active")
+        .map((model) => ({
+          binding_key: model.bindingKey ?? model.useCase ?? model.modelId,
+          base_model_id: model.modelId,
+          base_version: model.version ?? "",
+          use_case: model.useCase,
+          deployment_id: model.deploymentId,
+          deployment_key: model.deploymentKey,
+          model_name: model.modelName,
+          model_ref: model.modelRef,
+        })),
       sdkVersion: "1.0.0",
       osVersion:
         typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
