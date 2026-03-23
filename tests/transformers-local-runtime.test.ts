@@ -11,25 +11,25 @@ vi.mock("@huggingface/transformers", () => {
   const applyChatTemplate = vi.fn((messages: Array<{ role: string; content: string }>) =>
     messages.map((message) => `${message.role}: ${message.content}`).join("\n"),
   );
+  const run = vi.fn(async (messages: string | Array<{ role: string; content: string }>) => {
+    const lastUser =
+      typeof messages === "string"
+        ? { content: messages }
+        : [...messages].reverse().find((message) => message.role === "user");
+    if (lastUser?.content.includes("tool result")) {
+      return [{ generated_text: "Final answer" }];
+    }
+    if (lastUser?.content.includes("weather")) {
+      return [{ generated_text: '<tool_call>{"name":"get_weather","arguments":{"city":"Boston"}}</tool_call>' }];
+    }
+    return [{ generated_text: "Hello from Qwen" }];
+  });
   const pipeline = vi.fn(async (_task: string) => {
-    const run = async (messages: string | Array<{ role: string; content: string }>) => {
-      const lastUser =
-        typeof messages === "string"
-          ? { content: messages }
-          : [...messages].reverse().find((message) => message.role === "user");
-      if (lastUser?.content.includes("tool result")) {
-        return [{ generated_text: "Final answer" }];
-      }
-      if (lastUser?.content.includes("weather")) {
-        return [{ generated_text: '<tool_call>{"name":"get_weather","arguments":{"city":"Boston"}}</tool_call>' }];
-      }
-      return [{ generated_text: "Hello from Qwen" }];
-    };
     run.tokenizer = { apply_chat_template: applyChatTemplate };
     return run;
   });
 
-  return { env, pipeline, applyChatTemplate };
+  return { env, pipeline, applyChatTemplate, run };
 });
 
 describe("createTransformersJsLocalResponsesRuntime", () => {
@@ -131,5 +131,47 @@ describe("createTransformersJsLocalResponsesRuntime", () => {
     expect(transformers.env.backends.onnx.wasm.wasmPaths).toBe("https://example.com/ort/");
     expect(transformers.env.backends.onnx.wasm.proxy).toBe(false);
     expect(transformers.env.useBrowserCache).toBe(false);
+  });
+
+  it("uses a smaller default generation budget for browser safety", async () => {
+    const transformers = await import("@huggingface/transformers");
+    const { createTransformersJsLocalResponsesRuntime } = await import("../src/transformers-local-runtime.js");
+
+    const runtime = createTransformersJsLocalResponsesRuntime();
+
+    await runtime.create({
+      model: "ignored",
+      input: [{ role: "user", content: "Say hello" }],
+    });
+
+    expect(transformers.run).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        max_new_tokens: 128,
+      }),
+    );
+  });
+
+  it("trims oversized conversation history before generation", async () => {
+    const transformers = await import("@huggingface/transformers");
+    const { createTransformersJsLocalResponsesRuntime } = await import("../src/transformers-local-runtime.js");
+
+    const runtime = createTransformersJsLocalResponsesRuntime({
+      maxInputChars: 120,
+    });
+
+    await runtime.create({
+      model: "ignored",
+      input: [
+        { role: "user", content: "x".repeat(500) },
+        { role: "user", content: "latest question" },
+      ],
+    });
+
+    const generationInput = transformers.run.mock.calls.at(-1)?.[0];
+    expect(typeof generationInput).toBe("string");
+    expect(generationInput).toContain("latest question");
+    expect(generationInput.length).toBeLessThan(220);
+    expect(generationInput).not.toContain("x".repeat(50));
   });
 });

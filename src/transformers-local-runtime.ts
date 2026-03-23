@@ -17,6 +17,7 @@ export interface TransformersLocalResponsesRuntimeOptions {
   device?: "webgpu" | "wasm" | "auto";
   dtype?: string;
   maxNewTokens?: number;
+  maxInputChars?: number;
   temperature?: number;
   topP?: number;
   repetitionPenalty?: number;
@@ -97,7 +98,8 @@ export function resolveTransformersRuntimeConfig(
     runtimeModel,
     device: options.device ?? "auto",
     dtype: options.dtype ?? "q4",
-    maxNewTokens: options.maxNewTokens ?? 768,
+    maxNewTokens: options.maxNewTokens ?? 128,
+    maxInputChars: options.maxInputChars ?? 4000,
     temperature: options.temperature ?? 0,
     topP: options.topP ?? 0.95,
     repetitionPenalty: options.repetitionPenalty ?? 1.05,
@@ -120,7 +122,7 @@ async function runLocalGeneration(
   config: Required<TransformersLocalResponsesRuntimeOptions>,
 ): Promise<string> {
   const generator = await getGenerator(config);
-  const messages = buildMessages(request);
+  const messages = buildMessages(request, config.maxInputChars);
   const generationInput = renderGenerationInput(generator, messages);
   const generation = await generator(generationInput, {
     max_new_tokens: request.maxOutputTokens ?? config.maxNewTokens,
@@ -203,7 +205,10 @@ function normalizeBaseUrl(url: string | undefined): string | undefined {
   return url.endsWith("/") ? url : `${url}/`;
 }
 
-function buildMessages(request: ResponseRequest): Array<{ role: "system" | "user" | "assistant"; content: string }> {
+function buildMessages(
+  request: ResponseRequest,
+  maxInputChars: number,
+): Array<{ role: "system" | "user" | "assistant"; content: string }> {
   const systemPreamble = buildSystemPreamble(request.tools);
   const normalizedInput = normalizeInput(request.input);
   const messages = normalizedInput
@@ -222,7 +227,7 @@ function buildMessages(request: ResponseRequest): Array<{ role: "system" | "user
     });
   }
 
-  return messages;
+  return trimMessagesForBudget(messages, maxInputChars);
 }
 
 function buildSystemPreamble(tools?: ToolDef[]): string {
@@ -407,6 +412,57 @@ function normalizeInput(input: ResponseRequest["input"]): ResponseInputItem[] {
   }
 
   return [{ role: "user", content: input }];
+}
+
+function trimMessagesForBudget(
+  messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
+  maxInputChars: number,
+): Array<{ role: "system" | "user" | "assistant"; content: string }> {
+  if (messages.length <= 1 || maxInputChars <= 0) {
+    return messages;
+  }
+
+  const systemMessage = messages[0]?.role === "system" ? messages[0] : null;
+  const remainingBudget = Math.max(
+    maxInputChars - (systemMessage?.content.length ?? 0),
+    512,
+  );
+  const rest = systemMessage ? messages.slice(1) : messages.slice();
+  const kept: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
+  let usedChars = 0;
+
+  for (let index = rest.length - 1; index >= 0; index -= 1) {
+    const message = rest[index];
+    if (!message) {
+      continue;
+    }
+    const contentLength = message.content.length;
+
+    if (usedChars + contentLength <= remainingBudget) {
+      kept.unshift(message);
+      usedChars += contentLength;
+      continue;
+    }
+
+    if (kept.length === 0) {
+      kept.unshift({
+        role: message.role,
+        content: trimContentFromStart(message.content, remainingBudget),
+      });
+    }
+    break;
+  }
+
+  return systemMessage ? [systemMessage, ...kept] : kept;
+}
+
+function trimContentFromStart(content: string, maxChars: number): string {
+  if (content.length <= maxChars) {
+    return content;
+  }
+
+  const tail = content.slice(-Math.max(maxChars - 32, 0)).trim();
+  return `[truncated]\n${tail}`.trim();
 }
 
 function isToolCallCandidate(
