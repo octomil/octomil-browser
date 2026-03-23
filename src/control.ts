@@ -10,6 +10,7 @@ import { OctomilError } from "./types.js";
 import type { ControlSyncResult } from "./types.js";
 import { SPAN_NAMES } from "./_generated/span_names.js";
 import { SPAN_ATTRIBUTES } from "./_generated/span_attributes.js";
+import type { DeviceContext } from "./device-context.js";
 import type { TelemetryReporter } from "./telemetry.js";
 
 // ---------------------------------------------------------------------------
@@ -32,6 +33,7 @@ export interface ControlClientOptions {
   serverUrl?: string;
   apiKey?: string;
   orgId?: string;
+  deviceContext?: DeviceContext | null;
   telemetry?: TelemetryReporter | null;
 }
 
@@ -125,6 +127,7 @@ export class ControlClient {
   private serverDeviceId: string | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private heartbeatSequence = 0;
+  private readonly deviceContext: DeviceContext | null;
   private readonly telemetry: TelemetryReporter | null;
 
   constructor(options: ControlClientOptions) {
@@ -134,6 +137,8 @@ export class ControlClient {
     );
     this.apiKey = options.apiKey;
     this.orgId = options.orgId;
+    this.deviceContext = options.deviceContext ?? null;
+    this.serverDeviceId = this.deviceContext?.serverDeviceId ?? null;
     this.telemetry = options.telemetry ?? null;
   }
 
@@ -152,7 +157,7 @@ export class ControlClient {
       };
     }
     const headers: Record<string, string> = {};
-    if (this.apiKey) headers["Authorization"] = `Bearer ${this.apiKey}`;
+    Object.assign(headers, this.resolveAuthHeaders());
     const resp = await fetch(
       `${this.serverUrl}/api/v1/devices/${this.serverDeviceId}/assignments`,
       { headers },
@@ -180,24 +185,39 @@ export class ControlClient {
 
   /** Register a device with the Octomil server. */
   async register(deviceId?: string): Promise<DeviceRegistration> {
-    const effectiveDeviceId = deviceId || (await this.generateDeviceId());
+    const effectiveDeviceId =
+      deviceId || this.deviceContext?.installationId || (await this.generateDeviceId());
     const payload = {
       device_identifier: effectiveDeviceId,
-      org_id: this.orgId || "",
+      installation_id: this.deviceContext?.installationId ?? effectiveDeviceId,
+      app_id: this.deviceContext?.appId ?? undefined,
       platform: "browser",
       os_version:
         typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
       sdk_version: "1.0.0",
+      locale:
+        typeof navigator !== "undefined" ? navigator.language : undefined,
+      timezone:
+        typeof Intl !== "undefined"
+          ? Intl.DateTimeFormat().resolvedOptions().timeZone
+          : undefined,
       device_info: this.collectDeviceInfo(),
     };
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
-    if (this.apiKey) headers["Authorization"] = `Bearer ${this.apiKey}`;
+    Object.assign(headers, this.resolveAuthHeaders());
+    if (this.deviceContext?.appId) {
+      headers["X-App-Id"] = this.deviceContext.appId;
+    }
+    const registerUrl = new URL(`${this.serverUrl}/api/v1/devices/register`);
+    if (this.orgId) {
+      registerUrl.searchParams.set("org_id", this.orgId);
+    }
 
     let resp: Response;
     try {
-      resp = await fetch(`${this.serverUrl}/api/v1/devices/register`, {
+      resp = await fetch(registerUrl.toString(), {
         method: "POST",
         headers,
         body: JSON.stringify(payload),
@@ -217,10 +237,28 @@ export class ControlClient {
       );
     }
 
-    const data = (await resp.json()) as { id: string; status?: string };
-    this.serverDeviceId = data.id;
+    const data = (await resp.json()) as {
+      device_id?: string;
+      id?: string;
+      status?: string;
+      access_token?: string;
+      expires_at?: string;
+    };
+    this.serverDeviceId = data.device_id ?? data.id ?? null;
+    if (
+      this.serverDeviceId &&
+      this.deviceContext &&
+      data.access_token &&
+      data.expires_at
+    ) {
+      this.deviceContext._updateRegistered(
+        this.serverDeviceId,
+        data.access_token,
+        new Date(data.expires_at),
+      );
+    }
     return {
-      id: data.id,
+      id: this.serverDeviceId ?? "",
       deviceIdentifier: effectiveDeviceId,
       orgId: this.orgId || "",
       status: data.status || "active",
@@ -251,13 +289,13 @@ export class ControlClient {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
-    if (this.apiKey) headers["Authorization"] = `Bearer ${this.apiKey}`;
+    Object.assign(headers, this.resolveAuthHeaders());
 
     let resp: Response;
     try {
       resp = await fetch(
         `${this.serverUrl}/api/v1/devices/${this.serverDeviceId}/heartbeat`,
-        { method: "POST", headers, body: JSON.stringify(payload) },
+        { method: "PUT", headers, body: JSON.stringify(payload) },
       );
     } catch (err) {
       throw new OctomilError(
@@ -309,7 +347,7 @@ export class ControlClient {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
-    if (this.apiKey) headers["Authorization"] = `Bearer ${this.apiKey}`;
+    Object.assign(headers, this.resolveAuthHeaders());
 
     let resp: Response;
     try {
@@ -346,7 +384,7 @@ export class ControlClient {
     }
 
     const headers: Record<string, string> = {};
-    if (this.apiKey) headers["Authorization"] = `Bearer ${this.apiKey}`;
+    Object.assign(headers, this.resolveAuthHeaders());
 
     let resp: Response;
     try {
@@ -380,7 +418,7 @@ export class ControlClient {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
-    if (this.apiKey) headers["Authorization"] = `Bearer ${this.apiKey}`;
+    Object.assign(headers, this.resolveAuthHeaders());
 
     let resp: Response;
     try {
@@ -482,5 +520,16 @@ export class ControlClient {
       language:
         typeof navigator !== "undefined" ? navigator.language : "unknown",
     };
+  }
+
+  private resolveAuthHeaders(): Record<string, string> {
+    return this.deviceContext?.authHeaders() ?? this.resolveApiKeyHeaders();
+  }
+
+  private resolveApiKeyHeaders(): Record<string, string> {
+    if (!this.apiKey) {
+      return {};
+    }
+    return { Authorization: `Bearer ${this.apiKey}` };
   }
 }

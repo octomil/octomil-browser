@@ -118,6 +118,32 @@ describe("TelemetryReporter — sendBeacon path", () => {
     reporter.close();
   });
 
+  it("skips sendBeacon when device auth headers are required", async () => {
+    const sendBeaconSpy = vi.fn(() => true);
+    Object.defineProperty(globalThis, "navigator", {
+      value: { sendBeacon: sendBeaconSpy },
+      writable: true,
+      configurable: true,
+    });
+
+    const fetchSpy = vi.fn(async () => ({ ok: true }));
+    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+    const reporter = new TelemetryReporter({
+      flushIntervalMs: 60_000,
+      authHeadersProvider: () => ({ Authorization: "Bearer device-token" }),
+    });
+    reporter.track(makeEvent());
+    await reporter.flush();
+
+    expect(sendBeaconSpy).not.toHaveBeenCalled();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const headers = fetchSpy.mock.calls[0]![1]!.headers as Record<string, string>;
+    expect(headers["Authorization"]).toBe("Bearer device-token");
+
+    reporter.close();
+  });
+
   it("uses sendBeacon on close to flush remaining events", () => {
     const sendBeaconSpy = vi.fn(() => true);
     Object.defineProperty(globalThis, "navigator", {

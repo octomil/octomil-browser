@@ -178,7 +178,6 @@ export class ChatClient {
     options: ChatOptions = {},
   ): Promise<ChatResponse> {
     this.ensureReadyFn();
-    this.requireServerUrl("chat.create()");
 
     const start = performance.now();
     const { instructions, input } = messagesToResponseInput(messages);
@@ -220,7 +219,6 @@ export class ChatClient {
     options: ChatOptions = {},
   ): AsyncGenerator<ChatChunk, void, undefined> {
     this.ensureReadyFn();
-    this.requireServerUrl("chat.stream()");
 
     const { instructions, input } = messagesToResponseInput(messages);
     let chunkIndex = 0;

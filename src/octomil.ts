@@ -24,6 +24,7 @@ import { OctomilAudio } from "./audio/octomil-audio.js";
 import { CapabilitiesClient } from "./capabilities.js";
 import { createModelCache, type ModelCache } from "./cache.js";
 import { ChatClient } from "./chat.js";
+import { getDeviceContext } from "./configure.js";
 import { ControlClient } from "./control.js";
 import { embed as embedFn } from "./embeddings.js";
 import { InferenceEngine } from "./runtime/engines/onnx-web/engine.js";
@@ -34,6 +35,7 @@ import { ResponsesClient } from "./responses.js";
 import { RoutingClient, detectDeviceCapabilities } from "./routing.js";
 import { TelemetryReporter } from "./telemetry.js";
 import { OctomilText } from "./text/octomil-text.js";
+import type { DeviceContext } from "./device-context.js";
 import type {
   Backend,
   CacheInfo,
@@ -66,6 +68,7 @@ export class OctomilClient {
   private readonly engine: ModelRuntime;
   private readonly inferenceEngine: InferenceEngine | null;
   private readonly routingClient: RoutingClient | null = null;
+  private readonly deviceContext: DeviceContext | null;
   private telemetry: TelemetryReporter | null = null;
   private deviceCaps: DeviceCapabilities | null = null;
   private _responses: ResponsesClient | null = null;
@@ -83,8 +86,17 @@ export class OctomilClient {
   constructor(options: OctomilOptions & { runtime?: ModelRuntime }) {
     // Extract serverUrl and apiKey from the auth config
     const auth = options.auth;
-    const serverUrl = auth.serverUrl;
-    const apiKey = auth.type === "org_api_key" ? auth.apiKey : auth.bootstrapToken;
+    const serverUrl = auth?.serverUrl;
+    const apiKey =
+      auth?.type === "org_api_key"
+        ? auth.apiKey
+        : auth?.type === "device_token"
+          ? auth.bootstrapToken
+          : undefined;
+    const orgId =
+      auth?.type === "org_api_key" ? auth.orgId : getDeviceContext()?.orgId ?? undefined;
+
+    this.deviceContext = getDeviceContext();
 
     this.options = {
       telemetry: false,
@@ -115,7 +127,13 @@ export class OctomilClient {
       this.telemetry = new TelemetryReporter({
         url: this.options.telemetryUrl,
         apiKey,
+        authHeadersProvider: () => this.deviceContext?.authHeaders() ?? null,
+        orgId,
+        deviceId: this.deviceContext?.installationId,
       });
+      if (this.deviceContext) {
+        this.telemetry.updateResource(this.deviceContext.telemetryResource());
+      }
     }
   }
 
@@ -488,7 +506,8 @@ export class OctomilClient {
    * Lazily-created `ChatClient` providing `chat.create()` and
    * `chat.stream()` methods for OpenAI-compatible chat completions.
    *
-   * Requires `serverUrl` to be configured.
+   * Uses a local responses runtime when configured, otherwise falls back to
+   * the configured server-backed responses client.
    *
    * @example
    * ```ts
@@ -518,8 +537,9 @@ export class OctomilClient {
    * Lazily-created `ResponsesClient` providing `responses.create()` and
    * `responses.stream()` methods for the structured response API.
    *
-   * Requires `serverUrl` to be configured; `apiKey` is optional but
-   * recommended.
+   * Uses a configured local responses runtime when available; otherwise uses
+   * the server-backed responses API. `apiKey` is optional but recommended for
+   * server-backed usage.
    */
   get responses(): ResponsesClient {
     if (!this._responses) {
@@ -527,6 +547,8 @@ export class OctomilClient {
         serverUrl: this.options.serverUrl,
         apiKey: this.options.apiKey,
         telemetry: this.telemetry,
+        deviceContext: this.deviceContext,
+        localRuntime: this.options.responsesRuntime,
       });
     }
     return this._responses;
@@ -548,6 +570,9 @@ export class OctomilClient {
       this._control = new ControlClient({
         serverUrl: this.options.serverUrl,
         apiKey: this.options.apiKey,
+        orgId: this.options.auth?.type === "org_api_key" ? this.options.auth.orgId : undefined,
+        deviceContext: this.deviceContext,
+        telemetry: this.telemetry,
       });
     }
     return this._control;
@@ -793,7 +818,7 @@ export class OctomilClient {
       float[2 * pixels + i] = rgba[i * 4 + 2]! / 255; // B
     }
 
-    const name = this.engine.inputNames[0];
+    const name = this.inferenceEngine?.inputNames[0];
     if (!name) {
       throw new OctomilError(
         "INVALID_INPUT",

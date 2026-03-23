@@ -4,6 +4,11 @@
  * All public interfaces and types for the browser inference SDK.
  */
 
+import type {
+  LocalResponsesRuntime,
+  LocalResponsesRuntimeResolver,
+} from "./responses-runtime.js";
+
 export { AuthType } from "./_generated/auth_type.js";
 export { PrincipalType } from "./_generated/principal_type.js";
 export { Scope } from "./_generated/scope.js";
@@ -74,7 +79,7 @@ export interface OctomilOptions {
    * Authentication configuration. Use `{ type: "org_api_key", ... }` for
    * API key auth or `{ type: "device_token", ... }` for device token auth.
    */
-  auth: AuthConfig;
+  auth?: AuthConfig;
 
   /**
    * Server URL derived from auth config. Set internally by the constructor.
@@ -130,6 +135,14 @@ export interface OctomilOptions {
     /** Model size in MB (used by routing heuristics). */
     modelSizeMb?: number;
   };
+
+  /**
+   * Optional local runtime used by `responses.create()` / `responses.stream()`.
+   *
+   * When provided, the browser SDK can execute the structured responses API
+   * locally instead of requiring a server-backed chat completions endpoint.
+   */
+  responsesRuntime?: LocalResponsesRuntime | LocalResponsesRuntimeResolver;
 }
 
 // ---------------------------------------------------------------------------
@@ -506,7 +519,6 @@ import {
   type ErrorCategory,
   type RetryClass,
   type SuggestedAction,
-  type ErrorClassification,
 } from "./_generated/error_code.js";
 export type {
   ErrorCategory,
@@ -526,6 +538,9 @@ export type OctomilErrorCode =
   | "DEVICE_NOT_REGISTERED"
   | "TOKEN_EXPIRED"
   | "DEVICE_REVOKED"
+  | "CLOUD_CREDENTIALS_MISSING"
+  | "CLOUD_CREDENTIALS_REVOKED"
+  | "CLOUD_PROVIDER_AUTH_FAILED"
   // --- Network / Transport ---
   | "NETWORK_UNAVAILABLE"
   | "REQUEST_TIMEOUT"
@@ -603,6 +618,9 @@ export const ERROR_CODE_MAP: Readonly<Record<ErrorCode, OctomilErrorCode>> = {
   [ErrorCode.StreamInterrupted]: "STREAM_INTERRUPTED",
   [ErrorCode.PolicyDenied]: "POLICY_DENIED",
   [ErrorCode.CloudFallbackDisallowed]: "CLOUD_FALLBACK_DISALLOWED",
+  [ErrorCode.CloudCredentialsMissing]: "CLOUD_CREDENTIALS_MISSING",
+  [ErrorCode.CloudCredentialsRevoked]: "CLOUD_CREDENTIALS_REVOKED",
+  [ErrorCode.CloudProviderAuthFailed]: "CLOUD_PROVIDER_AUTH_FAILED",
   [ErrorCode.MaxToolRoundsExceeded]: "MAX_TOOL_ROUNDS_EXCEEDED",
   [ErrorCode.ControlSyncFailed]: "CONTROL_SYNC_FAILED",
   [ErrorCode.AssignmentNotFound]: "ASSIGNMENT_NOT_FOUND",
