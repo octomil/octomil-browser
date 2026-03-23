@@ -64,7 +64,7 @@ export class GradientCache {
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, "readonly");
       const index = tx.objectStore(STORE_NAME).index("submitted");
-      const request = index.getAll(false);
+      const request = index.getAll(IDBKeyRange.only(false));
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });

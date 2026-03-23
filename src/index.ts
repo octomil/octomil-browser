@@ -141,6 +141,7 @@ export {
   generateId as generateResponseId,
 } from "./responses.js";
 export { ToolRunner } from "./responses-tools.js";
+export { createTransformersJsLocalResponsesRuntime } from "./transformers-local-runtime.js";
 export type {
   ToolExecutor,
   ToolResult,
@@ -149,6 +150,7 @@ export type {
   LocalResponsesRuntime,
   LocalResponsesRuntimeResolver,
 } from "./responses-runtime.js";
+export type { TransformersLocalResponsesRuntimeOptions } from "./transformers-local-runtime.js";
 export type {
   ResponseRequest,
   ContentBlock,

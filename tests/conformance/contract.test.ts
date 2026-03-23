@@ -10,9 +10,12 @@ import {
   DevicesClient,
   FederatedClient,
   MonitoringClient,
+  OctomilClient,
   OctomilText,
+  ResponsesClient,
   SettingsClient,
   TelemetryReporter,
+  ToolRunner,
   TrainingClient,
 } from "../../src/index";
 
@@ -51,9 +54,12 @@ describe("Contract Conformance", () => {
       expect(DevicesClient).toBeTypeOf("function");
       expect(FederatedClient).toBeTypeOf("function");
       expect(MonitoringClient).toBeTypeOf("function");
+      expect(OctomilClient).toBeTypeOf("function");
       expect(OctomilText).toBeTypeOf("function");
+      expect(ResponsesClient).toBeTypeOf("function");
       expect(SettingsClient).toBeTypeOf("function");
       expect(TelemetryReporter).toBeTypeOf("function");
+      expect(ToolRunner).toBeTypeOf("function");
       expect(TrainingClient).toBeTypeOf("function");
     });
   });
