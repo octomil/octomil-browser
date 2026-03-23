@@ -131,6 +131,121 @@ export class FederatedClient {
     }
   }
 
+  async offers(): Promise<Record<string, unknown>> {
+    const response = await this.request(
+      `/api/v1/federation/rounds/offers?deviceId=${encodeURIComponent(this.deviceId)}`,
+      { method: "GET" },
+    );
+    if (!response.ok) {
+      throw new OctomilError(
+        "NETWORK_UNAVAILABLE",
+        `Failed to fetch round offers: HTTP ${response.status}`,
+      );
+    }
+    return (await response.json()) as Record<string, unknown>;
+  }
+
+  async join(
+    roundId: string,
+    request: Record<string, unknown> = {},
+  ): Promise<Record<string, unknown>> {
+    const response = await this.request(
+      `/api/v1/federation/rounds/${encodeURIComponent(roundId)}/join`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          deviceId: this.deviceId,
+          ...request,
+        }),
+      },
+    );
+    if (!response.ok) {
+      throw new OctomilError(
+        "NETWORK_UNAVAILABLE",
+        `Failed to join federation round: HTTP ${response.status}`,
+      );
+    }
+    return (await response.json()) as Record<string, unknown>;
+  }
+
+  async plan(planId: string): Promise<Record<string, unknown>> {
+    const response = await this.request(
+      `/api/v1/federation/plans/${encodeURIComponent(planId)}`,
+      { method: "GET" },
+    );
+    if (!response.ok) {
+      throw new OctomilError(
+        "NETWORK_UNAVAILABLE",
+        `Failed to fetch federation plan: HTTP ${response.status}`,
+      );
+    }
+    return (await response.json()) as Record<string, unknown>;
+  }
+
+  async heartbeat(
+    roundId: string,
+    request: Record<string, unknown> = {},
+  ): Promise<Record<string, unknown>> {
+    const response = await this.request(
+      `/api/v1/federation/rounds/${encodeURIComponent(roundId)}/heartbeat`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          deviceId: this.deviceId,
+          ...request,
+        }),
+      },
+    );
+    if (!response.ok) {
+      throw new OctomilError(
+        "NETWORK_UNAVAILABLE",
+        `Failed to send federation heartbeat: HTTP ${response.status}`,
+      );
+    }
+    return (await response.json()) as Record<string, unknown>;
+  }
+
+  async uploadInitiate(
+    roundId: string,
+    request: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const response = await this.request(
+      `/api/v1/federation/rounds/${encodeURIComponent(roundId)}/updates/initiate`,
+      {
+        method: "POST",
+        body: JSON.stringify(request),
+      },
+    );
+    if (!response.ok) {
+      throw new OctomilError(
+        "NETWORK_UNAVAILABLE",
+        `Failed to initiate upload: HTTP ${response.status}`,
+      );
+    }
+    return (await response.json()) as Record<string, unknown>;
+  }
+
+  async uploadComplete(
+    roundId: string,
+    uploadId: string,
+    request: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const response = await this.request(
+      `/api/v1/federation/rounds/${encodeURIComponent(roundId)}/updates/${encodeURIComponent(uploadId)}/complete`,
+      {
+        method: "POST",
+        body: JSON.stringify(request),
+      },
+    );
+    if (!response.ok) {
+      throw new OctomilError(
+        "NETWORK_UNAVAILABLE",
+        `Failed to complete upload: HTTP ${response.status}`,
+      );
+    }
+    return (await response.json()) as Record<string, unknown>;
+  }
+
   /**
    * Run local training using a user-provided step function.
    *

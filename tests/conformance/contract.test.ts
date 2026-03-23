@@ -4,12 +4,23 @@
 import { describe, expect, it } from "vitest";
 import { ErrorCode } from "../../src/_generated/error_code";
 import { TELEMETRY_EVENTS } from "../../src/_generated/telemetry_events";
+import {
+  ArtifactsClient,
+  ChatClient,
+  DevicesClient,
+  FederatedClient,
+  MonitoringClient,
+  OctomilText,
+  SettingsClient,
+  TelemetryReporter,
+  TrainingClient,
+} from "../../src/index";
 
 describe("Contract Conformance", () => {
   describe("ErrorCode enum", () => {
-    it("has all 36 canonical error codes", () => {
+    it("has all 39 canonical error codes", () => {
       const codes = Object.values(ErrorCode);
-      expect(codes).toHaveLength(36);
+      expect(codes).toHaveLength(39);
       expect(codes).toContain("network_unavailable");
       expect(codes).toContain("authentication_failed");
       expect(codes).toContain("model_not_found");
@@ -30,6 +41,20 @@ describe("Contract Conformance", () => {
       expect(TELEMETRY_EVENTS.inferenceChunkProduced).toBe("inference.chunk_produced");
       expect(TELEMETRY_EVENTS.deployStarted).toBe("deploy.started");
       expect(TELEMETRY_EVENTS.deployCompleted).toBe("deploy.completed");
+    });
+  });
+
+  describe("SDK surface", () => {
+    it("exports browser parity clients", () => {
+      expect(ArtifactsClient).toBeTypeOf("function");
+      expect(ChatClient).toBeTypeOf("function");
+      expect(DevicesClient).toBeTypeOf("function");
+      expect(FederatedClient).toBeTypeOf("function");
+      expect(MonitoringClient).toBeTypeOf("function");
+      expect(OctomilText).toBeTypeOf("function");
+      expect(SettingsClient).toBeTypeOf("function");
+      expect(TelemetryReporter).toBeTypeOf("function");
+      expect(TrainingClient).toBeTypeOf("function");
     });
   });
 });
