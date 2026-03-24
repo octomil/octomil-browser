@@ -139,18 +139,15 @@ async function runLocalGeneration(
 async function getGenerator(
   config: Required<TransformersLocalResponsesRuntimeOptions>,
 ): Promise<GenerationPipeline> {
-  const key = JSON.stringify([
-    config.runtimeModel,
-    resolveDevice(config.device),
-    config.dtype,
-  ]);
+  const device = await resolveDevice(config.device);
+  const key = JSON.stringify([config.runtimeModel, device, config.dtype]);
 
   let pending = pipelineCache.get(key);
   if (!pending) {
     pending = (async () => {
       const { pipeline } = await importTransformers(config);
       return pipeline("text-generation", config.runtimeModel, {
-        device: resolveDevice(config.device),
+        device,
         dtype: config.dtype,
       });
     })();
@@ -175,11 +172,87 @@ async function importTransformers(
   return transformers;
 }
 
-function resolveDevice(device: "webgpu" | "wasm" | "auto"): "webgpu" | "wasm" {
-  if (device === "webgpu" || device === "wasm") {
-    return device;
+let resolvedDeviceCache: "webgpu" | "wasm" | null = null;
+
+async function resolveDevice(
+  device: "webgpu" | "wasm" | "auto",
+): Promise<"webgpu" | "wasm"> {
+  if (device === "webgpu" || device === "wasm") return device;
+  if (resolvedDeviceCache) return resolvedDeviceCache;
+
+  const result = await probeWebGPU();
+  resolvedDeviceCache = result;
+  return result;
+}
+
+/**
+ * Probe whether WebGPU can actually complete a buffer readback.
+ * Checks: adapter exists, device can be created, a small compute
+ * shader writes to a storage buffer, and mapAsync succeeds.
+ * Returns "webgpu" on success, "wasm" on any failure.
+ */
+async function probeWebGPU(): Promise<"webgpu" | "wasm"> {
+  try {
+    if (typeof navigator === "undefined" || !("gpu" in navigator)) return "wasm";
+
+    const gpu = (navigator as unknown as { gpu: GPU }).gpu;
+    const adapter = await gpu.requestAdapter();
+    if (!adapter) return "wasm";
+
+    const device = await adapter.requestDevice();
+
+    // Tiny compute shader: writes 42.0 to output buffer
+    const module = device.createShaderModule({
+      code: `@group(0) @binding(0) var<storage, read_write> out: array<f32>;
+@compute @workgroup_size(1)
+fn main() { out[0] = 42.0; }`,
+    });
+
+    const storageBuffer = device.createBuffer({
+      size: 4,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+    });
+    const readBuffer = device.createBuffer({
+      size: 4,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+    });
+
+    const bindGroupLayout = device.createBindGroupLayout({
+      entries: [{ binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }],
+    });
+    const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] });
+    const pipeline = device.createComputePipeline({
+      layout: pipelineLayout,
+      compute: { module, entryPoint: "main" },
+    });
+    const bindGroup = device.createBindGroup({
+      layout: bindGroupLayout,
+      entries: [{ binding: 0, resource: { buffer: storageBuffer } }],
+    });
+
+    const encoder = device.createCommandEncoder();
+    const pass = encoder.beginComputePass();
+    pass.setPipeline(pipeline);
+    pass.setBindGroup(0, bindGroup);
+    pass.dispatchWorkgroups(1);
+    pass.end();
+    encoder.copyBufferToBuffer(storageBuffer, 0, readBuffer, 0, 4);
+    device.queue.submit([encoder.finish()]);
+
+    // This is the exact operation that fails in the ORT error
+    await readBuffer.mapAsync(GPUMapMode.READ);
+    const data = new Float32Array(readBuffer.getMappedRange());
+    const value = data[0];
+    readBuffer.unmap();
+
+    storageBuffer.destroy();
+    readBuffer.destroy();
+    device.destroy();
+
+    return value === 42.0 ? "webgpu" : "wasm";
+  } catch {
+    return "wasm";
   }
-  return typeof navigator !== "undefined" && "gpu" in navigator ? "webgpu" : "wasm";
 }
 
 function renderGenerationInput(
