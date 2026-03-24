@@ -70,7 +70,64 @@ export function createTransformersJsLocalResponsesRuntime(
       return toResponse(request, config.model, generatedText);
     },
     async *stream(request: ResponseRequest) {
-      const response = await this.create(request);
+      const generator = await getGenerator(config);
+      const messages = buildMessages(request, config.maxInputChars);
+      const generationInput = renderGenerationInput(generator, messages);
+
+      // Async queue so callback_function can push tokens into the generator
+      type QueueItem =
+        | { kind: "token"; text: string }
+        | { kind: "done" }
+        | { kind: "error"; error: unknown };
+      const pending: QueueItem[] = [];
+      let wake: (() => void) | null = null;
+
+      const push = (item: QueueItem) => {
+        pending.push(item);
+        if (wake) { wake(); wake = null; }
+      };
+
+      const pull = async (): Promise<QueueItem> => {
+        while (pending.length === 0) {
+          await new Promise<void>((r) => { wake = r; });
+        }
+        return pending.shift()!;
+      };
+
+      // Fire-and-forget: generation runs, callback_function pushes tokens
+      const genPromise = generator(generationInput, {
+        max_new_tokens: request.maxOutputTokens ?? config.maxNewTokens,
+        temperature: request.temperature ?? config.temperature,
+        top_p: request.topP ?? config.topP,
+        repetition_penalty: config.repetitionPenalty,
+        do_sample: (request.temperature ?? config.temperature) > 0,
+        return_full_text: false,
+        callback_function: (text: unknown) => {
+          if (typeof text === "string" && text.length > 0) {
+            push({ kind: "token", text });
+          }
+        },
+      })
+        .then(() => push({ kind: "done" }))
+        .catch((err: unknown) => push({ kind: "error", error: err }));
+
+      let fullText = "";
+      while (true) {
+        const item = await pull();
+        if (item.kind === "error") {
+          throw item.error instanceof Error
+            ? item.error
+            : new Error(String(item.error));
+        }
+        if (item.kind === "done") break;
+        fullText += item.text;
+        yield { type: "text_delta" as const, delta: item.text };
+      }
+
+      await genPromise;
+      const response = toResponse(request, config.model, fullText);
+
+      // If the final response is a tool call, yield that too
       const firstOutput = response.output[0];
       if (firstOutput?.type === "tool_call") {
         yield {
@@ -80,8 +137,6 @@ export function createTransformersJsLocalResponsesRuntime(
           name: firstOutput.toolCall?.name,
           argumentsDelta: firstOutput.toolCall?.arguments,
         };
-      } else if (firstOutput?.type === "text" && firstOutput.text) {
-        yield { type: "text_delta" as const, delta: firstOutput.text };
       }
       yield { type: "done" as const, response };
     },
