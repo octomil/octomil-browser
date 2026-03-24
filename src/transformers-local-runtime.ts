@@ -163,7 +163,7 @@ async function getGenerator(
 async function importTransformers(
   config: Required<TransformersLocalResponsesRuntimeOptions>,
 ): Promise<TransformersModule> {
-  const transformers = await importRuntimeModule("@huggingface/transformers") as TransformersModule;
+  const transformers = (await import("@huggingface/transformers")) as TransformersModule;
   if (transformers.env) {
     transformers.env.useBrowserCache = config.useBrowserCache;
   }
@@ -173,10 +173,6 @@ async function importTransformers(
     wasmConfig.proxy = false;
   }
   return transformers;
-}
-
-async function importRuntimeModule(specifier: string): Promise<unknown> {
-  return import(/* @vite-ignore */ specifier);
 }
 
 function resolveDevice(device: "webgpu" | "wasm" | "auto"): "webgpu" | "wasm" {
