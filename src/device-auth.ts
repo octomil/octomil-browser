@@ -11,6 +11,7 @@ import type {
   DeviceAuthToken,
   DeviceInfo,
 } from "./types.js";
+import { DEFAULT_SDK_VERSION } from "./telemetry.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -44,15 +45,29 @@ export class DeviceAuth {
     this.ensureNotDisposed();
 
     this.deviceId = await this.generateDeviceId();
-    const deviceInfo = this.collectDeviceInfo();
+    const battery = await (navigator as any)?.getBattery?.().catch(() => null) ?? null;
 
     const response = await this.request("/api/v1/devices/register", {
       method: "POST",
       body: JSON.stringify({
         org_id: orgId,
-        device_id: this.deviceId,
+        device_identifier: this.deviceId,
         platform: "browser",
-        info: deviceInfo,
+        os_version:
+          typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
+        sdk_version: DEFAULT_SDK_VERSION,
+        locale:
+          typeof navigator !== "undefined" ? navigator.language : undefined,
+        timezone:
+          typeof Intl !== "undefined"
+            ? Intl.DateTimeFormat().resolvedOptions().timeZone
+            : undefined,
+        total_memory_mb:
+          typeof navigator !== "undefined" && (navigator as any).deviceMemory
+            ? Math.round((navigator as any).deviceMemory * 1024)
+            : undefined,
+        battery_pct: battery ? Math.round(battery.level * 100) : undefined,
+        charging: battery?.charging,
       }),
     });
 

@@ -22,7 +22,7 @@ const DEFAULT_FLUSH_INTERVAL_MS = 30_000; // 30 seconds
 const DEFAULT_MAX_BATCH_SIZE = 50;
 const DEFAULT_TELEMETRY_URL = "https://api.octomil.com/v2/telemetry/events";
 const SDK_NAME = "browser";
-const DEFAULT_SDK_VERSION = "1.0.0";
+export const DEFAULT_SDK_VERSION = "1.0.0";
 
 // ---------------------------------------------------------------------------
 // Legacy resource envelope types (kept for backward compatibility)
