@@ -46,6 +46,7 @@ export class RoutingClient {
   private readonly cacheTtlMs: number;
   private readonly prefer: RoutingPreference;
   private readonly cache = new Map<string, CacheEntry>();
+  private readonly appId: string | undefined;
 
   /** Whether the last `route()` call was answered from offline fallback. */
   lastRouteWasOffline = false;
@@ -55,6 +56,7 @@ export class RoutingClient {
     this.apiKey = config.apiKey;
     this.cacheTtlMs = config.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
     this.prefer = config.prefer ?? "fastest";
+    this.appId = config.appId;
   }
 
   // -----------------------------------------------------------------------
@@ -87,6 +89,7 @@ export class RoutingClient {
       model_size_mb: modelSizeMb,
       device_capabilities: deviceCapabilities,
       prefer: this.prefer,
+      ...(this.appId ? { app_id: this.appId } : {}),
     };
 
     let response: Response;

@@ -440,6 +440,7 @@ export interface RoutingRequest {
   model_size_mb: number;
   device_capabilities: DeviceCapabilities;
   prefer: RoutingPreference;
+  app_id?: string;
 }
 
 /** Fallback target returned by routing when cloud is primary. */
@@ -483,6 +484,8 @@ export interface RoutingConfig {
   cacheTtlMs?: number;
   /** Routing preference. @default "fastest" */
   prefer?: RoutingPreference;
+  /** App ID to attribute routing decisions to. Sent in request body. */
+  appId?: string;
 }
 
 // ---------------------------------------------------------------------------
