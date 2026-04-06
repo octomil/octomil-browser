@@ -402,10 +402,11 @@ describe("RoutingClient", () => {
       );
     });
 
-    it("omits prefer when not explicitly set", async () => {
+    it("defaults prefer to fastest when no deploymentId", async () => {
       const c = new RoutingClient({
         serverUrl: "https://api.octomil.com",
         apiKey: "key",
+        // no prefer, no deploymentId
       });
 
       fetchSpy.mockResolvedValueOnce(
@@ -417,7 +418,7 @@ describe("RoutingClient", () => {
       const body = JSON.parse(
         (fetchSpy.mock.calls[0]![1] as RequestInit).body as string,
       );
-      expect(body.prefer).toBeUndefined();
+      expect(body.prefer).toBe("fastest");
     });
   });
 
@@ -486,17 +487,24 @@ describe("RoutingClient", () => {
       expect(body.deployment_id).toBe("dep-abc");
     });
 
-    it("omits deployment_id when not configured", async () => {
+    it("omits deployment_id when not configured and defaults prefer to fastest", async () => {
+      const noDepClient = new RoutingClient({
+        serverUrl: "https://api.octomil.com",
+        apiKey: "test-key",
+        // no prefer, no deploymentId
+      });
+
       fetchSpy.mockResolvedValueOnce(
         new Response(JSON.stringify(DEVICE_DECISION), { status: 200 }),
       );
 
-      await client.route("model-a", 500, 2.0, DEVICE_CAPS);
+      await noDepClient.route("model-a", 500, 2.0, DEVICE_CAPS);
 
       const body = JSON.parse(
         (fetchSpy.mock.calls[0]![1] as RequestInit).body as string,
       );
       expect(body.deployment_id).toBeUndefined();
+      expect(body.prefer).toBe("fastest");
     });
   });
 });

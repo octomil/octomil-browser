@@ -126,7 +126,8 @@ export interface OctomilOptions {
    * If omitted, all inference runs locally (current default behavior).
    */
   routing?: {
-    /** Routing preference. @default "fastest" */
+    /** Routing preference. Only sent when explicitly set; otherwise the server
+     *  uses the deployment's routing_preference. @default "fastest" when no deploymentId */
     prefer?: RoutingPreference;
     /** Cache TTL in milliseconds. @default 300_000 (5 minutes) */
     cacheTtlMs?: number;
@@ -134,6 +135,10 @@ export interface OctomilOptions {
     modelParams?: number;
     /** Model size in MB (used by routing heuristics). */
     modelSizeMb?: number;
+    /** Deployment ID. When set, the server applies the deployment's routing_preference. */
+    deploymentId?: string;
+    /** App ID to attribute routing decisions to. */
+    appId?: string;
   };
 
   /**

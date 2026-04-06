@@ -120,6 +120,8 @@ export class OctomilClient {
         apiKey,
         cacheTtlMs: this.options.routing.cacheTtlMs,
         prefer: this.options.routing.prefer,
+        deploymentId: this.options.routing.deploymentId,
+        appId: this.options.routing.appId,
       });
     }
 
