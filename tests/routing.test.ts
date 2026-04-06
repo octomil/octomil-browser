@@ -204,10 +204,12 @@ describe("RoutingClient", () => {
       expect(localStorageMock.setItem).toHaveBeenCalled();
 
       // Create new client to clear in-memory cache.
+      // Must match prefer so the persistent cache key matches.
       const client2 = new RoutingClient({
         serverUrl: "https://api.octomil.com",
         apiKey: "test-key",
         cacheTtlMs: 5000,
+        prefer: "fastest",
       });
 
       // Second call fails — should get persistent cache.
@@ -485,6 +487,35 @@ describe("RoutingClient", () => {
       );
       expect(body.prefer).toBe("device");
       expect(body.deployment_id).toBe("dep-abc");
+    });
+
+    it("isolates persistent cache by deployment context", async () => {
+      // Client A with dep-1 caches a cloud decision.
+      const clientA = new RoutingClient({
+        serverUrl: "https://api.octomil.com",
+        apiKey: "test-key",
+        deploymentId: "dep-1",
+      });
+
+      fetchSpy.mockResolvedValueOnce(
+        new Response(JSON.stringify(CLOUD_DECISION), { status: 200 }),
+      );
+      await clientA.route("model-a", 500, 2.0, DEVICE_CAPS);
+
+      // Client B with dep-2 shares localStorage but should NOT
+      // see client A's cached decision when going offline.
+      const clientB = new RoutingClient({
+        serverUrl: "https://api.octomil.com",
+        apiKey: "test-key",
+        deploymentId: "dep-2",
+      });
+
+      fetchSpy.mockRejectedValueOnce(new Error("Network down"));
+      const result = await clientB.route("model-a", 500, 2.0, DEVICE_CAPS);
+
+      // Should get a synthetic offline decision, NOT dep-1's cloud decision.
+      expect(result.offline).toBe(true);
+      expect(result.target).toBe("device");
     });
 
     it("omits deployment_id when not configured and defaults prefer to fastest", async () => {
