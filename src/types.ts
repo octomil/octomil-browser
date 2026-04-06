@@ -439,8 +439,9 @@ export interface RoutingRequest {
   model_params: number;
   model_size_mb: number;
   device_capabilities: DeviceCapabilities;
-  prefer: RoutingPreference;
+  prefer?: RoutingPreference;
   app_id?: string;
+  deployment_id?: string;
 }
 
 /** Fallback target returned by routing when cloud is primary. */
@@ -482,10 +483,13 @@ export interface RoutingConfig {
   apiKey: string;
   /** Cache TTL in milliseconds. @default 300_000 (5 minutes) */
   cacheTtlMs?: number;
-  /** Routing preference. @default "fastest" */
+  /** Routing preference. Only sent when explicitly set; otherwise the server
+   *  uses the deployment's routing_preference. */
   prefer?: RoutingPreference;
   /** App ID to attribute routing decisions to. Sent in request body. */
   appId?: string;
+  /** Deployment ID. When set, the server applies the deployment's routing_preference. */
+  deploymentId?: string;
 }
 
 // ---------------------------------------------------------------------------

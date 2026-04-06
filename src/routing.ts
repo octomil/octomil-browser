@@ -44,9 +44,11 @@ export class RoutingClient {
   private readonly serverUrl: string;
   private readonly apiKey: string;
   private readonly cacheTtlMs: number;
-  private readonly prefer: RoutingPreference;
+  private readonly prefer: RoutingPreference | undefined;
+  private readonly preferExplicit: boolean;
   private readonly cache = new Map<string, CacheEntry>();
   private readonly appId: string | undefined;
+  private readonly deploymentId: string | undefined;
 
   /** Whether the last `route()` call was answered from offline fallback. */
   lastRouteWasOffline = false;
@@ -55,8 +57,10 @@ export class RoutingClient {
     this.serverUrl = config.serverUrl.replace(/\/+$/, "");
     this.apiKey = config.apiKey;
     this.cacheTtlMs = config.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
-    this.prefer = config.prefer ?? "fastest";
+    this.prefer = config.prefer;
+    this.preferExplicit = config.prefer !== undefined;
     this.appId = config.appId;
+    this.deploymentId = config.deploymentId;
   }
 
   // -----------------------------------------------------------------------
@@ -88,8 +92,9 @@ export class RoutingClient {
       model_params: modelParams,
       model_size_mb: modelSizeMb,
       device_capabilities: deviceCapabilities,
-      prefer: this.prefer,
+      ...(this.preferExplicit && this.prefer ? { prefer: this.prefer } : {}),
       ...(this.appId ? { app_id: this.appId } : {}),
+      ...(this.deploymentId ? { deployment_id: this.deploymentId } : {}),
     };
 
     let response: Response;
