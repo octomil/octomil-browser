@@ -30,7 +30,7 @@
     "prepublishOnly": "pnpm run build && pnpm test"
   },
   "dependencies": {
-    "@huggingface/transformers": "4.0.0",
+    "@huggingface/transformers": "4.0.1",
     "onnxruntime-web": "^1.17.0"
   },
   "devDependencies": {
