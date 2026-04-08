@@ -166,12 +166,47 @@ The SDK auto-detects the best backend. Pass `backend: 'webgpu'` or `backend: 'wa
 
 **Limitations**: Works well for models up to ~500MB. Large LLMs will hit browser memory limits. WebGPU performance varies by GPU. WASM is slower but universal.
 
+### Control plane (optional)
+
+The Browser SDK has optional control plane integration for device registration, desired-state sync, and heartbeats. This is separate from the main inference path.
+
+```typescript
+import { configure } from '@octomil/browser';
+
+// Silent device registration (background, exponential backoff)
+configure({
+  auth: { type: 'publishable_key', key: 'oct_pub_live_...' },
+  monitoring: { enabled: true },
+});
+```
+
+Or use the control namespace directly:
+
+```typescript
+await ml.control.register();
+ml.control.startHeartbeat(300_000); // 5 min interval
+const state = await ml.control.fetchDesiredState();
+await ml.control.sync({ modelInventory: [...] });
+```
+
+`SyncManager` is a standalone opt-in export for periodic desired-state reconciliation (not automatic):
+
+```typescript
+import { SyncManager } from '@octomil/browser';
+const sync = new SyncManager({ intervalMs: 300_000, onEvent: (e) => console.log(e) });
+```
+
+**Key difference from iOS/Android:** The Browser SDK has no `AppManifest`. It is model-URL-driven — you pass a direct `.onnx` URL to the constructor. `predict()` is local ONNX inference only; `predictStream()` and `embed()` hit cloud endpoints.
+
 ## Architecture
 
 ```
 OctomilClient → ModelManager (download/cache) → InferenceEngine (ONNX Runtime Web)
              → RoutingClient (device vs. cloud) → StreamingEngine (SSE tokens)
+             → ControlClient (register, heartbeat, sync) — optional
              → TelemetryReporter (opt-in metrics)
+configure()  → SilentAuth (background registration) + HeartbeatManager
+SyncManager  → Periodic desired-state reconciliation (standalone, opt-in)
 ```
 
 ## Script Tag (no bundler)
