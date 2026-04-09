@@ -62,6 +62,25 @@ const response = await client.responses.create({
 console.log(response.outputText);
 ```
 
+### Embeddings
+
+```typescript
+const result = await client.embeddings.create({
+  model: "nomic-embed-text-v1.5",
+  input: "On-device AI inference at scale",
+});
+console.log(result.embeddings[0].slice(0, 5));
+```
+
+Array input is also supported:
+
+```typescript
+const result = await client.embeddings.create({
+  model: "nomic-embed-text-v1.5",
+  input: ["first document", "second document"],
+});
+```
+
 ### Migrating from OctomilClient
 
 `OctomilClient` and the low-level `ResponsesClient` APIs still work exactly as before. The `Octomil` facade is a convenience wrapper for the cloud-backed Responses path — it delegates to `ResponsesClient` internally. For local ONNX inference, continue using `OctomilClient` directly.

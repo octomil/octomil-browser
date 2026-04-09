@@ -23,7 +23,7 @@
 export { OctomilClient } from "./octomil.js";
 
 // Unified facade (cloud-backed responses, no model required at construction)
-export { Octomil, OctomilNotInitializedError } from "./facade.js";
+export { Octomil, OctomilNotInitializedError, FacadeEmbeddings } from "./facade.js";
 export type { OctomilFacadeOptions } from "./facade.js";
 
 // Audio namespace (transcriptions)

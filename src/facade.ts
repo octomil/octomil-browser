@@ -13,9 +13,10 @@ import type {
   Response,
   ResponseStreamEvent,
 } from "./responses.js";
+import { embed } from "./embeddings.js";
 import { configure } from "./configure.js";
 import { validatePublishableKey } from "./silent-auth-config.js";
-import type { AuthConfig } from "./types.js";
+import type { AuthConfig, EmbeddingResult } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Options
@@ -69,6 +70,34 @@ class FacadeResponses {
 }
 
 // ---------------------------------------------------------------------------
+// FacadeEmbeddings
+// ---------------------------------------------------------------------------
+
+export class FacadeEmbeddings {
+  private readonly serverUrl: string;
+  private readonly apiKey: string;
+
+  constructor(serverUrl: string, apiKey: string) {
+    this.serverUrl = serverUrl;
+    this.apiKey = apiKey;
+  }
+
+  async create(options: {
+    model: string;
+    input: string | string[];
+    signal?: AbortSignal;
+  }): Promise<EmbeddingResult> {
+    return embed(
+      this.serverUrl,
+      this.apiKey,
+      options.model,
+      options.input,
+      options.signal,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Octomil facade
 // ---------------------------------------------------------------------------
 
@@ -76,6 +105,7 @@ export class Octomil {
   private initialized = false;
   private readonly responsesClient: ResponsesClient;
   private readonly _responses: FacadeResponses;
+  private readonly _embeddings: FacadeEmbeddings;
   private readonly options: OctomilFacadeOptions;
 
   constructor(options: OctomilFacadeOptions) {
@@ -95,12 +125,18 @@ export class Octomil {
       options.apiKey ??
       (options.auth?.type === "org_api_key" ? options.auth.apiKey : undefined);
 
+    const resolvedApiKey = apiKey ?? options.publishableKey ?? "";
+
     this.responsesClient = new ResponsesClient({
       serverUrl,
-      apiKey: apiKey ?? options.publishableKey,
+      apiKey: resolvedApiKey,
     });
 
     this._responses = new FacadeResponses(this.responsesClient);
+    this._embeddings = new FacadeEmbeddings(
+      serverUrl ?? "https://api.octomil.com",
+      resolvedApiKey,
+    );
   }
 
   async initialize(): Promise<void> {
@@ -126,6 +162,13 @@ export class Octomil {
       throw new OctomilNotInitializedError();
     }
     return this._responses;
+  }
+
+  get embeddings(): FacadeEmbeddings {
+    if (!this.initialized) {
+      throw new OctomilNotInitializedError();
+    }
+    return this._embeddings;
   }
 }
 

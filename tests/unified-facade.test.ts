@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Octomil, OctomilNotInitializedError } from "../src/facade.js";
 import { OctomilClient } from "../src/octomil.js";
+import * as embeddingsModule from "../src/embeddings.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -216,5 +217,102 @@ describe("Octomil facade", () => {
     // Verifies that the new facade does not break existing OctomilClient
     expect(OctomilClient).toBeDefined();
     expect(typeof OctomilClient).toBe("function");
+  });
+
+  // --- embeddings namespace ---
+
+  it("embeddings namespace exists after initialize", async () => {
+    const client = new Octomil({
+      apiKey: "sk-test-key",
+      orgId: "org-123",
+      serverUrl: "https://test.octomil.com",
+    });
+    await client.initialize();
+
+    expect(client.embeddings).toBeDefined();
+    expect(typeof client.embeddings.create).toBe("function");
+  });
+
+  it("embeddings.create throws before initialize", () => {
+    const client = new Octomil({
+      apiKey: "sk-test-key",
+      orgId: "org-123",
+    });
+
+    expect(() => client.embeddings).toThrow(OctomilNotInitializedError);
+    expect(() => client.embeddings).toThrow(
+      "Octomil client is not initialized",
+    );
+  });
+
+  it("embeddings.create delegates to embed function", async () => {
+    const mockResult = {
+      embeddings: [[0.1, 0.2, 0.3]],
+      model: "nomic-embed-text-v1.5",
+      usage: { promptTokens: 5, totalTokens: 5 },
+    };
+    const embedSpy = vi
+      .spyOn(embeddingsModule, "embed")
+      .mockResolvedValueOnce(mockResult);
+
+    const client = new Octomil({
+      apiKey: "sk-test-key",
+      orgId: "org-123",
+      serverUrl: "https://test.octomil.com",
+    });
+    await client.initialize();
+
+    const result = await client.embeddings.create({
+      model: "nomic-embed-text-v1.5",
+      input: "On-device AI inference at scale",
+    });
+
+    expect(result).toEqual(mockResult);
+    expect(embedSpy).toHaveBeenCalledWith(
+      "https://test.octomil.com",
+      "sk-test-key",
+      "nomic-embed-text-v1.5",
+      "On-device AI inference at scale",
+      undefined,
+    );
+
+    embedSpy.mockRestore();
+  });
+
+  it("embeddings.create supports array input", async () => {
+    const mockResult = {
+      embeddings: [
+        [0.1, 0.2, 0.3],
+        [0.4, 0.5, 0.6],
+      ],
+      model: "nomic-embed-text-v1.5",
+      usage: { promptTokens: 10, totalTokens: 10 },
+    };
+    const embedSpy = vi
+      .spyOn(embeddingsModule, "embed")
+      .mockResolvedValueOnce(mockResult);
+
+    const client = new Octomil({
+      apiKey: "sk-test-key",
+      orgId: "org-123",
+      serverUrl: "https://test.octomil.com",
+    });
+    await client.initialize();
+
+    const result = await client.embeddings.create({
+      model: "nomic-embed-text-v1.5",
+      input: ["first document", "second document"],
+    });
+
+    expect(result.embeddings).toHaveLength(2);
+    expect(embedSpy).toHaveBeenCalledWith(
+      "https://test.octomil.com",
+      "sk-test-key",
+      "nomic-embed-text-v1.5",
+      ["first document", "second document"],
+      undefined,
+    );
+
+    embedSpy.mockRestore();
   });
 });
