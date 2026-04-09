@@ -279,6 +279,39 @@ describe("Octomil facade", () => {
     embedSpy.mockRestore();
   });
 
+  it("embeddings.create resolves publishableKey as apiKey", async () => {
+    const mockResult = {
+      embeddings: [[0.1, 0.2, 0.3]],
+      model: "nomic-embed-text-v1.5",
+      usage: { promptTokens: 5, totalTokens: 5 },
+    };
+    const embedSpy = vi
+      .spyOn(embeddingsModule, "embed")
+      .mockResolvedValueOnce(mockResult);
+
+    const client = new Octomil({
+      publishableKey: "oct_pub_test_key",
+      serverUrl: "https://test.octomil.com",
+    });
+    await client.initialize();
+
+    const result = await client.embeddings.create({
+      model: "nomic-embed-text-v1.5",
+      input: "On-device AI inference at scale",
+    });
+
+    expect(result).toEqual(mockResult);
+    expect(embedSpy).toHaveBeenCalledWith(
+      "https://test.octomil.com",
+      "oct_pub_test_key",
+      "nomic-embed-text-v1.5",
+      "On-device AI inference at scale",
+      undefined,
+    );
+
+    embedSpy.mockRestore();
+  });
+
   it("embeddings.create supports array input", async () => {
     const mockResult = {
       embeddings: [
