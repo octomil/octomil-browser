@@ -48,7 +48,25 @@ auth: {
 }
 ```
 
-## Quick Start
+## Quick Start (Unified Facade)
+
+```typescript
+import { Octomil } from "@octomil/browser";
+
+const client = new Octomil({ publishableKey: "oct_pub_live_..." });
+await client.initialize();
+const response = await client.responses.create({
+  model: "phi-4-mini",
+  input: "Hello",
+});
+console.log(response.outputText);
+```
+
+### Migrating from OctomilClient
+
+`OctomilClient` and the low-level `ResponsesClient` APIs still work exactly as before. The `Octomil` facade is a convenience wrapper for the cloud-backed Responses path — it delegates to `ResponsesClient` internally. For local ONNX inference, continue using `OctomilClient` directly.
+
+## Advanced Usage (OctomilClient)
 
 ```typescript
 import { OctomilClient } from '@octomil/browser';
