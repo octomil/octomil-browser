@@ -14,7 +14,7 @@ export { DeviceClass } from "./device_class.js";
 export { FinishReason } from "./finish_reason.js";
 export { CompatibilityLevel } from "./compatibility_level.js";
 export { OTLP_RESOURCE_ATTRIBUTES } from "./otlp_resource_attributes.js";
-export { ServingPolicyPreset } from "./serving_policy_preset.js";
+export { KvCacheStrategy } from "./kv_cache_strategy.js";
 export {
   TELEMETRY_EVENTS,
   EVENT_REQUIRED_ATTRIBUTES,
