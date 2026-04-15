@@ -116,7 +116,7 @@ describe("StreamingInferenceEngine — inference.chunk_produced", () => {
     }
   });
 
-  it("emits chunk_produced alongside existing inference.chunk (ttfc)", async () => {
+  it("emits chunk_produced with first-chunk timing metadata", async () => {
     const chunks = [
       { index: 0, data: "Hi", modality: "text", done: true },
     ];
@@ -134,8 +134,12 @@ describe("StreamingInferenceEngine — inference.chunk_produced", () => {
     }
 
     const names = trackedEvents.map((e) => e.name);
-    expect(names).toContain("inference.chunk"); // ttfc event
     expect(names).toContain("inference.chunk_produced"); // per-chunk event
+    const firstChunk = trackedEvents.find(
+      (event) => event.name === "inference.chunk_produced",
+    );
+    expect(firstChunk?.attributes["inference.first_chunk"]).toBe(true);
+    expect(firstChunk?.attributes["inference.ttfc_ms"]).toEqual(expect.any(Number));
   });
 
   it("does not emit chunk_produced when telemetry is not configured", async () => {

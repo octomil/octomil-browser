@@ -9,7 +9,6 @@ import { OctomilError } from "./types.js";
 import type {
   DeviceAuthConfig,
   DeviceAuthToken,
-  DeviceInfo,
 } from "./types.js";
 import { DEFAULT_SDK_VERSION } from "./telemetry.js";
 
@@ -258,20 +257,6 @@ export class DeviceAuth {
     return Array.from(hashArray)
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
-  }
-
-  private collectDeviceInfo(): DeviceInfo {
-    return {
-      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
-      language: typeof navigator !== "undefined" ? navigator.language : "en",
-      screenWidth: typeof screen !== "undefined" ? screen.width : 0,
-      screenHeight: typeof screen !== "undefined" ? screen.height : 0,
-      timezone:
-        typeof Intl !== "undefined"
-          ? Intl.DateTimeFormat().resolvedOptions().timeZone
-          : "UTC",
-      webgpu: typeof navigator !== "undefined" && "gpu" in navigator,
-    };
   }
 
   private ensureNotDisposed(): void {

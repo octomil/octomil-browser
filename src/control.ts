@@ -547,24 +547,6 @@ export class ControlClient {
       .join("");
   }
 
-  /** Collect device info for registration payloads. */
-  private collectDeviceInfo(): Record<string, unknown> {
-    return {
-      platform: "browser",
-      user_agent:
-        typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
-      screen_width: typeof screen !== "undefined" ? screen.width : 0,
-      screen_height: typeof screen !== "undefined" ? screen.height : 0,
-      device_memory_gb:
-        typeof navigator !== "undefined"
-          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (navigator as any).deviceMemory || 0
-          : 0,
-      language:
-        typeof navigator !== "undefined" ? navigator.language : "unknown",
-    };
-  }
-
   private resolveAuthHeaders(): Record<string, string> {
     return this.deviceContext?.authHeaders() ?? this.resolveApiKeyHeaders();
   }

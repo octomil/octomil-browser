@@ -1,6 +1,6 @@
 {
   "name": "@octomil/browser",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "In-browser ML inference via ONNX Runtime Web + WebGPU",
   "type": "module",
   "main": "dist/index.cjs",
@@ -19,15 +19,21 @@
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "tsc && node build.mjs",
     "build:types": "tsc",
     "build:bundle": "node build.mjs",
     "test": "vitest run",
+    "pack:check": "npm pack --dry-run --json",
+    "exports:check": "node -e 'import(\"./dist/index.js\").then((m)=>{for (const name of [\"Octomil\",\"OctomilClient\",\"ResponsesClient\"]) if (typeof m[name] !== \"function\") throw new Error(`${name} export missing`)})'",
     "test:watch": "vitest",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "pnpm run build && pnpm test"
+    "prepublishOnly": "pnpm run typecheck && pnpm test && pnpm run build && pnpm run exports:check && pnpm run pack:check"
   },
   "dependencies": {
     "@huggingface/transformers": "4.0.0",

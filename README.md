@@ -274,6 +274,21 @@ git clone https://github.com/octomil/octomil-browser.git && cd octomil-browser
 pnpm install && pnpm test && pnpm run build
 ```
 
+## Releasing
+
+Releases publish to npm from GitHub Releases via trusted publishing with npm provenance. Configure npm trusted publishing for `@octomil/browser` with repository `octomil/octomil-browser` and workflow `.github/workflows/publish.yml`.
+
+```bash
+pnpm install --frozen-lockfile
+pnpm run typecheck
+pnpm test
+pnpm run build
+pnpm run exports:check
+pnpm run pack:check
+```
+
+Then create a GitHub Release for the package version in `package.json`. The publish workflow runs the same gates and publishes `@octomil/browser` with public scoped-package access and provenance.
+
 ## License
 
 MIT

@@ -220,6 +220,10 @@ export class ResponsesClient {
     return response;
   }
 
+  canRunLocally(model: string): boolean {
+    return this.resolveLocalRuntime(model) !== null;
+  }
+
   /**
    * Streaming response creation. Returns async generator of events.
    */
@@ -664,19 +668,7 @@ export class ResponsesClient {
       return content ?? "";
     }
 
-    if (this.isResponseOutputItems(content)) {
-      return content
-        .filter(
-          (
-            output,
-          ): output is ResponseOutput & { type: "text"; text: string } =>
-            output.type === "text" && typeof output.text === "string",
-        )
-        .map((output) => output.text)
-        .join("");
-    }
-
-    return this.contentBlocksToParts(content);
+    return this.contentBlocksToParts(content as ContentBlock[]);
   }
 
   private contentBlocksToParts(blocks: ContentBlock[]): ChatContentPart[] {
