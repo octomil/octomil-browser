@@ -9,9 +9,16 @@ import { OctomilError } from "./types.js";
 import type {
   DeviceAuthConfig,
   DeviceAuthToken,
-  DeviceInfo,
 } from "./types.js";
 import { DEFAULT_SDK_VERSION } from "./telemetry.js";
+import {
+  getBatterySafely,
+  getDeviceMemoryMb,
+  getLocale,
+  getLocaleOrDefault,
+  getTimezone,
+  getUserAgent,
+} from "./browser-env.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -45,7 +52,7 @@ export class DeviceAuth {
     this.ensureNotDisposed();
 
     this.deviceId = await this.generateDeviceId();
-    const battery = await (navigator as any)?.getBattery?.().catch(() => null) ?? null;
+    const battery = await getBatterySafely();
 
     const response = await this.request("/api/v1/devices/register", {
       method: "POST",
@@ -53,20 +60,13 @@ export class DeviceAuth {
         org_id: orgId,
         device_identifier: this.deviceId,
         platform: "browser",
-        os_version:
-          typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
+        os_version: getUserAgent(),
         sdk_version: DEFAULT_SDK_VERSION,
-        locale:
-          typeof navigator !== "undefined" ? navigator.language : undefined,
-        timezone:
-          typeof Intl !== "undefined"
-            ? Intl.DateTimeFormat().resolvedOptions().timeZone
-            : undefined,
-        total_memory_mb:
-          typeof navigator !== "undefined" && (navigator as any).deviceMemory
-            ? Math.round((navigator as any).deviceMemory * 1024)
-            : undefined,
-        battery_pct: battery ? Math.round(battery.level * 100) : undefined,
+        locale: getLocale(),
+        timezone: getTimezone(),
+        total_memory_mb: getDeviceMemoryMb(),
+        battery_pct:
+          battery?.level != null ? Math.round(battery.level * 100) : undefined,
         charging: battery?.charging,
       }),
     });
@@ -244,12 +244,12 @@ export class DeviceAuth {
   /** Generate a stable device ID by hashing browser fingerprint data. */
   async generateDeviceId(): Promise<string> {
     const raw = [
-      typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
+      getUserAgent(),
       typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "0x0",
       typeof Intl !== "undefined"
         ? Intl.DateTimeFormat().resolvedOptions().timeZone
         : "UTC",
-      typeof navigator !== "undefined" ? navigator.language : "en",
+      getLocaleOrDefault("en"),
     ].join("|");
 
     const data = new TextEncoder().encode(raw);
@@ -258,20 +258,6 @@ export class DeviceAuth {
     return Array.from(hashArray)
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
-  }
-
-  private collectDeviceInfo(): DeviceInfo {
-    return {
-      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
-      language: typeof navigator !== "undefined" ? navigator.language : "en",
-      screenWidth: typeof screen !== "undefined" ? screen.width : 0,
-      screenHeight: typeof screen !== "undefined" ? screen.height : 0,
-      timezone:
-        typeof Intl !== "undefined"
-          ? Intl.DateTimeFormat().resolvedOptions().timeZone
-          : "UTC",
-      webgpu: typeof navigator !== "undefined" && "gpu" in navigator,
-    };
   }
 
   private ensureNotDisposed(): void {

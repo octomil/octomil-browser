@@ -134,15 +134,14 @@ export class StreamingInferenceEngine {
 
           if (ttfc === null) {
             ttfc = performance.now() - startTime;
-            this.telemetry?.reportInferenceChunk(modelId, {
-              chunkIndex: 0,
-              ttfc: true,
-              durationMs: ttfc,
-            });
           }
 
           // Emit per-chunk telemetry for every chunk.
-          this.telemetry?.reportChunkProduced(modelId, chunkCount - 1);
+          this.telemetry?.reportChunkProduced(modelId, chunkCount - 1, {
+            ...(chunkCount === 1
+              ? { "inference.ttfc_ms": ttfc ?? 0, "inference.first_chunk": true }
+              : {}),
+          });
 
           yield parsed;
         }
