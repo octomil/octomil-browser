@@ -19,6 +19,7 @@ import type {
   RoutingRequest,
 } from "./types.js";
 import { OctomilError } from "./types.js";
+import { getDeviceMemoryMb, getUserAgent } from "./browser-env.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -248,10 +249,7 @@ export class RoutingClient {
 export async function detectDeviceCapabilities(): Promise<DeviceCapabilities> {
   const gpuAvailable = await detectWebGPU();
 
-  // navigator.deviceMemory is only available in Chromium browsers.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const memoryGb = (navigator as any).deviceMemory as number | undefined;
-  const totalMemoryMb = memoryGb ? Math.round(memoryGb * 1024) : 0;
+  const totalMemoryMb = getDeviceMemoryMb() ?? 0;
 
   const supportedRuntimes: string[] = ["wasm"];
   if (gpuAvailable) {
@@ -260,7 +258,7 @@ export async function detectDeviceCapabilities(): Promise<DeviceCapabilities> {
 
   return {
     platform: "web",
-    model: navigator.userAgent,
+    model: getUserAgent(),
     total_memory_mb: totalMemoryMb,
     gpu_available: gpuAvailable,
     npu_available: false, // No NPU API in browsers yet.

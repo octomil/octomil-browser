@@ -11,6 +11,14 @@ import type {
   DeviceAuthToken,
 } from "./types.js";
 import { DEFAULT_SDK_VERSION } from "./telemetry.js";
+import {
+  getBatterySafely,
+  getDeviceMemoryMb,
+  getLocale,
+  getLocaleOrDefault,
+  getTimezone,
+  getUserAgent,
+} from "./browser-env.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -44,7 +52,7 @@ export class DeviceAuth {
     this.ensureNotDisposed();
 
     this.deviceId = await this.generateDeviceId();
-    const battery = await (navigator as any)?.getBattery?.().catch(() => null) ?? null;
+    const battery = await getBatterySafely();
 
     const response = await this.request("/api/v1/devices/register", {
       method: "POST",
@@ -52,20 +60,13 @@ export class DeviceAuth {
         org_id: orgId,
         device_identifier: this.deviceId,
         platform: "browser",
-        os_version:
-          typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
+        os_version: getUserAgent(),
         sdk_version: DEFAULT_SDK_VERSION,
-        locale:
-          typeof navigator !== "undefined" ? navigator.language : undefined,
-        timezone:
-          typeof Intl !== "undefined"
-            ? Intl.DateTimeFormat().resolvedOptions().timeZone
-            : undefined,
-        total_memory_mb:
-          typeof navigator !== "undefined" && (navigator as any).deviceMemory
-            ? Math.round((navigator as any).deviceMemory * 1024)
-            : undefined,
-        battery_pct: battery ? Math.round(battery.level * 100) : undefined,
+        locale: getLocale(),
+        timezone: getTimezone(),
+        total_memory_mb: getDeviceMemoryMb(),
+        battery_pct:
+          battery?.level != null ? Math.round(battery.level * 100) : undefined,
         charging: battery?.charging,
       }),
     });
@@ -243,12 +244,12 @@ export class DeviceAuth {
   /** Generate a stable device ID by hashing browser fingerprint data. */
   async generateDeviceId(): Promise<string> {
     const raw = [
-      typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
+      getUserAgent(),
       typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "0x0",
       typeof Intl !== "undefined"
         ? Intl.DateTimeFormat().resolvedOptions().timeZone
         : "UTC",
-      typeof navigator !== "undefined" ? navigator.language : "en",
+      getLocaleOrDefault("en"),
     ].join("|");
 
     const data = new TextEncoder().encode(raw);

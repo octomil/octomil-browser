@@ -13,6 +13,13 @@ import {
 } from "./silent-auth-config.js";
 import type { MonitoringConfig } from "./monitoring-config.js";
 import { DEFAULT_SDK_VERSION } from "./telemetry.js";
+import {
+  getBatterySafely,
+  getDeviceMemoryMb,
+  getLocale,
+  getTimezone,
+  getUserAgent,
+} from "./browser-env.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -107,7 +114,7 @@ async function silentRegister(
       registerUrl.searchParams.set("org_id", authOrgId);
     }
 
-    const battery = await (navigator as any)?.getBattery?.().catch(() => null) ?? null;
+    const battery = await getBatterySafely();
     const response = await fetch(registerUrl.toString(), {
       method: "POST",
       headers,
@@ -116,20 +123,13 @@ async function silentRegister(
         installation_id: context.installationId,
         platform: "browser",
         app_id: context.appId,
-        os_version:
-          typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
+        os_version: getUserAgent(),
         sdk_version: DEFAULT_SDK_VERSION,
-        locale:
-          typeof navigator !== "undefined" ? navigator.language : undefined,
-        timezone:
-          typeof Intl !== "undefined"
-            ? Intl.DateTimeFormat().resolvedOptions().timeZone
-            : undefined,
-        total_memory_mb:
-          typeof navigator !== "undefined" && (navigator as any).deviceMemory
-            ? Math.round((navigator as any).deviceMemory * 1024)
-            : undefined,
-        battery_pct: battery ? Math.round(battery.level * 100) : undefined,
+        locale: getLocale(),
+        timezone: getTimezone(),
+        total_memory_mb: getDeviceMemoryMb(),
+        battery_pct:
+          battery?.level != null ? Math.round(battery.level * 100) : undefined,
         charging: battery?.charging,
       }),
     });
