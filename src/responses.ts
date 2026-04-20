@@ -10,6 +10,10 @@ import type {
   LocalResponsesRuntime,
   LocalResponsesRuntimeResolver,
 } from "./responses-runtime.js";
+import {
+  BrowserAttemptRunner,
+  type CandidatePlan,
+} from "./runtime/attempt-runner.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -152,10 +156,34 @@ export class ResponsesClient {
    */
   async create(request: ResponseRequest): Promise<Response> {
     const localRuntime = this.resolveLocalRuntime(request.model);
-    if (localRuntime) {
-      return this.createLocal(request, localRuntime);
+    if (!localRuntime) {
+      return this.createCloud(request);
     }
 
+    const runner = new BrowserAttemptRunner({
+      fallbackAllowed: this.cloudFallbackAllowed(request),
+      localEndpoint: "injected-runtime",
+    });
+    const result = await runner.runWithInference<Response>(
+      this.responseCandidates(localRuntime),
+      async (candidate) => {
+        if (candidate.locality === "local") {
+          return this.createLocal(request, localRuntime);
+        }
+        return this.createCloud(request);
+      },
+    );
+
+    if (result.selectedAttempt && result.value) {
+      return result.value;
+    }
+    throw (
+      result.error ??
+      new OctomilError("NETWORK_UNAVAILABLE", "No response route succeeded")
+    );
+  }
+
+  private async createCloud(request: ResponseRequest): Promise<Response> {
     const body = this.buildRequestBody(request, false);
     const url = `${this.serverUrl}/v1/chat/completions`;
 
@@ -229,11 +257,52 @@ export class ResponsesClient {
    */
   async *stream(request: ResponseRequest): AsyncGenerator<ResponseStreamEvent> {
     const localRuntime = this.resolveLocalRuntime(request.model);
-    if (localRuntime) {
-      yield* this.streamLocal(request, localRuntime);
+    if (!localRuntime) {
+      yield* this.streamCloud(request);
       return;
     }
 
+    const runner = new BrowserAttemptRunner({
+      fallbackAllowed: this.cloudFallbackAllowed(request),
+      streaming: true,
+      localEndpoint: "injected-runtime",
+    });
+    const readiness = await runner.run(this.responseCandidates(localRuntime));
+    const selected = readiness.selectedAttempt;
+    if (!selected) {
+      throw new OctomilError("NETWORK_UNAVAILABLE", "No response route succeeded");
+    }
+
+    if (selected.locality === "cloud") {
+      yield* this.streamCloud(request);
+      return;
+    }
+
+    let firstOutputEmitted = false;
+    try {
+      for await (const event of this.streamLocal(request, localRuntime)) {
+        if (event.type !== "done") {
+          firstOutputEmitted = true;
+        }
+        yield event;
+      }
+    } catch (error) {
+      if (
+        runner.shouldFallbackAfterInferenceError(firstOutputEmitted) &&
+        this.responseCandidates(localRuntime).some(
+          (candidate) => candidate.locality === "cloud",
+        )
+      ) {
+        yield* this.streamCloud(request);
+        return;
+      }
+      throw error;
+    }
+  }
+
+  private async *streamCloud(
+    request: ResponseRequest,
+  ): AsyncGenerator<ResponseStreamEvent> {
     const body = this.buildRequestBody(request, true);
     const url = `${this.serverUrl}/v1/chat/completions`;
 
@@ -408,6 +477,31 @@ export class ResponsesClient {
   // -----------------------------------------------------------------------
   // Private
   // -----------------------------------------------------------------------
+
+  private responseCandidates(
+    localRuntime: LocalResponsesRuntime | null,
+  ): CandidatePlan[] {
+    const candidates: CandidatePlan[] = [];
+    if (localRuntime) {
+      candidates.push({
+        locality: "local",
+        engine: "external_endpoint",
+        priority: 0,
+      });
+    }
+    candidates.push({
+      locality: "cloud",
+      engine: "cloud",
+      priority: candidates.length,
+    });
+    return candidates;
+  }
+
+  private cloudFallbackAllowed(request: ResponseRequest): boolean {
+    const policy =
+      request.metadata?.routing_policy ?? request.metadata?.routingPolicy;
+    return policy !== "private" && policy !== "local_only";
+  }
 
   private resolveLocalRuntime(model: string): LocalResponsesRuntime | null {
     if (!this.localRuntime) return null;

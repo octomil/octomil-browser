@@ -80,13 +80,15 @@ export interface FallbackTrigger {
   message: string;
 }
 
-export interface AttemptLoopResult {
+export interface AttemptLoopResult<T = unknown> {
   selectedAttempt: RouteAttempt | null;
   attempts: RouteAttempt[];
   fallbackUsed: boolean;
   fallbackTrigger: FallbackTrigger | null;
   fromAttempt: number | null;
   toAttempt: number | null;
+  value?: T;
+  error?: unknown;
 }
 
 export interface CandidateGate {
@@ -136,19 +138,26 @@ export interface EndpointChecker {
  */
 export class BrowserAttemptRunner {
   private readonly fallbackAllowed: boolean;
+  private readonly streaming: boolean;
   private readonly localEndpoint: string | null;
   private readonly endpointChecker: EndpointChecker | null;
 
   constructor(
     opts: {
       fallbackAllowed?: boolean;
+      streaming?: boolean;
       localEndpoint?: string | null;
       endpointChecker?: EndpointChecker | null;
     } = {},
   ) {
     this.fallbackAllowed = opts.fallbackAllowed ?? true;
+    this.streaming = opts.streaming ?? false;
     this.localEndpoint = opts.localEndpoint ?? null;
     this.endpointChecker = opts.endpointChecker ?? null;
+  }
+
+  shouldFallbackAfterInferenceError(firstOutputEmitted = false): boolean {
+    return this.fallbackAllowed && !(this.streaming && firstOutputEmitted);
   }
 
   /**
@@ -321,6 +330,112 @@ export class BrowserAttemptRunner {
       fallbackTrigger: fallbackTrigger && selected ? fallbackTrigger : null,
       fromAttempt: fallbackTrigger && selected ? fromAttempt : null,
       toAttempt,
+    };
+  }
+
+  async runWithInference<T>(
+    candidates: CandidatePlan[],
+    executeCandidate: (
+      candidate: CandidatePlan,
+      attempt: RouteAttempt,
+    ) => Promise<T> | T,
+    opts: { firstOutputEmitted?: () => boolean } = {},
+  ): Promise<AttemptLoopResult<T>> {
+    const attempts: RouteAttempt[] = [];
+    let fallbackTrigger: FallbackTrigger | null = null;
+    let fromAttempt: number | null = null;
+    let toAttempt: number | null = null;
+    let lastError: unknown;
+
+    for (let idx = 0; idx < candidates.length; idx++) {
+      const candidate = candidates[idx]!;
+      const readinessRunner = new BrowserAttemptRunner({
+        fallbackAllowed: false,
+        streaming: this.streaming,
+        localEndpoint: this.localEndpoint,
+        endpointChecker: this.endpointChecker,
+      });
+      const readiness = await readinessRunner.run([candidate]);
+      const attempt = readiness.attempts[0];
+
+      if (!attempt || !readiness.selectedAttempt) {
+        if (attempt) {
+          const failedAttempt = { ...attempt, index: idx };
+          attempts.push(failedAttempt);
+          if (!fallbackTrigger) {
+            fallbackTrigger = {
+              code: failedAttempt.reason.code,
+              stage: failedAttempt.stage,
+              message: failedAttempt.reason.message,
+            };
+            fromAttempt = idx;
+          }
+        }
+        if (!this.fallbackAllowed) break;
+        continue;
+      }
+
+      const selectedAttempt = { ...readiness.selectedAttempt, index: idx };
+      try {
+        const value = await executeCandidate(candidate, selectedAttempt);
+        attempts.push(selectedAttempt);
+        if (fallbackTrigger) {
+          toAttempt = idx;
+        }
+        const fallbackUsed = fallbackTrigger !== null;
+        return {
+          selectedAttempt,
+          attempts,
+          fallbackUsed,
+          fallbackTrigger: fallbackUsed ? fallbackTrigger : null,
+          fromAttempt: fallbackUsed ? fromAttempt : null,
+          toAttempt: fallbackUsed ? toAttempt : null,
+          value,
+        };
+      } catch (error) {
+        lastError = error;
+        const firstOutputEmitted = opts.firstOutputEmitted?.() ?? false;
+        const reasonCode =
+          this.streaming && firstOutputEmitted
+            ? "inference_error_after_first_output"
+            : this.streaming
+              ? "inference_error_before_first_output"
+              : "inference_error";
+        const failedAttempt: RouteAttempt = {
+          ...selectedAttempt,
+          status: "failed",
+          stage: "inference",
+          reason: {
+            code: reasonCode,
+            message: error instanceof Error ? error.message : String(error),
+          },
+        };
+        attempts.push(failedAttempt);
+        if (!fallbackTrigger) {
+          fallbackTrigger = {
+            code: reasonCode,
+            stage: "inference",
+            message: failedAttempt.reason.message,
+          };
+          fromAttempt = idx;
+        }
+        if (
+          idx >= candidates.length - 1 ||
+          !this.shouldFallbackAfterInferenceError(firstOutputEmitted)
+        ) {
+          break;
+        }
+      }
+    }
+
+    return {
+      selectedAttempt: null,
+      attempts,
+      fallbackUsed: false,
+      fallbackTrigger: null,
+      fromAttempt: null,
+      toAttempt: null,
+      error: lastError,
     };
   }
 }

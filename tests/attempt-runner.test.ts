@@ -555,3 +555,56 @@ describe("BrowserAttemptRunner — type exports", () => {
     expect(sources).toHaveLength(3);
   });
 });
+
+// ---------------------------------------------------------------------------
+// runWithInference
+// ---------------------------------------------------------------------------
+
+describe("BrowserAttemptRunner — runWithInference", () => {
+  it("falls back after a pre-output local endpoint inference error", async () => {
+    const runner = new BrowserAttemptRunner({
+      fallbackAllowed: true,
+      localEndpoint: "injected-runtime",
+    });
+    const result = await runner.runWithInference(
+      [localEndpointCandidate(0), cloudCandidate(1)],
+      async (candidate) => {
+        if (candidate.locality === "local") {
+          throw new Error("local endpoint failed");
+        }
+        return "cloud-ok";
+      },
+    );
+
+    expect(result.value).toBe("cloud-ok");
+    expect(result.fallbackUsed).toBe(true);
+    expect(result.fallbackTrigger?.code).toBe("inference_error");
+    expect(result.attempts[0]?.stage).toBe("inference");
+    expect(result.attempts[0]?.status).toBe("failed");
+    expect(result.selectedAttempt?.locality).toBe("cloud");
+  });
+
+  it("does not fall back after streaming output was emitted", async () => {
+    let emitted = false;
+    const runner = new BrowserAttemptRunner({
+      fallbackAllowed: true,
+      streaming: true,
+      localEndpoint: "injected-runtime",
+    });
+    const result = await runner.runWithInference(
+      [localEndpointCandidate(0), cloudCandidate(1)],
+      async () => {
+        emitted = true;
+        throw new Error("stream interrupted");
+      },
+      { firstOutputEmitted: () => emitted },
+    );
+
+    expect(result.selectedAttempt).toBeNull();
+    expect(result.fallbackUsed).toBe(false);
+    expect(result.attempts).toHaveLength(1);
+    expect(result.attempts[0]?.reason.code).toBe(
+      "inference_error_after_first_output",
+    );
+  });
+});
