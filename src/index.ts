@@ -183,6 +183,24 @@ export { StreamingInferenceEngine } from "./streaming.js";
 export { EngineRegistry } from "./runtime/index.js";
 export type { EnginePlugin } from "./runtime/index.js";
 
+// Attempt runner (browser-safe local lifecycle)
+export { BrowserAttemptRunner } from "./runtime/index.js";
+export type {
+  Locality,
+  Mode,
+  AttemptStage,
+  AttemptStatus,
+  GateStatus,
+  GateCode,
+  GateResult,
+  RouteAttempt,
+  FallbackTrigger,
+  AttemptLoopResult,
+  CandidateGate,
+  CandidatePlan,
+  EndpointChecker,
+} from "./runtime/index.js";
+
 // Embeddings
 export { embed } from "./embeddings.js";
 export { OctomilText, TextPredictionsClient } from "./text/octomil-text.js";
