@@ -14,7 +14,15 @@
 export { RoutingPolicy } from "./types.js";
 export type {
   RoutingPolicyName,
-  RouteLocality,
+  RouteExecution,
+  RouteModelRequested,
+  RouteModelResolved,
+  RouteModel,
+  ArtifactCache,
+  RouteArtifact,
+  PlannerInfo,
+  FallbackInfo,
+  RouteReason,
   RouteMetadata,
   RuntimeArtifactPlan,
   RuntimeCandidatePlan,

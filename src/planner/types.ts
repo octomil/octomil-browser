@@ -61,42 +61,87 @@ export const LOCAL_ONLY_POLICIES: ReadonlySet<string> = new Set<RoutingPolicyNam
 ]);
 
 // ---------------------------------------------------------------------------
-// Route metadata
+// Route metadata — contract-backed nested shape
 // ---------------------------------------------------------------------------
 
 /**
- * Locality of a resolved route — matches the Python
- * `RuntimeSelection.locality` field.
+ * Execution details for a resolved route.
+ * locality: "local" (on-device) or "cloud".
+ * mode: how inference is dispatched.
  */
-export type RouteLocality = "on_device" | "cloud";
+export interface RouteExecution {
+  locality: "local" | "cloud";
+  mode: "sdk_runtime" | "hosted_gateway" | "external_endpoint";
+  engine: string | null;
+}
+
+/** The model reference the caller originally requested. */
+export interface RouteModelRequested {
+  ref: string;
+  kind: "model" | "app" | "deployment" | "alias" | "default" | "unknown";
+  capability: string | null;
+}
+
+/** Server-resolved model identifiers. */
+export interface RouteModelResolved {
+  id: string | null;
+  slug: string | null;
+  version_id: string | null;
+  variant_id: string | null;
+}
+
+/** Model section of route metadata — requested ref + optional resolved IDs. */
+export interface RouteModel {
+  requested: RouteModelRequested;
+  resolved: RouteModelResolved | null;
+}
+
+/** Cache status for the model artifact. */
+export interface ArtifactCache {
+  status: "hit" | "miss" | "downloaded" | "not_applicable" | "unavailable";
+  managed_by: "octomil" | "runtime" | "external" | null;
+}
+
+/** Artifact details for a resolved route. */
+export interface RouteArtifact {
+  id: string | null;
+  version: string | null;
+  format: string | null;
+  digest: string | null;
+  cache: ArtifactCache;
+}
+
+/** Where the routing plan came from. */
+export interface PlannerInfo {
+  source: "server" | "cache" | "offline";
+}
+
+/** Whether a fallback candidate was used. */
+export interface FallbackInfo {
+  used: boolean;
+}
+
+/** Human-readable + machine-readable reason for the routing decision. */
+export interface RouteReason {
+  code: string;
+  message: string;
+}
 
 /**
- * Metadata attached to a resolved route, describing how the decision was made.
+ * Route metadata — contract-backed nested shape.
  *
- * Shape mirrors the Python SDK's `RuntimeSelection` dataclass and the Node
- * SDK's equivalent interface so that telemetry, logging, and request-tracing
- * code can be shared across platforms.
+ * Matches the canonical JSON wire format defined in octomil-contracts so
+ * that telemetry, logging, and request-tracing code is identical across
+ * all SDKs (Python, Node, iOS, Android, Browser).
  */
 export interface RouteMetadata {
-  /** Where inference will execute. */
-  locality: RouteLocality;
-
-  /** Inference engine name (e.g. "ort-wasm", "triton", "llama.cpp"). */
-  engine?: string;
-
-  /**
-   * Where the routing plan originated.
-   * - `"server"`  — live plan from POST /api/v2/runtime/plan
-   * - `"cache"`   — cached plan (local or persistent)
-   * - `"offline"` — synthetic fallback when the server is unreachable
-   */
-  planner_source: "server" | "cache" | "offline";
-
-  /** Whether a fallback candidate was used instead of the primary. */
-  fallback_used: boolean;
-
-  /** Human-readable explanation of the routing decision. */
-  reason: string;
+  status: "selected" | "unavailable";
+  execution: RouteExecution | null;
+  model: RouteModel;
+  artifact: RouteArtifact | null;
+  planner: PlannerInfo;
+  fallback: FallbackInfo;
+  reason: RouteReason;
 }
 
 // ---------------------------------------------------------------------------
@@ -156,7 +201,7 @@ export interface RuntimePlanResponse {
  * Mirrors Python `RuntimeSelection`.
  */
 export interface RuntimeSelection {
-  locality: RouteLocality;
+  locality: "local" | "cloud";
   engine?: string;
   artifact?: RuntimeArtifactPlan;
   benchmark_ran: boolean;

@@ -6,8 +6,9 @@
  * - Retired / invalid policy names rejected
  * - `private` and `local_only` rejected as browser-incompatible
  * - `cloud_only`, `cloud_first`, `performance_first`, `local_first` accepted
- * - RouteMetadata shape matches cross-SDK contract
+ * - RouteMetadata nested contract shape matches cross-SDK wire format
  * - RoutingPolicy enum values match string union
+ * - Browser fixture: valid browser route metadata with hosted_gateway mode
  */
 
 import { describe, it, expect } from "vitest";
@@ -21,10 +22,15 @@ import {
 import type {
   RoutingPolicyName,
   RouteMetadata,
+  RouteExecution,
+  RouteModel,
+  RouteArtifact,
+  PlannerInfo,
+  FallbackInfo,
+  RouteReason,
   RuntimeSelection,
   RuntimePlanResponse,
   RuntimeCandidatePlan,
-  RouteLocality,
 } from "../src/planner/index.js";
 import { OctomilError } from "../src/types.js";
 
@@ -203,58 +209,134 @@ describe("RoutingPolicy enum", () => {
 });
 
 // ---------------------------------------------------------------------------
-// RouteMetadata shape
+// RouteMetadata nested contract shape
 // ---------------------------------------------------------------------------
 
 describe("RouteMetadata shape", () => {
-  it("accepts a complete cloud metadata object", () => {
+  it("accepts a complete cloud metadata object with nested fields", () => {
     const meta: RouteMetadata = {
-      locality: "cloud",
-      engine: "triton",
-      planner_source: "server",
-      fallback_used: false,
-      reason: "cloud_only policy — server selected triton",
+      status: "selected",
+      execution: {
+        locality: "cloud",
+        mode: "hosted_gateway",
+        engine: "triton",
+      },
+      model: {
+        requested: { ref: "phi-4-mini", kind: "model", capability: "text" },
+        resolved: {
+          id: "phi-4-mini-id",
+          slug: "phi-4-mini",
+          version_id: "v1",
+          variant_id: "q4",
+        },
+      },
+      artifact: {
+        id: "art-123",
+        version: "1.0.0",
+        format: "gguf",
+        digest: "sha256:abc",
+        cache: { status: "not_applicable", managed_by: null },
+      },
+      planner: { source: "server" },
+      fallback: { used: false },
+      reason: { code: "cloud_selected", message: "cloud_only policy — server selected triton" },
     };
 
-    expect(meta.locality).toBe("cloud");
-    expect(meta.engine).toBe("triton");
-    expect(meta.planner_source).toBe("server");
-    expect(meta.fallback_used).toBe(false);
-    expect(meta.reason).toContain("cloud_only");
+    expect(meta.status).toBe("selected");
+    expect(meta.execution?.locality).toBe("cloud");
+    expect(meta.execution?.mode).toBe("hosted_gateway");
+    expect(meta.execution?.engine).toBe("triton");
+    expect(meta.model.requested.ref).toBe("phi-4-mini");
+    expect(meta.model.resolved?.slug).toBe("phi-4-mini");
+    expect(meta.artifact?.cache.status).toBe("not_applicable");
+    expect(meta.planner.source).toBe("server");
+    expect(meta.fallback.used).toBe(false);
+    expect(meta.reason.message).toContain("cloud_only");
   });
 
-  it("accepts metadata without optional engine field", () => {
+  it("accepts metadata with null execution (unavailable route)", () => {
     const meta: RouteMetadata = {
-      locality: "cloud",
-      planner_source: "offline",
-      fallback_used: true,
-      reason: "no server plan available — using cloud fallback",
+      status: "unavailable",
+      execution: null,
+      model: {
+        requested: { ref: "nonexistent-model", kind: "unknown", capability: null },
+        resolved: null,
+      },
+      artifact: null,
+      planner: { source: "server" },
+      fallback: { used: false },
+      reason: { code: "no_route", message: "no route available for model" },
     };
 
-    expect(meta.engine).toBeUndefined();
-    expect(meta.planner_source).toBe("offline");
-    expect(meta.fallback_used).toBe(true);
+    expect(meta.status).toBe("unavailable");
+    expect(meta.execution).toBeNull();
+    expect(meta.model.resolved).toBeNull();
+    expect(meta.artifact).toBeNull();
   });
 
-  it("accepts on_device locality for parity (even though browser won't use it)", () => {
+  it("accepts metadata with offline planner source and fallback used", () => {
     const meta: RouteMetadata = {
-      locality: "on_device",
-      engine: "ort-wasm",
-      planner_source: "cache",
-      fallback_used: false,
-      reason: "cached plan selected local engine",
+      status: "selected",
+      execution: {
+        locality: "cloud",
+        mode: "hosted_gateway",
+        engine: null,
+      },
+      model: {
+        requested: { ref: "phi-4-mini", kind: "model", capability: null },
+        resolved: null,
+      },
+      artifact: null,
+      planner: { source: "offline" },
+      fallback: { used: true },
+      reason: { code: "offline_fallback", message: "no server plan available — using cloud fallback" },
     };
 
-    expect(meta.locality).toBe("on_device");
+    expect(meta.planner.source).toBe("offline");
+    expect(meta.fallback.used).toBe(true);
+    expect(meta.execution?.engine).toBeNull();
   });
 
-  it("planner_source is constrained to three values", () => {
-    const sources: RouteMetadata["planner_source"][] = [
-      "server",
-      "cache",
-      "offline",
-    ];
+  it("accepts local locality for SDK parity (even though browser won't use it)", () => {
+    const meta: RouteMetadata = {
+      status: "selected",
+      execution: {
+        locality: "local",
+        mode: "sdk_runtime",
+        engine: "llama.cpp",
+      },
+      model: {
+        requested: { ref: "phi-4-mini", kind: "model", capability: "text" },
+        resolved: null,
+      },
+      artifact: {
+        id: "art-456",
+        version: "1.0.0",
+        format: "gguf",
+        digest: null,
+        cache: { status: "hit", managed_by: "octomil" },
+      },
+      planner: { source: "cache" },
+      fallback: { used: false },
+      reason: { code: "local_selected", message: "cached plan selected local engine" },
+    };
+
+    expect(meta.execution?.locality).toBe("local");
+    expect(meta.execution?.mode).toBe("sdk_runtime");
+  });
+
+  it("planner.source is constrained to three values", () => {
+    const sources: PlannerInfo["source"][] = ["server", "cache", "offline"];
     expect(sources).toHaveLength(3);
+  });
+
+  it("execution.mode is constrained to three values", () => {
+    const modes: RouteExecution["mode"][] = [
+      "sdk_runtime",
+      "hosted_gateway",
+      "external_endpoint",
+    ];
+    expect(modes).toHaveLength(3);
   });
 });
 
@@ -281,7 +363,7 @@ describe("RuntimeSelection shape", () => {
 
   it("accepts all optional fields", () => {
     const selection: RuntimeSelection = {
-      locality: "on_device",
+      locality: "local",
       engine: "ort-wasm",
       artifact: {
         model_id: "sentiment-v1",
@@ -303,6 +385,7 @@ describe("RuntimeSelection shape", () => {
       reason: "local benchmark selected ort-wasm",
     };
 
+    expect(selection.locality).toBe("local");
     expect(selection.artifact?.model_id).toBe("sentiment-v1");
     expect(selection.fallback_candidates).toHaveLength(1);
   });
@@ -348,13 +431,107 @@ describe("RuntimePlanResponse shape", () => {
 });
 
 // ---------------------------------------------------------------------------
-// RouteLocality type
+// Browser route metadata fixture
 // ---------------------------------------------------------------------------
 
-describe("RouteLocality type", () => {
-  it("permits on_device and cloud", () => {
-    const localities: RouteLocality[] = ["on_device", "cloud"];
-    expect(localities).toContain("on_device");
-    expect(localities).toContain("cloud");
+describe("Browser route metadata fixture", () => {
+  /**
+   * Constructs a valid RouteMetadata for a typical browser SDK cloud inference
+   * call. This acts as a fixture/reference for the canonical wire shape.
+   */
+  function makeBrowserRouteMetadata(overrides?: Partial<RouteMetadata>): RouteMetadata {
+    return {
+      status: "selected",
+      execution: {
+        locality: "cloud",
+        mode: "hosted_gateway",
+        engine: "triton",
+      },
+      model: {
+        requested: { ref: "phi-4-mini", kind: "model", capability: "text" },
+        resolved: {
+          id: "model-001",
+          slug: "phi-4-mini",
+          version_id: "v1",
+          variant_id: "q4_k_m",
+        },
+      },
+      artifact: null,
+      planner: { source: "server" },
+      fallback: { used: false },
+      reason: { code: "cloud_selected", message: "hosted gateway selected by cloud_only policy" },
+      ...overrides,
+    };
+  }
+
+  it("constructs valid browser route metadata with hosted_gateway mode", () => {
+    const meta = makeBrowserRouteMetadata();
+
+    expect(meta.status).toBe("selected");
+    expect(meta.execution?.locality).toBe("cloud");
+    expect(meta.execution?.mode).toBe("hosted_gateway");
+    expect(meta.execution?.engine).toBe("triton");
+    expect(meta.model.requested.ref).toBe("phi-4-mini");
+    expect(meta.model.requested.kind).toBe("model");
+    expect(meta.model.resolved?.id).toBe("model-001");
+    expect(meta.artifact).toBeNull();
+    expect(meta.planner.source).toBe("server");
+    expect(meta.fallback.used).toBe(false);
+    expect(meta.reason.code).toBe("cloud_selected");
+  });
+
+  it("supports external_endpoint mode for user-configured backends", () => {
+    const meta = makeBrowserRouteMetadata({
+      execution: {
+        locality: "cloud",
+        mode: "external_endpoint",
+        engine: "vllm",
+      },
+      reason: { code: "external_routed", message: "routed to user-configured endpoint" },
+    });
+
+    expect(meta.execution?.mode).toBe("external_endpoint");
+    expect(meta.execution?.engine).toBe("vllm");
+  });
+
+  it("uses 'local' not 'on_device' for locality values", () => {
+    // Contract requires "local" | "cloud", never "on_device"
+    const localExecution: RouteExecution = {
+      locality: "local",
+      mode: "sdk_runtime",
+      engine: "llama.cpp",
+    };
+    expect(localExecution.locality).toBe("local");
+    expect(["local", "cloud"]).toContain(localExecution.locality);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Browser rejects local_only / private policies
+// ---------------------------------------------------------------------------
+
+describe("Browser rejects local-only policies", () => {
+  it("rejects private policy with POLICY_DENIED", () => {
+    expect(() => assertBrowserCompatiblePolicy("private")).toThrow(OctomilError);
+    try {
+      assertBrowserCompatiblePolicy("private");
+    } catch (e) {
+      const err = e as OctomilError;
+      expect(err.code).toBe("POLICY_DENIED");
+      expect(err.message).toContain("private");
+      expect(err.message).toContain("browser SDK");
+    }
+  });
+
+  it("rejects local_only policy with POLICY_DENIED", () => {
+    expect(() => assertBrowserCompatiblePolicy("local_only")).toThrow(OctomilError);
+    try {
+      assertBrowserCompatiblePolicy("local_only");
+    } catch (e) {
+      const err = e as OctomilError;
+      expect(err.code).toBe("POLICY_DENIED");
+      expect(err.message).toContain("local_only");
+      expect(err.message).toContain("browser SDK");
+    }
   });
 });
