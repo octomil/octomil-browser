@@ -235,6 +235,16 @@ describe("SDK Contract Conformance — Browser", () => {
         }
       }
     });
+
+    it("app ref fixtures include app_resolution", () => {
+      for (const [name, fixture] of fixtures) {
+        if (!fixture.request.model.startsWith("@app/")) continue;
+        expect(
+          fixture.planner_response.app_resolution,
+          `${name}: app ref planner responses must include app_resolution`,
+        ).toBeDefined();
+      }
+    });
   });
 
   describe("route metadata decoding", () => {
