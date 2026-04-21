@@ -13,6 +13,8 @@ import type { TelemetryEvent } from "./types.js";
 import { TELEMETRY_EVENTS } from "./_generated/telemetry_events.js";
 import { OTLP_RESOURCE_ATTRIBUTES } from "./_generated/otlp_resource_attributes.js";
 import { getInstallId } from "./install-id.js";
+import type { BrowserRouteEvent } from "./route-event.js";
+import { stripForbiddenKeys } from "./route-event.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -392,6 +394,49 @@ export class TelemetryReporter {
         metricValue,
       }),
     );
+  }
+
+  // -----------------------------------------------------------------------
+  // Public — route event reporting
+  // -----------------------------------------------------------------------
+
+  /**
+   * Report a canonical route event. The event is privacy-sanitized before
+   * being enqueued: any forbidden keys (prompt, output, audio, etc.) are
+   * stripped at any nesting depth.
+   *
+   * This is the ONLY telemetry event uploaded for routing decisions.
+   */
+  reportRouteEvent(routeEvent: BrowserRouteEvent): void {
+    const sanitized = stripForbiddenKeys(routeEvent);
+
+    // Flatten the route event into OTLP-compatible flat attributes.
+    const attrs: Record<string, string | number | boolean> = {
+      "route.id": sanitized.route_id,
+      "route.plan_id": sanitized.plan_id,
+      "route.request_id": sanitized.request_id,
+      "route.capability": sanitized.capability,
+      "route.policy": sanitized.policy,
+      "route.planner_source": sanitized.planner_source,
+      "route.final_locality": sanitized.final_locality ?? "",
+      "route.engine": sanitized.engine ?? "",
+      "route.artifact_id": sanitized.artifact_id ?? "",
+      "route.fallback_used": sanitized.fallback_used,
+      "route.fallback_trigger_code": sanitized.fallback_trigger_code ?? "",
+      "route.fallback_trigger_stage": sanitized.fallback_trigger_stage ?? "",
+      "route.candidate_attempts": sanitized.candidate_attempts,
+      "route.attempt_details": JSON.stringify(sanitized.attempt_details),
+    };
+
+    if (sanitized.app_slug) attrs["route.app_slug"] = sanitized.app_slug;
+    if (sanitized.deployment_id)
+      attrs["route.deployment_id"] = sanitized.deployment_id;
+    if (sanitized.experiment_id)
+      attrs["route.experiment_id"] = sanitized.experiment_id;
+    if (sanitized.variant_id)
+      attrs["route.variant_id"] = sanitized.variant_id;
+
+    this.track(this.makeEvent("route.decision", attrs));
   }
 
   // -----------------------------------------------------------------------
