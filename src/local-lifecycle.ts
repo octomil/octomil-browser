@@ -23,10 +23,16 @@
  *
  * - `hit`            — Model artifact found in browser cache (Cache API / IndexedDB).
  * - `miss`           — Artifact not cached; download from CDN will be needed.
+ * - `downloaded`     — Artifact was downloaded and verified during this request.
  * - `not_applicable` — No local artifact involved (cloud route or endpoint mode).
  * - `unavailable`    — Artifact cannot be obtained in this browser environment.
  */
-export type BrowserCacheStatus = "hit" | "miss" | "not_applicable" | "unavailable";
+export type BrowserCacheStatus =
+  | "hit"
+  | "miss"
+  | "downloaded"
+  | "not_applicable"
+  | "unavailable";
 
 /**
  * How the browser is executing local inference.
