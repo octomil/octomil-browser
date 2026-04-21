@@ -52,11 +52,20 @@ export interface ModelRef {
  * This is a pure function with no side effects — safe for tree-shaking.
  */
 export function parseModelRef(ref: string): ModelRef {
+  const trimmed = ref.trim();
+
+  if (!trimmed) {
+    return {
+      raw: trimmed,
+      kind: "default",
+    };
+  }
+
   // @app/<slug>/<capability>
-  const appMatch = ref.match(/^@app\/([^/]+)\/([^/]+)$/);
+  const appMatch = trimmed.match(/^@app\/([^/]+)\/([^/]+)$/);
   if (appMatch) {
     return {
-      raw: ref,
+      raw: trimmed,
       kind: "app",
       appSlug: appMatch[1],
       capability: appMatch[2],
@@ -64,38 +73,53 @@ export function parseModelRef(ref: string): ModelRef {
   }
 
   // @capability/<cap>
-  const capMatch = ref.match(/^@capability\/([^/]+)$/);
+  const capMatch = trimmed.match(/^@capability\/([^/]+)$/);
   if (capMatch) {
     return {
-      raw: ref,
+      raw: trimmed,
       kind: "capability",
       capability: capMatch[1],
     };
   }
 
   // deploy_<id>
-  if (ref.startsWith("deploy_")) {
+  if (trimmed.startsWith("deploy_") && trimmed.length > "deploy_".length) {
     return {
-      raw: ref,
+      raw: trimmed,
       kind: "deployment",
-      deploymentId: ref,
+      deploymentId: trimmed,
     };
   }
 
   // exp/<variant> or exp_<id>/<variant>
-  const expMatch = ref.match(/^(exp[^/]*)\/([^/]+)$/);
+  const expMatch = trimmed.match(/^(exp[^/]*)\/([^/]+)$/);
   if (expMatch) {
     return {
-      raw: ref,
+      raw: trimmed,
       kind: "experiment",
       experimentId: expMatch[1],
       variantId: expMatch[2],
     };
   }
 
+  const aliasMatch = trimmed.match(/^alias:(.+)$/);
+  if (aliasMatch) {
+    return {
+      raw: trimmed,
+      kind: aliasMatch[1] ? "alias" : "unknown",
+    };
+  }
+
+  if (trimmed.startsWith("@") || trimmed.includes("://")) {
+    return {
+      raw: trimmed,
+      kind: "unknown",
+    };
+  }
+
   // Plain model id
   return {
-    raw: ref,
+    raw: trimmed,
     kind: "model",
   };
 }

@@ -440,6 +440,8 @@ export class BrowserRequestRouter {
       final_mode: finalMode,
       engine: attemptResult.selectedAttempt?.engine ?? null,
       artifact_id: attemptResult.selectedAttempt?.artifact?.id ?? null,
+      cache_status:
+        attemptResult.selectedAttempt?.artifact?.cache.status ?? "not_applicable",
       fallback_used: attemptResult.fallbackUsed,
       fallback_trigger_code: attemptResult.fallbackTrigger?.code ?? null,
       fallback_trigger_stage: attemptResult.fallbackTrigger?.stage ?? null,
