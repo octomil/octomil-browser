@@ -5,10 +5,12 @@
  * Browser SDK can decode planner responses, route metadata, and enforce
  * platform-specific constraints:
  *
- * - Browser ONLY supports `hosted_gateway` (cloud) or `external_endpoint` (localhost serve)
- * - Browser NEVER does native artifact download
- * - Browser NEVER uses `sdk_runtime` mode
- * - `BrowserAttemptRunner` rejects sdk_runtime candidates with webgpu_unsupported
+ * - Browser always supports `hosted_gateway` (cloud)
+ * - Browser supports `external_endpoint` only when a local endpoint is configured
+ * - Browser supports `sdk_runtime` only for browser-native runtimes when the SDK
+ *   is explicitly configured for them
+ * - The canonical parity fixtures in this suite still model server/device-local
+ *   candidates, so they remain unavailable without explicit browser-local config
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -183,12 +185,27 @@ describe("SDK Contract Conformance — Browser", () => {
 
     it("each fixture has required top-level fields", () => {
       for (const [name, fixture] of fixtures) {
-        expect(fixture.description, `${name}: missing description`).toBeTruthy();
+        expect(
+          fixture.description,
+          `${name}: missing description`,
+        ).toBeTruthy();
         expect(fixture.request, `${name}: missing request`).toBeDefined();
-        expect(fixture.planner_response, `${name}: missing planner_response`).toBeDefined();
-        expect(fixture.expected_telemetry, `${name}: missing expected_telemetry`).toBeDefined();
-        expect(fixture.expected_policy_result, `${name}: missing expected_policy_result`).toBeDefined();
-        expect(fixture.rules_tested, `${name}: missing rules_tested`).toBeDefined();
+        expect(
+          fixture.planner_response,
+          `${name}: missing planner_response`,
+        ).toBeDefined();
+        expect(
+          fixture.expected_telemetry,
+          `${name}: missing expected_telemetry`,
+        ).toBeDefined();
+        expect(
+          fixture.expected_policy_result,
+          `${name}: missing expected_policy_result`,
+        ).toBeDefined();
+        expect(
+          fixture.rules_tested,
+          `${name}: missing rules_tested`,
+        ).toBeDefined();
       }
     });
   });
@@ -198,19 +215,40 @@ describe("SDK Contract Conformance — Browser", () => {
       for (const [name, fixture] of fixtures) {
         const pr = fixture.planner_response;
         expect(pr.model, `${name}: planner_response.model`).toBeTruthy();
-        expect(pr.capability, `${name}: planner_response.capability`).toBeTruthy();
+        expect(
+          pr.capability,
+          `${name}: planner_response.capability`,
+        ).toBeTruthy();
         expect(pr.policy, `${name}: planner_response.policy`).toBeTruthy();
-        expect(Array.isArray(pr.candidates), `${name}: planner_response.candidates`).toBe(true);
-        expect(pr.candidates.length, `${name}: should have at least 1 candidate`).toBeGreaterThan(0);
-        expect(typeof pr.fallback_allowed, `${name}: planner_response.fallback_allowed`).toBe("boolean");
-        expect(pr.server_generated_at, `${name}: planner_response.server_generated_at`).toBeTruthy();
-        expect(pr.plan_ttl_seconds, `${name}: planner_response.plan_ttl_seconds`).toBeGreaterThan(0);
+        expect(
+          Array.isArray(pr.candidates),
+          `${name}: planner_response.candidates`,
+        ).toBe(true);
+        expect(
+          pr.candidates.length,
+          `${name}: should have at least 1 candidate`,
+        ).toBeGreaterThan(0);
+        expect(
+          typeof pr.fallback_allowed,
+          `${name}: planner_response.fallback_allowed`,
+        ).toBe("boolean");
+        expect(
+          pr.server_generated_at,
+          `${name}: planner_response.server_generated_at`,
+        ).toBeTruthy();
+        expect(
+          pr.plan_ttl_seconds,
+          `${name}: planner_response.plan_ttl_seconds`,
+        ).toBeGreaterThan(0);
       }
     });
 
     it("each candidate has locality, priority, and valid structure", () => {
       for (const [name, fixture] of fixtures) {
-        for (const [i, candidate] of fixture.planner_response.candidates.entries()) {
+        for (const [
+          i,
+          candidate,
+        ] of fixture.planner_response.candidates.entries()) {
           expect(
             ["local", "cloud"].includes(candidate.locality),
             `${name}: candidate[${i}].locality invalid: ${candidate.locality}`,
@@ -225,7 +263,10 @@ describe("SDK Contract Conformance — Browser", () => {
 
     it("local candidates have engine field", () => {
       for (const [name, fixture] of fixtures) {
-        for (const [i, candidate] of fixture.planner_response.candidates.entries()) {
+        for (const [
+          i,
+          candidate,
+        ] of fixture.planner_response.candidates.entries()) {
           if (candidate.locality === "local") {
             expect(
               candidate.engine,
@@ -259,24 +300,40 @@ describe("SDK Contract Conformance — Browser", () => {
         ).toBe(true);
 
         expect(rm.planner, `${name}: route_metadata.planner`).toBeDefined();
-        expect(rm.planner.source, `${name}: route_metadata.planner.source`).toBe("server");
+        expect(
+          rm.planner.source,
+          `${name}: route_metadata.planner.source`,
+        ).toBe("server");
         expect(rm.fallback, `${name}: route_metadata.fallback`).toBeDefined();
-        expect(typeof rm.fallback.used, `${name}: route_metadata.fallback.used`).toBe("boolean");
-        expect(Array.isArray(rm.attempts), `${name}: route_metadata.attempts`).toBe(true);
+        expect(
+          typeof rm.fallback.used,
+          `${name}: route_metadata.fallback.used`,
+        ).toBe("boolean");
+        expect(
+          Array.isArray(rm.attempts),
+          `${name}: route_metadata.attempts`,
+        ).toBe(true);
       }
     });
 
     it("each attempt has valid structure", () => {
       for (const [name, fixture] of fixtures) {
         if (!fixture.expected_route_metadata) continue;
-        for (const [i, attempt] of fixture.expected_route_metadata.attempts.entries()) {
-          expect(typeof attempt.index, `${name}: attempt[${i}].index`).toBe("number");
+        for (const [
+          i,
+          attempt,
+        ] of fixture.expected_route_metadata.attempts.entries()) {
+          expect(typeof attempt.index, `${name}: attempt[${i}].index`).toBe(
+            "number",
+          );
           expect(
             ["local", "cloud"].includes(attempt.locality),
             `${name}: attempt[${i}].locality invalid`,
           ).toBe(true);
           expect(
-            ["sdk_runtime", "hosted_gateway", "external_endpoint"].includes(attempt.mode),
+            ["sdk_runtime", "hosted_gateway", "external_endpoint"].includes(
+              attempt.mode,
+            ),
             `${name}: attempt[${i}].mode invalid: ${attempt.mode}`,
           ).toBe(true);
           expect(
@@ -284,7 +341,10 @@ describe("SDK Contract Conformance — Browser", () => {
             `${name}: attempt[${i}].status invalid: ${attempt.status}`,
           ).toBe(true);
           expect(attempt.reason, `${name}: attempt[${i}].reason`).toBeDefined();
-          expect(attempt.reason.code, `${name}: attempt[${i}].reason.code`).toBeTruthy();
+          expect(
+            attempt.reason.code,
+            `${name}: attempt[${i}].reason.code`,
+          ).toBeTruthy();
         }
       }
     });
@@ -318,30 +378,12 @@ describe("SDK Contract Conformance — Browser", () => {
     });
   });
 
-  describe("platform: sdk_runtime always fails in browser", () => {
-    it("browser never selects sdk_runtime mode", () => {
-      // All fixtures with local candidates and sdk_runtime mode should fail
-      // in the browser because there is no local runtime
-      for (const [name, fixture] of fixtures) {
-        if (!fixture.expected_route_metadata) continue;
-        for (const attempt of fixture.expected_route_metadata.attempts) {
-          if (attempt.mode === "sdk_runtime") {
-            // In the browser context, any sdk_runtime attempt is invalid
-            // The BrowserAttemptRunner will reject these
-            expect(
-              attempt.mode,
-              `${name}: fixture acknowledges sdk_runtime mode exists`,
-            ).toBe("sdk_runtime");
-          }
-        }
-      }
-    });
-
-    it("BrowserAttemptRunner rejects sdk_runtime candidates with webgpu_unsupported", async () => {
+  describe("platform: canonical local fixtures need explicit browser-local config", () => {
+    it("BrowserAttemptRunner rejects sdk_runtime candidates when no runtimeChecker", async () => {
       // Use app_ref_local_only which has a single local candidate
       const fixture = fixtures.get("app_ref_local_only")!;
-      const candidates: CandidatePlan[] = fixture.planner_response.candidates.map(
-        (c) => ({
+      const candidates: CandidatePlan[] =
+        fixture.planner_response.candidates.map((c) => ({
           locality: c.locality,
           engine: c.engine,
           priority: c.priority,
@@ -351,102 +393,37 @@ describe("SDK Contract Conformance — Browser", () => {
             threshold_number: g.threshold_number,
             source: g.source as "server" | "sdk" | "runtime",
           })),
-        }),
-      );
+        }));
 
       const runner = new BrowserAttemptRunner({
         fallbackAllowed: fixture.planner_response.fallback_allowed,
       });
       const result = await runner.run(candidates);
 
-      // The local candidate must fail because browser cannot run sdk_runtime
+      // The local candidate must fail because no runtimeChecker is configured
       expect(result.attempts.length).toBeGreaterThan(0);
-      const localAttempt = result.attempts.find((a) => a.mode === "sdk_runtime");
+      const localAttempt = result.attempts.find(
+        (a) => a.mode === "sdk_runtime",
+      );
       expect(localAttempt).toBeDefined();
       expect(localAttempt!.status).toBe("failed");
       expect(localAttempt!.stage).toBe("prepare");
-      expect(localAttempt!.gate_results.some(
-        (g) => g.code === "runtime_available" && g.status === "failed" && g.reason_code === "webgpu_unsupported",
-      )).toBe(true);
-    });
-  });
-
-  describe("platform: no artifact download in browser", () => {
-    it("BrowserAttemptRunner never produces artifact metadata in attempts", async () => {
-      // Use runtime_plan_local_candidate_gates which has full gate set
-      const fixture = fixtures.get("runtime_plan_local_candidate_gates")!;
-      const candidates: CandidatePlan[] = fixture.planner_response.candidates.map(
-        (c) => ({
-          locality: c.locality,
-          engine: c.engine,
-          priority: c.priority,
-          gates: c.gates?.map((g) => ({
-            code: g.code,
-            required: g.required,
-            threshold_number: g.threshold_number,
-            source: g.source as "server" | "sdk" | "runtime",
-          })),
-        }),
-      );
-
-      const runner = new BrowserAttemptRunner({
-        fallbackAllowed: fixture.planner_response.fallback_allowed,
-      });
-      const result = await runner.run(candidates);
-
-      for (const attempt of result.attempts) {
-        expect(attempt.artifact).toBeNull();
-      }
-    });
-
-    it("all fixtures with local artifacts are inapplicable in browser (artifact always null)", async () => {
-      const fixturesWithArtifacts = [
-        "app_ref_local_only",
-        "capability_chat_default_model",
-        "experiment_variant_resolved",
-        "runtime_plan_local_candidate_gates",
-        "runtime_plan_cloud_fallback_disallowed",
-        "stream_pre_first_token_fallback",
-        "stream_post_first_token_no_fallback",
-        "telemetry_route_attempt_upload",
-      ];
-
-      for (const name of fixturesWithArtifacts) {
-        const fixture = fixtures.get(name)!;
-        const candidates: CandidatePlan[] = fixture.planner_response.candidates.map(
-          (c) => ({
-            locality: c.locality,
-            engine: c.engine,
-            priority: c.priority,
-            gates: c.gates?.map((g) => ({
-              code: g.code,
-              required: g.required,
-              threshold_number: g.threshold_number,
-              source: g.source as "server" | "sdk" | "runtime",
-            })),
-          }),
-        );
-
-        const runner = new BrowserAttemptRunner({
-          fallbackAllowed: fixture.planner_response.fallback_allowed,
-        });
-        const result = await runner.run(candidates);
-
-        for (const attempt of result.attempts) {
-          expect(
-            attempt.artifact,
-            `${name}: browser attempts must have artifact=null`,
-          ).toBeNull();
-        }
-      }
+      expect(
+        localAttempt!.gate_results.some(
+          (g) =>
+            g.code === "runtime_available" &&
+            g.status === "failed" &&
+            g.reason_code === "no_browser_runtime",
+        ),
+      ).toBe(true);
     });
   });
 
   describe("BrowserAttemptRunner processes fixtures correctly", () => {
     it("cloud-only fixture: selects hosted_gateway", async () => {
       const fixture = fixtures.get("deployment_ref_cloud_only")!;
-      const candidates: CandidatePlan[] = fixture.planner_response.candidates.map(
-        (c) => ({
+      const candidates: CandidatePlan[] =
+        fixture.planner_response.candidates.map((c) => ({
           locality: c.locality,
           engine: c.engine,
           priority: c.priority,
@@ -456,8 +433,7 @@ describe("SDK Contract Conformance — Browser", () => {
             threshold_number: g.threshold_number,
             source: g.source as "server" | "sdk" | "runtime",
           })),
-        }),
-      );
+        }));
 
       const runner = new BrowserAttemptRunner({
         fallbackAllowed: fixture.planner_response.fallback_allowed,
@@ -473,8 +449,8 @@ describe("SDK Contract Conformance — Browser", () => {
 
     it("local_first with fallback: sdk_runtime fails, cloud fallback succeeds", async () => {
       const fixture = fixtures.get("app_ref_local_first_cloud_fallback")!;
-      const candidates: CandidatePlan[] = fixture.planner_response.candidates.map(
-        (c) => ({
+      const candidates: CandidatePlan[] =
+        fixture.planner_response.candidates.map((c) => ({
           locality: c.locality,
           engine: c.engine,
           priority: c.priority,
@@ -484,8 +460,7 @@ describe("SDK Contract Conformance — Browser", () => {
             threshold_number: g.threshold_number,
             source: g.source as "server" | "sdk" | "runtime",
           })),
-        }),
-      );
+        }));
 
       const runner = new BrowserAttemptRunner({
         fallbackAllowed: fixture.planner_response.fallback_allowed,
@@ -504,8 +479,8 @@ describe("SDK Contract Conformance — Browser", () => {
 
     it("local_only with no external endpoint: route unavailable", async () => {
       const fixture = fixtures.get("app_ref_local_only")!;
-      const candidates: CandidatePlan[] = fixture.planner_response.candidates.map(
-        (c) => ({
+      const candidates: CandidatePlan[] =
+        fixture.planner_response.candidates.map((c) => ({
           locality: c.locality,
           engine: c.engine,
           priority: c.priority,
@@ -515,8 +490,7 @@ describe("SDK Contract Conformance — Browser", () => {
             threshold_number: g.threshold_number,
             source: g.source as "server" | "sdk" | "runtime",
           })),
-        }),
-      );
+        }));
 
       // fallback_allowed=false: single local candidate fails, no fallback
       const runner = new BrowserAttemptRunner({
@@ -533,8 +507,8 @@ describe("SDK Contract Conformance — Browser", () => {
 
     it("private policy with fallback disallowed: route unavailable", async () => {
       const fixture = fixtures.get("runtime_plan_cloud_fallback_disallowed")!;
-      const candidates: CandidatePlan[] = fixture.planner_response.candidates.map(
-        (c) => ({
+      const candidates: CandidatePlan[] =
+        fixture.planner_response.candidates.map((c) => ({
           locality: c.locality,
           engine: c.engine,
           priority: c.priority,
@@ -544,8 +518,7 @@ describe("SDK Contract Conformance — Browser", () => {
             threshold_number: g.threshold_number,
             source: g.source as "server" | "sdk" | "runtime",
           })),
-        }),
-      );
+        }));
 
       const runner = new BrowserAttemptRunner({
         fallbackAllowed: fixture.planner_response.fallback_allowed,
@@ -560,8 +533,8 @@ describe("SDK Contract Conformance — Browser", () => {
 
     it("external_endpoint: selects when localEndpoint is configured and reachable", async () => {
       const fixture = fixtures.get("capability_chat_default_model")!;
-      const candidates: CandidatePlan[] = fixture.planner_response.candidates.map(
-        (c) => ({
+      const candidates: CandidatePlan[] =
+        fixture.planner_response.candidates.map((c) => ({
           locality: c.locality,
           engine: c.engine,
           priority: c.priority,
@@ -571,8 +544,7 @@ describe("SDK Contract Conformance — Browser", () => {
             threshold_number: g.threshold_number,
             source: g.source as "server" | "sdk" | "runtime",
           })),
-        }),
-      );
+        }));
 
       // With a local endpoint configured, local candidate uses external_endpoint mode
       const runner = new BrowserAttemptRunner({
@@ -590,8 +562,8 @@ describe("SDK Contract Conformance — Browser", () => {
 
     it("external_endpoint unreachable: falls back to cloud", async () => {
       const fixture = fixtures.get("app_ref_local_first_cloud_fallback")!;
-      const candidates: CandidatePlan[] = fixture.planner_response.candidates.map(
-        (c) => ({
+      const candidates: CandidatePlan[] =
+        fixture.planner_response.candidates.map((c) => ({
           locality: c.locality,
           engine: c.engine,
           priority: c.priority,
@@ -601,14 +573,16 @@ describe("SDK Contract Conformance — Browser", () => {
             threshold_number: g.threshold_number,
             source: g.source as "server" | "sdk" | "runtime",
           })),
-        }),
-      );
+        }));
 
       const runner = new BrowserAttemptRunner({
         fallbackAllowed: fixture.planner_response.fallback_allowed,
         localEndpoint: "http://localhost:8080",
         endpointChecker: {
-          check: async () => ({ available: false, reasonCode: "connection_refused" }),
+          check: async () => ({
+            available: false,
+            reasonCode: "connection_refused",
+          }),
         },
       });
       const result = await runner.run(candidates);

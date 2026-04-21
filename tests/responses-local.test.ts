@@ -32,6 +32,10 @@ describe("ResponsesClient local runtime", () => {
     });
 
     expect(response.output).toEqual([{ type: "text", text: "Hello local" }]);
+    expect(response.route).toMatchObject({
+      status: "selected",
+      execution: { locality: "local", mode: "sdk_runtime" },
+    });
     expect(create).toHaveBeenCalledOnce();
     const effectiveRequest = create.mock.calls[0]![0];
     expect(effectiveRequest.instructions).toBeUndefined();
@@ -119,7 +123,13 @@ describe("ResponsesClient local runtime", () => {
     expect(events[0]).toEqual({ type: "text_delta", delta: "Hello" });
     expect(events[1]).toMatchObject({
       type: "done",
-      response: { id: "resp_stream_local" },
+      response: {
+        id: "resp_stream_local",
+        route: {
+          status: "selected",
+          execution: { locality: "local", mode: "sdk_runtime" },
+        },
+      },
     });
   });
 });

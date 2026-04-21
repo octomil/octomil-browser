@@ -1,0 +1,98 @@
+/**
+ * @octomil/browser — Model reference parser
+ *
+ * Parses model references into structured descriptors so route metadata can
+ * record what kind of reference the caller supplied. The actual resolution
+ * happens server-side; this module only classifies the reference.
+ *
+ * Supported ref kinds:
+ * - `@app/<slug>/<capability>`  → kind "app"
+ * - `@capability/<cap>`         → kind "capability"
+ * - `deploy_<id>`               → kind "deployment"
+ * - `exp/<variant>` or `exp_<id>/<variant>` → kind "experiment"
+ * - anything else               → kind "model" (plain model id)
+ */
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export type ModelRefKind =
+  | "app"
+  | "capability"
+  | "deployment"
+  | "experiment"
+  | "model";
+
+export interface ModelRef {
+  raw: string;
+  kind: ModelRefKind;
+  /** For app refs: the app slug */
+  appSlug?: string;
+  /** For app or capability refs: the capability */
+  capability?: string;
+  /** For deployment refs: the deployment id */
+  deploymentId?: string;
+  /** For experiment refs: the experiment id */
+  experimentId?: string;
+  /** For experiment refs: the variant id */
+  variantId?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Parser
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse a model reference string into a structured descriptor.
+ *
+ * This is a pure function with no side effects — safe for tree-shaking.
+ */
+export function parseModelRef(ref: string): ModelRef {
+  // @app/<slug>/<capability>
+  const appMatch = ref.match(/^@app\/([^/]+)\/([^/]+)$/);
+  if (appMatch) {
+    return {
+      raw: ref,
+      kind: "app",
+      appSlug: appMatch[1],
+      capability: appMatch[2],
+    };
+  }
+
+  // @capability/<cap>
+  const capMatch = ref.match(/^@capability\/([^/]+)$/);
+  if (capMatch) {
+    return {
+      raw: ref,
+      kind: "capability",
+      capability: capMatch[1],
+    };
+  }
+
+  // deploy_<id>
+  if (ref.startsWith("deploy_")) {
+    return {
+      raw: ref,
+      kind: "deployment",
+      deploymentId: ref,
+    };
+  }
+
+  // exp/<variant> or exp_<id>/<variant>
+  const expMatch = ref.match(/^(exp[^/]*)\/([^/]+)$/);
+  if (expMatch) {
+    return {
+      raw: ref,
+      kind: "experiment",
+      experimentId: expMatch[1],
+      variantId: expMatch[2],
+    };
+  }
+
+  // Plain model id
+  return {
+    raw: ref,
+    kind: "model",
+  };
+}
