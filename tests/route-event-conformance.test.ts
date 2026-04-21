@@ -523,6 +523,7 @@ describe("TelemetryReporter.reportRouteEvent", () => {
     const reporter = new TelemetryReporter({ flushIntervalMs: 60_000 });
     const event: BrowserRouteEvent = {
       ...makeSampleRouteEvent(),
+      app_id: "app_123",
       app_slug: "my-app",
       deployment_id: "deploy_123",
       experiment_id: "exp_456",
@@ -538,6 +539,7 @@ describe("TelemetryReporter.reportRouteEvent", () => {
       record.attributes!.map((a) => [a.key, a.value.stringValue]),
     );
 
+    expect(attrMap.get("route.app_id")).toBe("app_123");
     expect(attrMap.get("route.app_slug")).toBe("my-app");
     expect(attrMap.get("route.deployment_id")).toBe("deploy_123");
     expect(attrMap.get("route.experiment_id")).toBe("exp_456");
@@ -557,6 +559,7 @@ describe("TelemetryReporter.reportRouteEvent", () => {
     const record = body.resourceLogs[0]!.scopeLogs[0]!.logRecords[0]!;
     const keys = record.attributes!.map((a) => a.key);
 
+    expect(keys).not.toContain("route.app_id");
     expect(keys).not.toContain("route.app_slug");
     expect(keys).not.toContain("route.deployment_id");
     expect(keys).not.toContain("route.experiment_id");

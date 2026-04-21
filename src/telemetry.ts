@@ -5,7 +5,7 @@
  * and flushed periodically using `navigator.sendBeacon` (preferred) or
  * `fetch` with `keepalive: true`.
  *
- * V2 sends to `POST /v2/telemetry/events` with an OTLP-style resource
+ * V2 sends to `POST /api/v2/telemetry/events` with an OTLP-style resource
  * envelope wrapping each batch.
  */
 
@@ -22,7 +22,7 @@ import { stripForbiddenKeys } from "./route-event.js";
 
 const DEFAULT_FLUSH_INTERVAL_MS = 30_000; // 30 seconds
 const DEFAULT_MAX_BATCH_SIZE = 50;
-const DEFAULT_TELEMETRY_URL = "https://api.octomil.com/v2/telemetry/events";
+const DEFAULT_TELEMETRY_URL = "https://api.octomil.com/api/v2/telemetry/events";
 const SDK_NAME = "browser";
 export const DEFAULT_SDK_VERSION = "1.0.0";
 
@@ -428,6 +428,7 @@ export class TelemetryReporter {
       "route.attempt_details": JSON.stringify(sanitized.attempt_details),
     };
 
+    if (sanitized.app_id) attrs["route.app_id"] = sanitized.app_id;
     if (sanitized.app_slug) attrs["route.app_slug"] = sanitized.app_slug;
     if (sanitized.deployment_id)
       attrs["route.deployment_id"] = sanitized.deployment_id;

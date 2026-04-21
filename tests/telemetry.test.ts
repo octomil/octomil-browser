@@ -78,7 +78,7 @@ describe("TelemetryReporter", () => {
 
   it("flushes events on manual flush() in OTLP format", async () => {
     const reporter = new TelemetryReporter({
-      url: "https://api.octomil.com/v2/telemetry/events",
+      url: "https://api.octomil.com/api/v2/telemetry/events",
       flushIntervalMs: 60_000,
     });
 
@@ -269,13 +269,13 @@ describe("TelemetryReporter — v2 OTLP envelope", () => {
     vi.restoreAllMocks();
   });
 
-  it("defaults to /v2/telemetry/events endpoint", async () => {
+  it("defaults to /api/v2/telemetry/events endpoint", async () => {
     const reporter = new TelemetryReporter({ flushIntervalMs: 60_000 });
     reporter.track(makeEvent());
     await reporter.flush();
 
     const [url] = fetchSpy.mock.calls[0]!;
-    expect(url).toBe("https://api.octomil.com/v2/telemetry/events");
+    expect(url).toBe("https://api.octomil.com/api/v2/telemetry/events");
     reporter.close();
   });
 

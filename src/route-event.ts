@@ -104,6 +104,8 @@ export interface BrowserRouteEvent {
 
   /** App slug when the model ref is an app reference */
   app_slug?: string;
+  /** App id when browser auth or request context is app-scoped */
+  app_id?: string;
   /** Deployment id when the model ref is a deployment reference */
   deployment_id?: string;
   /** Experiment id when the model ref is an experiment reference */
