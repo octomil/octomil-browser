@@ -163,12 +163,12 @@ export interface RuntimeChecker {
 // ---------------------------------------------------------------------------
 
 /**
- * Pluggable interface for checking artifact cache state and triggering downloads.
+ * Pluggable interface for checking artifact cache state.
+ * Implementations must not silently download artifacts as part of the check.
  */
 export interface ArtifactChecker {
   /**
    * Check if the artifact is cached and ready for use.
-   * May trigger download if the model is small enough for browser.
    */
   check(artifact: CandidatePlan["artifact"]): Promise<{
     available: boolean;

@@ -108,10 +108,10 @@ export interface RouteMetadata {
  * metadata, and the attempt loop result.
  */
 export interface BrowserRoutingDecision {
-  /** Final locality: "local" or "cloud" */
-  locality: "local" | "cloud";
-  /** Execution mode */
-  mode: "sdk_runtime" | "hosted_gateway" | "external_endpoint";
+  /** Final locality: "local" or "cloud", null if no route was selected */
+  locality: "local" | "cloud" | null;
+  /** Execution mode, null if no route was selected */
+  mode: "sdk_runtime" | "hosted_gateway" | "external_endpoint" | null;
   /** The endpoint URL to send the request to (null for sdk_runtime) */
   endpoint: string | null;
   /** For sdk_runtime: the execution provider that was selected */
@@ -122,6 +122,8 @@ export interface BrowserRoutingDecision {
   artifact: CandidatePlan["artifact"] | null;
   /** Full route metadata for attaching to the response */
   routeMetadata: RouteMetadata;
+  /** The plan used to make this decision */
+  plan: PlannerResult;
   /** The raw attempt loop result from the BrowserAttemptRunner */
   attemptResult: AttemptLoopResult;
   /** Parsed model reference */
@@ -232,17 +234,18 @@ export class BrowserRequestRouter {
         plan,
         attemptResult,
         null,
-        "hosted_gateway",
+        null,
       );
 
       return {
-        locality: "cloud",
-        mode: "hosted_gateway",
-        endpoint: this.serverUrl,
+        locality: null,
+        mode: null,
+        endpoint: null,
         executionProvider: null,
         engine: null,
         artifact: null,
         routeMetadata,
+        plan,
         attemptResult,
         modelRef,
         routeEvent,
@@ -293,6 +296,7 @@ export class BrowserRequestRouter {
       engine,
       artifact,
       routeMetadata,
+      plan,
       attemptResult,
       modelRef,
       routeEvent,
@@ -312,47 +316,65 @@ export class BrowserRequestRouter {
    * - Always include cloud as final candidate
    */
   private defaultPlan(ctx: BrowserRoutingContext): PlannerResult {
+    const hasConfiguredLocal = Boolean(this.runtimeChecker || ctx.localEndpoint);
+    const policy =
+      ctx.routingPolicy ?? (hasConfiguredLocal ? "local_first" : "cloud_only");
+    const allowLocal = policy !== "cloud_only";
+    const allowCloud = policy !== "private" && policy !== "local_only";
+    const cloudFirst = policy === "cloud_first" || policy === "cloud_only";
     const candidates: CandidatePlan[] = [];
     let priority = 0;
 
-    // If we have a runtime checker, add sdk_runtime candidates
-    // WebGPU first, then WASM as local fallback
-    if (this.runtimeChecker) {
+    const pushLocalCandidates = () => {
+      // If we have a runtime checker, add sdk_runtime candidates
+      // WebGPU first, then WASM as local fallback
+      if (this.runtimeChecker) {
+        candidates.push({
+          locality: "local",
+          engine: "onnx-web",
+          executionProvider: "webgpu",
+          priority: priority++,
+        });
+        candidates.push({
+          locality: "local",
+          engine: "onnx-web",
+          executionProvider: "wasm",
+          priority: priority++,
+        });
+      }
+
+      // If localEndpoint is configured, add external_endpoint candidate
+      if (ctx.localEndpoint) {
+        candidates.push({
+          locality: "local",
+          priority: priority++,
+        });
+      }
+    };
+
+    if (cloudFirst && allowCloud) {
       candidates.push({
-        locality: "local",
-        engine: "onnx-web",
-        executionProvider: "webgpu",
-        priority: priority++,
-      });
-      candidates.push({
-        locality: "local",
-        engine: "onnx-web",
-        executionProvider: "wasm",
+        locality: "cloud",
         priority: priority++,
       });
     }
 
-    // If localEndpoint is configured, add external_endpoint candidate
-    if (ctx.localEndpoint) {
+    if (allowLocal) {
+      pushLocalCandidates();
+    }
+
+    if (!cloudFirst && allowCloud) {
       candidates.push({
-        locality: "local",
+        locality: "cloud",
         priority: priority++,
       });
     }
-
-    // Always add cloud candidate as final fallback
-    candidates.push({
-      locality: "cloud",
-      priority: priority,
-    });
 
     const hasLocal = candidates.some((c) => c.locality === "local");
-    const policy =
-      ctx.routingPolicy ?? (hasLocal ? "local_first" : "cloud_only");
-
+    const hasCloud = candidates.some((c) => c.locality === "cloud");
     return {
       candidates,
-      fallbackAllowed: hasLocal, // fallback only if local is an option
+      fallbackAllowed: hasLocal && hasCloud,
       policy,
     };
   }
@@ -400,7 +422,7 @@ export class BrowserRequestRouter {
     plan: PlannerResult,
     attemptResult: AttemptLoopResult,
     finalLocality: string | null,
-    finalMode: string,
+    finalMode: string | null,
   ): BrowserRouteEvent {
     const event: BrowserRouteEvent = {
       route_id: routeId,

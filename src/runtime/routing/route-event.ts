@@ -26,8 +26,8 @@ export interface BrowserRouteEvent {
   policy?: string;
   /** Final locality chosen: "local" or "cloud", null if unavailable */
   final_locality: string | null;
-  /** Final mode: "sdk_runtime", "hosted_gateway", or "external_endpoint" */
-  final_mode: string;
+  /** Final mode: "sdk_runtime", "hosted_gateway", or "external_endpoint", null if unavailable */
+  final_mode: string | null;
   /** Whether fallback was used */
   fallback_used: boolean;
   /** The trigger code if fallback was used */

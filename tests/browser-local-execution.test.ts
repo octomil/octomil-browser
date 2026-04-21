@@ -568,6 +568,28 @@ describe("BrowserRequestRouter: planner-driven decisions", () => {
     expect(decision.endpoint).toBe("https://api.octomil.com");
   });
 
+  it("respects local_only and returns unavailable when no local route exists", async () => {
+    const router = new BrowserRequestRouter({
+      serverUrl: "https://api.octomil.com",
+    });
+
+    const ctx: BrowserRoutingContext = {
+      model: "gemma-1b",
+      capability: "chat",
+      streaming: false,
+      routingPolicy: "local_only",
+    };
+
+    const decision = await router.resolve(ctx);
+
+    expect(decision.mode).toBeNull();
+    expect(decision.locality).toBeNull();
+    expect(decision.endpoint).toBeNull();
+    expect(decision.routeMetadata.status).toBe("unavailable");
+    expect(decision.routeMetadata.execution).toBeNull();
+    expect(decision.routeEvent.final_mode).toBeNull();
+  });
+
   it("routes to external_endpoint when configured", async () => {
     const router = new BrowserRequestRouter({
       serverUrl: "https://api.octomil.com",
