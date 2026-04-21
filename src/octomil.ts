@@ -86,13 +86,13 @@ export class OctomilClient {
   constructor(options: OctomilOptions & { runtime?: ModelRuntime }) {
     // Extract serverUrl and apiKey from the auth config
     const auth = options.auth;
-    const serverUrl = auth?.serverUrl;
+    const serverUrl = auth?.serverUrl ?? options.serverUrl;
     const apiKey =
       auth?.type === "org_api_key"
         ? auth.apiKey
         : auth?.type === "device_token"
           ? auth.bootstrapToken
-          : undefined;
+          : options.apiKey;
     const orgId =
       auth?.type === "org_api_key" ? auth.orgId : getDeviceContext()?.orgId ?? undefined;
 
@@ -522,6 +522,7 @@ export class OctomilClient {
         model: this.options.model,
         serverUrl: this.options.serverUrl,
         apiKey: this.options.apiKey,
+        canRunLocally: () => this.responses.canRunLocally(this.options.model),
         getResponses: () => this.responses,
         ensureReady: () => this.ensureReady(),
       });

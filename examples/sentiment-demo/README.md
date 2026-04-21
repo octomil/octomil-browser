@@ -1,6 +1,6 @@
-# Sentiment Demo — @octomil/browser
+# Sentiment Demo (Local ONNX Inference) — @octomil/browser
 
-Runs a sentiment classifier entirely in the browser with WebGPU or WASM. No server and no API key required.
+Runs a sentiment classifier entirely in the browser with WebGPU or WASM. This demo uses **local on-device inference** via ONNX Runtime Web -- no server, no API key, no cloud calls required. For hosted/cloud examples, see the `Octomil` facade in the main README.
 
 ## Setup
 

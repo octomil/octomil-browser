@@ -13,6 +13,13 @@ import { SPAN_ATTRIBUTES } from "./_generated/span_attributes.js";
 import type { DeviceContext } from "./device-context.js";
 import { DEFAULT_SDK_VERSION } from "./telemetry.js";
 import type { TelemetryReporter } from "./telemetry.js";
+import {
+  getBatterySafely,
+  getDeviceMemoryMb,
+  getLocale,
+  getTimezone,
+  getUserAgent,
+} from "./browser-env.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -212,26 +219,19 @@ export class ControlClient {
   async register(deviceId?: string): Promise<DeviceRegistration> {
     const effectiveDeviceId =
       deviceId || this.deviceContext?.installationId || (await this.generateDeviceId());
-    const battery = await (navigator as any).getBattery?.().catch(() => null);
+    const battery = await getBatterySafely();
     const payload: Record<string, unknown> = {
       device_identifier: effectiveDeviceId,
       installation_id: this.deviceContext?.installationId ?? effectiveDeviceId,
       app_id: this.deviceContext?.appId ?? undefined,
       platform: "browser",
-      os_version:
-        typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
+      os_version: getUserAgent(),
       sdk_version: DEFAULT_SDK_VERSION,
-      locale:
-        typeof navigator !== "undefined" ? navigator.language : undefined,
-      timezone:
-        typeof Intl !== "undefined"
-          ? Intl.DateTimeFormat().resolvedOptions().timeZone
-          : undefined,
-      total_memory_mb:
-        typeof navigator !== "undefined" && (navigator as any).deviceMemory
-          ? Math.round((navigator as any).deviceMemory * 1024)
-          : undefined,
-      battery_pct: battery ? Math.round(battery.level * 100) : undefined,
+      locale: getLocale(),
+      timezone: getTimezone(),
+      total_memory_mb: getDeviceMemoryMb(),
+      battery_pct:
+        battery?.level != null ? Math.round(battery.level * 100) : undefined,
       charging: battery?.charging,
     };
     const headers: Record<string, string> = {
@@ -545,24 +545,6 @@ export class ControlClient {
     return Array.from(new Uint8Array(buf))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
-  }
-
-  /** Collect device info for registration payloads. */
-  private collectDeviceInfo(): Record<string, unknown> {
-    return {
-      platform: "browser",
-      user_agent:
-        typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
-      screen_width: typeof screen !== "undefined" ? screen.width : 0,
-      screen_height: typeof screen !== "undefined" ? screen.height : 0,
-      device_memory_gb:
-        typeof navigator !== "undefined"
-          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (navigator as any).deviceMemory || 0
-          : 0,
-      language:
-        typeof navigator !== "undefined" ? navigator.language : "unknown",
-    };
   }
 
   private resolveAuthHeaders(): Record<string, string> {

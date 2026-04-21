@@ -59,7 +59,7 @@ describe("StreamingInferenceEngine", () => {
     expect(received[1]).toMatchObject({ index: 1, data: " world" });
   });
 
-  it("emits telemetry events: inference.started, inference.chunk, inference.completed", async () => {
+  it("emits telemetry events: inference.started, inference.chunk_produced, inference.completed", async () => {
     const chunks = [
       { index: 0, data: "Hi", modality: "text", done: true },
     ];
@@ -73,7 +73,7 @@ describe("StreamingInferenceEngine", () => {
 
     const names = trackedEvents.map((e) => e.name);
     expect(names).toContain("inference.started");
-    expect(names).toContain("inference.chunk");
+    expect(names).toContain("inference.chunk_produced");
     expect(names).toContain("inference.completed");
   });
 

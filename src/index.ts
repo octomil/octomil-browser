@@ -183,6 +183,63 @@ export { StreamingInferenceEngine } from "./streaming.js";
 export { EngineRegistry } from "./runtime/index.js";
 export type { EnginePlugin } from "./runtime/index.js";
 
+// Attempt runner (browser-safe local lifecycle)
+export { BrowserAttemptRunner } from "./runtime/index.js";
+export type {
+  Locality,
+  Mode,
+  AttemptStage,
+  AttemptStatus,
+  GateStatus,
+  GateCode,
+  GateResult,
+  RouteAttempt,
+  AttemptArtifact,
+  ArtifactCacheStatus,
+  FallbackTrigger,
+  AttemptLoopResult,
+  CandidateGate,
+  CandidatePlan,
+  EndpointChecker,
+  RuntimeChecker,
+  ArtifactChecker,
+} from "./runtime/index.js";
+
+// Browser runtime resolver (WebGPU/WASM probing + artifact cache checks)
+export {
+  BrowserRuntimeChecker,
+  BrowserArtifactChecker,
+} from "./runtime/index.js";
+
+// Production routing (request router + model refs + route events)
+export {
+  BrowserRequestRouter,
+  FetchEndpointChecker,
+  parseModelRef,
+} from "./runtime/index.js";
+export type {
+  BrowserRoutingContext,
+  BrowserRoutingDecision,
+  PlannerResult,
+  RouteMetadata,
+  ModelRef,
+  ModelRefKind,
+} from "./runtime/index.js";
+
+// Route events (canonical cross-SDK telemetry shape)
+export {
+  stripForbiddenKeys,
+  findForbiddenKeys,
+  buildAttemptDetail,
+  generateCorrelationId,
+  FORBIDDEN_TELEMETRY_KEYS,
+} from "./route-event.js";
+export type {
+  BrowserRouteEvent,
+  RouteAttemptDetail,
+  GateSummary,
+} from "./route-event.js";
+
 // Embeddings
 export { embed } from "./embeddings.js";
 export { OctomilText, TextPredictionsClient } from "./text/octomil-text.js";
@@ -224,6 +281,32 @@ export { ExperimentsClient } from "./experiments.js";
 
 // Routing
 export { RoutingClient, detectDeviceCapabilities } from "./routing.js";
+
+// Planner (runtime planner types + policy validation)
+export {
+  RoutingPolicy,
+  VALID_ROUTING_POLICIES,
+  LOCAL_ONLY_POLICIES,
+  validateRoutingPolicy,
+  assertBrowserCompatiblePolicy,
+} from "./planner/index.js";
+export type {
+  RoutingPolicyName,
+  RouteExecution,
+  RouteModelRequested,
+  RouteModelResolved,
+  RouteModel,
+  ArtifactCache,
+  RouteArtifact,
+  PlannerInfo,
+  FallbackInfo,
+  RouteReason,
+  RouteMetadata as PlannerRouteMetadata,
+  RuntimeArtifactPlan,
+  RuntimeCandidatePlan,
+  RuntimePlanResponse,
+  RuntimeSelection,
+} from "./planner/index.js";
 
 // Types
 export type {

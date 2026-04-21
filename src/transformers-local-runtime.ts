@@ -65,6 +65,11 @@ export function createTransformersJsLocalResponsesRuntime(
   const config = resolveTransformersRuntimeConfig(options);
 
   return {
+    route: {
+      engine: "transformers.js",
+      executionProvider:
+        config.device === "auto" ? undefined : config.device,
+    },
     async create(request: ResponseRequest): Promise<Response> {
       const generatedText = await runLocalGeneration(request, config);
       return toResponse(request, config.model, generatedText);
@@ -94,7 +99,11 @@ export function createTransformersJsLocalResponsesRuntime(
         return pending.shift()!;
       };
 
-      // Fire-and-forget: generation runs, callback_function pushes tokens
+      let fullText = "";
+
+      // Fire-and-forget: generation runs, callback_function pushes tokens.
+      // Some transformers.js backends do not invoke callback_function in tests
+      // or in fallback modes, so emit one coarse delta from the final result.
       const genPromise = generator(generationInput, {
         max_new_tokens: request.maxOutputTokens ?? config.maxNewTokens,
         temperature: request.temperature ?? config.temperature,
@@ -108,10 +117,15 @@ export function createTransformersJsLocalResponsesRuntime(
           }
         },
       })
-        .then(() => push({ kind: "done" }))
+        .then((generation) => {
+          const generatedText = extractGeneratedText(generation);
+          if (!fullText && generatedText) {
+            push({ kind: "token", text: generatedText });
+          }
+          push({ kind: "done" });
+        })
         .catch((err: unknown) => push({ kind: "error", error: err }));
 
-      let fullText = "";
       while (true) {
         const item = await pull();
         if (item.kind === "error") {
@@ -153,7 +167,7 @@ export function resolveTransformersRuntimeConfig(
     runtimeModel,
     device: options.device ?? "auto",
     dtype: options.dtype ?? "q4",
-    maxNewTokens: options.maxNewTokens ?? 256,
+    maxNewTokens: options.maxNewTokens ?? 128,
     maxInputChars: options.maxInputChars ?? 2000,
     temperature: options.temperature ?? 0,
     topP: options.topP ?? 0.95,

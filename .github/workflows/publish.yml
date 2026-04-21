@@ -4,15 +4,14 @@ on:
   release:
     types: [published]
 
-permissions: {}
+permissions:
+  contents: read
+  id-token: write
 
 jobs:
   publish:
     name: Publish Package
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
     steps:
       - uses: actions/checkout@v6
 
@@ -22,14 +21,20 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 24
           registry-url: https://registry.npmjs.org
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
 
+      - run: pnpm run typecheck
+
+      - run: pnpm test
+
       - run: pnpm run build
 
-      - run: npm publish --access public --ignore-scripts
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - run: pnpm run exports:check
+
+      - run: pnpm run pack:check
+
+      - run: npm publish --access public --provenance --ignore-scripts

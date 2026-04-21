@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { ResponsesClient, type ResponseRequest } from "../src/responses.js";
 import type { LocalResponsesRuntime } from "../src/responses-runtime.js";
+import { TelemetryReporter } from "../src/telemetry.js";
+import { DeviceContext } from "../src/device-context.js";
 
 describe("ResponsesClient local runtime", () => {
   it("delegates create() to the configured local runtime", async () => {
@@ -32,6 +34,10 @@ describe("ResponsesClient local runtime", () => {
     });
 
     expect(response.output).toEqual([{ type: "text", text: "Hello local" }]);
+    expect(response.route).toMatchObject({
+      status: "selected",
+      execution: { locality: "local", mode: "sdk_runtime" },
+    });
     expect(create).toHaveBeenCalledOnce();
     const effectiveRequest = create.mock.calls[0]![0];
     expect(effectiveRequest.instructions).toBeUndefined();
@@ -40,6 +46,43 @@ describe("ResponsesClient local runtime", () => {
       { role: "system", content: "Be concise." },
       { role: "user", content: "Hi" },
     ]);
+  });
+
+  it("reports a canonical route event for local create()", async () => {
+    const runtime: LocalResponsesRuntime = {
+      create: vi.fn(async (request: ResponseRequest) => ({
+        id: "resp_local",
+        model: request.model,
+        output: [{ type: "text" as const, text: "Hello local" }],
+        finishReason: "stop",
+      })),
+      stream: async function* () {
+        throw new Error("not used");
+      },
+    };
+    const telemetry = new TelemetryReporter({ flushIntervalMs: 60_000 });
+    const routeSpy = vi.spyOn(telemetry, "reportRouteEvent");
+    const client = new ResponsesClient({
+      localRuntime: runtime,
+      telemetry,
+      deviceContext: new DeviceContext({
+        installationId: "dev-1",
+        appId: "app-browser-1",
+      }),
+    });
+
+    await client.create({ model: "phi-local", input: "Hi" });
+
+    expect(routeSpy).toHaveBeenCalledTimes(1);
+    expect(routeSpy.mock.calls[0]![0]).toMatchObject({
+      capability: "chat",
+      final_locality: "local",
+      fallback_used: false,
+      app_id: "app-browser-1",
+      candidate_attempts: 1,
+    });
+
+    telemetry.close();
   });
 
   it("chains previousResponseId locally before delegating", async () => {
@@ -119,7 +162,56 @@ describe("ResponsesClient local runtime", () => {
     expect(events[0]).toEqual({ type: "text_delta", delta: "Hello" });
     expect(events[1]).toMatchObject({
       type: "done",
-      response: { id: "resp_stream_local" },
+      response: {
+        id: "resp_stream_local",
+        route: {
+          status: "selected",
+          execution: { locality: "local", mode: "sdk_runtime" },
+        },
+      },
     });
+  });
+
+  it("reports a canonical route event for local stream()", async () => {
+    const runtime: LocalResponsesRuntime = {
+      create: vi.fn(async () => ({
+        id: "unused",
+        model: "phi-local",
+        output: [],
+        finishReason: "stop",
+      })),
+      stream: async function* () {
+        yield { type: "text_delta" as const, delta: "Hello" };
+        yield {
+          type: "done" as const,
+          response: {
+            id: "resp_stream_local",
+            model: "phi-local",
+            output: [{ type: "text" as const, text: "Hello" }],
+            finishReason: "stop",
+          },
+        };
+      },
+    };
+    const telemetry = new TelemetryReporter({ flushIntervalMs: 60_000 });
+    const routeSpy = vi.spyOn(telemetry, "reportRouteEvent");
+    const client = new ResponsesClient({ localRuntime: runtime, telemetry });
+
+    for await (const _event of client.stream({
+      model: "phi-local",
+      input: "Hi",
+    })) {
+      // exhaust stream
+    }
+
+    expect(routeSpy).toHaveBeenCalledTimes(1);
+    expect(routeSpy.mock.calls[0]![0]).toMatchObject({
+      capability: "chat",
+      final_locality: "local",
+      fallback_used: false,
+      candidate_attempts: 1,
+    });
+
+    telemetry.close();
   });
 });

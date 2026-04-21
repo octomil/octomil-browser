@@ -21,6 +21,7 @@ describe("ChatClient local runtime", () => {
     const responses = new ResponsesClient({ localRuntime: runtime });
     const chat = new ChatClient({
       model: "phi-local",
+      canRunLocally: () => responses.canRunLocally("phi-local"),
       getResponses: () => responses,
       ensureReady: () => {},
     });

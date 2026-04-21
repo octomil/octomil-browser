@@ -30,6 +30,8 @@ export interface ChatClientOptions {
   model: string;
   serverUrl?: string;
   apiKey?: string;
+  /** Whether the shared ResponsesClient can handle this model locally. */
+  canRunLocally?: () => boolean;
   /** Lazily resolved ResponsesClient — shared with OctomilClient. */
   getResponses: () => ResponsesClient;
   /** Guard: throws if the client is closed or not loaded. */
@@ -148,6 +150,7 @@ export class ChatClient {
   private readonly model: string;
   private readonly serverUrl: string | undefined;
   private readonly apiKey: string | undefined;
+  private readonly canRunLocally: () => boolean;
   private readonly getResponses: () => ResponsesClient;
   private readonly ensureReadyFn: () => void;
   private readonly api: ChatApiClient;
@@ -158,6 +161,7 @@ export class ChatClient {
     this.model = options.model;
     this.serverUrl = options.serverUrl;
     this.apiKey = options.apiKey;
+    this.canRunLocally = options.canRunLocally ?? (() => false);
     this.getResponses = options.getResponses;
     this.ensureReadyFn = options.ensureReady;
     this.api = new ChatApiClient(options.serverUrl, options.apiKey);
@@ -178,11 +182,15 @@ export class ChatClient {
     options: ChatOptions = {},
   ): Promise<ChatResponse> {
     this.ensureReadyFn();
+    if (!this.serverUrl && !this.canRunLocally()) {
+      this.requireServerUrl("chat.create()");
+    }
+    const responses = this.getResponses();
 
     const start = performance.now();
     const { instructions, input } = messagesToResponseInput(messages);
 
-    const response = await this.getResponses().create({
+    const response = await responses.create({
       model: this.model,
       input,
       instructions,
@@ -219,11 +227,15 @@ export class ChatClient {
     options: ChatOptions = {},
   ): AsyncGenerator<ChatChunk, void, undefined> {
     this.ensureReadyFn();
+    if (!this.serverUrl && !this.canRunLocally()) {
+      this.requireServerUrl("chat.stream()");
+    }
+    const responses = this.getResponses();
 
     const { instructions, input } = messagesToResponseInput(messages);
     let chunkIndex = 0;
 
-    const generator = this.getResponses().stream({
+    const generator = responses.stream({
       model: this.model,
       input,
       instructions,

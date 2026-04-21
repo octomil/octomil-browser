@@ -48,11 +48,14 @@ auth: {
 }
 ```
 
-## Quick Start (Unified Facade)
+## Quick Start (Hosted/Cloud)
+
+The unified facade sends requests to the Octomil cloud API. Use a publishable key (client-safe, `oct_pub_live_` prefix) -- never embed server API keys in browser code.
 
 ```typescript
 import { Octomil } from "@octomil/browser";
 
+// Use a publishable key -- safe for client-side code
 const client = new Octomil({ publishableKey: "oct_pub_live_..." });
 await client.initialize();
 const response = await client.responses.create({
@@ -62,7 +65,7 @@ const response = await client.responses.create({
 console.log(response.outputText);
 ```
 
-### Embeddings
+### Embeddings (Hosted/Cloud)
 
 ```typescript
 const result = await client.embeddings.create({
@@ -141,7 +144,38 @@ await ml.load();       // downloads once
 await ml.isCached();   // true on next visit
 ```
 
-### Smart routing (device vs. cloud)
+### Routing policies
+
+The SDK exports the same routing policy names as the Python and Node SDKs for API parity. Use `validateRoutingPolicy()` to check policy names and `assertBrowserCompatiblePolicy()` to reject policies that require local execution.
+
+```typescript
+import {
+  validateRoutingPolicy,
+  assertBrowserCompatiblePolicy,
+  VALID_ROUTING_POLICIES,
+} from '@octomil/browser';
+
+// Validate a policy name (throws on unknown names like "quality_first")
+const policy = validateRoutingPolicy("cloud_first"); // ok
+
+// Assert browser compatibility (throws on "private" and "local_only")
+assertBrowserCompatiblePolicy("cloud_only");    // ok
+assertBrowserCompatiblePolicy("private");       // throws POLICY_DENIED
+```
+
+Supported policies: `cloud_only`, `cloud_first`, `local_first`, `performance_first`. The `private` and `local_only` policies require local on-device execution and are rejected with a clear error in the browser SDK.
+
+### Browser SDK limitations
+
+The browser SDK is **hosted/cloud only** for the runtime planner. It differs from the Python and native SDKs in these ways:
+
+- No local model artifact download or caching via the planner (ONNX-web models use a separate `OctomilClient` path)
+- No local inference engine detection or benchmarking
+- No offline plan resolution
+- `private` and `local_only` routing policies are rejected -- these require capabilities the browser cannot provide
+- The planner types (`RouteMetadata`, `RuntimeSelection`, etc.) are exported for type parity but the browser SDK does not implement a planner client that calls POST /api/v2/runtime/plan
+
+### Smart routing (device vs. cloud) (Hosted/Cloud)
 
 The SDK can choose between local and cloud inference based on model size and device capabilities, then fall back cleanly when conditions change.
 
@@ -150,7 +184,7 @@ const ml = new OctomilClient({
   model: 'phi-4-mini',
   auth: {
     type: 'org_api_key',
-    apiKey: 'your-api-key',
+    apiKey: 'oct_pub_live_...', // publishable key, safe for browser
     orgId: 'your-org-id',
     serverUrl: 'https://api.octomil.com',
   },
@@ -158,7 +192,7 @@ const ml = new OctomilClient({
 });
 ```
 
-### Streaming and embeddings
+### Streaming and embeddings (Hosted/Cloud)
 
 ```typescript
 // Stream tokens via SSE
@@ -273,6 +307,21 @@ SyncManager  → Periodic desired-state reconciliation (standalone, opt-in)
 git clone https://github.com/octomil/octomil-browser.git && cd octomil-browser
 pnpm install && pnpm test && pnpm run build
 ```
+
+## Releasing
+
+Releases publish to npm from GitHub Releases via trusted publishing with npm provenance. Configure npm trusted publishing for `@octomil/browser` with repository `octomil/octomil-browser` and workflow `.github/workflows/publish.yml`.
+
+```bash
+pnpm install --frozen-lockfile
+pnpm run typecheck
+pnpm test
+pnpm run build
+pnpm run exports:check
+pnpm run pack:check
+```
+
+Then create a GitHub Release for the package version in `package.json`. The publish workflow runs the same gates and publishes `@octomil/browser` with public scoped-package access and provenance.
 
 ## License
 
