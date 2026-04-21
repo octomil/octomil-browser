@@ -180,6 +180,26 @@ export interface RuntimeCandidatePlan {
 }
 
 /**
+ * Resolution metadata for non-app model ref types.
+ *
+ * Returned by the server when the model ref resolves through a deployment,
+ * experiment, capability default, or plain model lookup. Carries the
+ * deployment_id, experiment_id, and variant_id needed for telemetry correlation.
+ */
+export interface ModelResolution {
+  ref_kind: string;
+  original_ref: string;
+  resolved_model: string;
+  deployment_id?: string;
+  deployment_key?: string;
+  experiment_id?: string;
+  variant_id?: string;
+  variant_name?: string;
+  capability?: string;
+  routing_policy?: string;
+}
+
+/**
  * Response from POST /api/v2/runtime/plan.
  * Mirrors Python `RuntimePlanResponse`.
  */
@@ -191,6 +211,8 @@ export interface RuntimePlanResponse {
   fallback_candidates?: RuntimeCandidatePlan[];
   plan_ttl_seconds?: number;
   server_generated_at?: string;
+  /** Resolution metadata for deployment/experiment/capability refs. */
+  resolution?: ModelResolution;
 }
 
 /**
