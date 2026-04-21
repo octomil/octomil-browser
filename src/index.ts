@@ -211,6 +211,16 @@ export {
   BrowserArtifactChecker,
 } from "./runtime/index.js";
 
+// Browser local lifecycle status
+export { checkBrowserLocalAvailability } from "./local-lifecycle.js";
+export type {
+  BrowserLocalStatus,
+  BrowserExecutionProvider,
+  BrowserCacheBackend,
+  BrowserCacheStatus,
+  BrowserLocalCheckOptions,
+} from "./local-lifecycle.js";
+
 // Production routing (request router + model refs + route events)
 export {
   BrowserRequestRouter,
