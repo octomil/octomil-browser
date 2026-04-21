@@ -26,6 +26,14 @@ export { OctomilClient } from "./octomil.js";
 export { Octomil, OctomilNotInitializedError, FacadeEmbeddings } from "./facade.js";
 export type { OctomilFacadeOptions } from "./facade.js";
 
+// Local lifecycle status types
+export { buildBrowserLifecycleStatus, buildBrowserUnavailableStatus } from "./local-lifecycle.js";
+export type {
+  BrowserLocalLifecycleStatus,
+  BrowserCacheStatus,
+  BrowserLocalProvider,
+} from "./local-lifecycle.js";
+
 // Audio namespace (transcriptions)
 export { OctomilAudio } from "./audio/octomil-audio.js";
 export { AudioTranscriptions } from "./audio/audio-transcriptions.js";
