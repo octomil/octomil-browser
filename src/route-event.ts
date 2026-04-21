@@ -85,6 +85,10 @@ export interface BrowserRouteEvent {
   planner_source: string;
   /** Final locality chosen: "local" or "cloud", null if unavailable */
   final_locality: string | null;
+  /** Alias for final_locality used by cross-SDK monitoring queries. */
+  selected_locality: string | null;
+  /** Final execution mode: sdk_runtime, hosted_gateway, external_endpoint, or null. */
+  final_mode: string | null;
   /** Final engine used, null for cloud */
   engine: string | null;
   /** Artifact id if a local artifact was used, null otherwise */

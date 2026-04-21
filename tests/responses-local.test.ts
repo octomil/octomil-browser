@@ -34,6 +34,10 @@ describe("ResponsesClient local runtime", () => {
     });
 
     expect(response.output).toEqual([{ type: "text", text: "Hello local" }]);
+    expect(response.route).toMatchObject({
+      status: "selected",
+      execution: { locality: "local", mode: "sdk_runtime" },
+    });
     expect(create).toHaveBeenCalledOnce();
     const effectiveRequest = create.mock.calls[0]![0];
     expect(effectiveRequest.instructions).toBeUndefined();
@@ -71,7 +75,7 @@ describe("ResponsesClient local runtime", () => {
 
     expect(routeSpy).toHaveBeenCalledTimes(1);
     expect(routeSpy.mock.calls[0]![0]).toMatchObject({
-      capability: "responses",
+      capability: "chat",
       final_locality: "local",
       fallback_used: false,
       app_id: "app-browser-1",
@@ -158,7 +162,13 @@ describe("ResponsesClient local runtime", () => {
     expect(events[0]).toEqual({ type: "text_delta", delta: "Hello" });
     expect(events[1]).toMatchObject({
       type: "done",
-      response: { id: "resp_stream_local" },
+      response: {
+        id: "resp_stream_local",
+        route: {
+          status: "selected",
+          execution: { locality: "local", mode: "sdk_runtime" },
+        },
+      },
     });
   });
 
@@ -196,7 +206,7 @@ describe("ResponsesClient local runtime", () => {
 
     expect(routeSpy).toHaveBeenCalledTimes(1);
     expect(routeSpy.mock.calls[0]![0]).toMatchObject({
-      capability: "responses",
+      capability: "chat",
       final_locality: "local",
       fallback_used: false,
       candidate_attempts: 1,

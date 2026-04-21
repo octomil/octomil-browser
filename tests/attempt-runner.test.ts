@@ -167,11 +167,11 @@ describe("BrowserAttemptRunner — external endpoint", () => {
 });
 
 // ---------------------------------------------------------------------------
-// sdk_runtime always fails in browser (webgpu_unsupported)
+// sdk_runtime fails without runtimeChecker
 // ---------------------------------------------------------------------------
 
 describe("BrowserAttemptRunner — sdk_runtime rejection", () => {
-  it("fails sdk_runtime candidate with webgpu_unsupported", async () => {
+  it("fails sdk_runtime candidate without runtimeChecker", async () => {
     const runner = new BrowserAttemptRunner({ fallbackAllowed: false });
     const result = await runner.run([localEngineCandidate("llama.cpp")]);
 
@@ -187,27 +187,27 @@ describe("BrowserAttemptRunner — sdk_runtime rejection", () => {
     expect(attempt.artifact).toBeNull();
     expect(attempt.reason.code).toBe("runtime_unavailable");
     expect(attempt.reason.message).toContain("browser");
-    expect(attempt.reason.message).toContain("local runtime");
+    expect(attempt.reason.message).toContain("runtime");
   });
 
-  it("gate result includes webgpu_unsupported reason_code", async () => {
+  it("gate result includes no_browser_runtime reason_code", async () => {
     const runner = new BrowserAttemptRunner({ fallbackAllowed: false });
     const result = await runner.run([localEngineCandidate()]);
 
     const gate = result.attempts[0]!.gate_results[0]!;
     expect(gate.code).toBe("runtime_available");
     expect(gate.status).toBe("failed");
-    expect(gate.reason_code).toBe("webgpu_unsupported");
+    expect(gate.reason_code).toBe("no_browser_runtime");
   });
 
-  it("rejects any engine name (not just llama.cpp)", async () => {
+  it("rejects any engine name without runtimeChecker", async () => {
     const runner = new BrowserAttemptRunner({ fallbackAllowed: false });
     const result = await runner.run([localEngineCandidate("coreml")]);
 
     expect(result.attempts[0]!.engine).toBe("coreml");
     expect(result.attempts[0]!.status).toBe("failed");
     expect(result.attempts[0]!.gate_results[0]!.reason_code).toBe(
-      "webgpu_unsupported",
+      "no_browser_runtime",
     );
   });
 });
@@ -256,7 +256,7 @@ describe("BrowserAttemptRunner — fallback", () => {
 
     expect(result.selectedAttempt!.locality).toBe("cloud");
     expect(result.fallbackUsed).toBe(true);
-    expect(result.fallbackTrigger!.message).toContain("unreachable");
+    expect(result.fallbackTrigger!.code).toBe("runtime_unavailable");
     expect(result.fromAttempt).toBe(0);
     expect(result.toAttempt).toBe(1);
   });
@@ -379,12 +379,9 @@ describe("BrowserAttemptRunner — output shape", () => {
     expect(["passed", "failed", "unknown", "not_required"]).toContain(
       gate.status,
     );
-    // reason_code can be string or null/undefined
-    expect(
-      gate.reason_code === null ||
-        gate.reason_code === undefined ||
-        typeof gate.reason_code === "string",
-    ).toBe(true);
+    // reason_code should be "no_browser_runtime" when no runtimeChecker
+    expect(typeof gate.reason_code).toBe("string");
+    expect(gate.reason_code).toBe("no_browser_runtime");
   });
 
   it("AttemptLoopResult has all required fields", async () => {

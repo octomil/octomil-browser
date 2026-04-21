@@ -65,6 +65,11 @@ export function createTransformersJsLocalResponsesRuntime(
   const config = resolveTransformersRuntimeConfig(options);
 
   return {
+    route: {
+      engine: "transformers.js",
+      executionProvider:
+        config.device === "auto" ? undefined : config.device,
+    },
     async create(request: ResponseRequest): Promise<Response> {
       const generatedText = await runLocalGeneration(request, config);
       return toResponse(request, config.model, generatedText);

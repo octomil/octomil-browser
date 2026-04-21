@@ -88,6 +88,8 @@ function makeSampleRouteEvent(): BrowserRouteEvent {
     policy: "local_first",
     planner_source: "server",
     final_locality: "cloud",
+    selected_locality: "cloud",
+    final_mode: "hosted_gateway",
     engine: null,
     artifact_id: null,
     fallback_used: true,

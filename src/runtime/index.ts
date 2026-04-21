@@ -13,9 +13,35 @@ export type {
   GateCode,
   GateResult,
   RouteAttempt,
+  AttemptArtifact,
+  ArtifactCacheStatus,
   FallbackTrigger,
   AttemptLoopResult,
   CandidateGate,
   CandidatePlan,
   EndpointChecker,
+  RuntimeChecker,
+  ArtifactChecker,
 } from "./attempt-runner.js";
+
+// Browser runtime resolver (WebGPU/WASM probing + artifact cache checks)
+export {
+  BrowserRuntimeChecker,
+  BrowserArtifactChecker,
+} from "./browser-runtime-resolver.js";
+
+// Production routing (request router + model refs + telemetry events)
+export {
+  BrowserRequestRouter,
+  FetchEndpointChecker,
+  parseModelRef,
+} from "./routing/index.js";
+export type {
+  BrowserRoutingContext,
+  BrowserRoutingDecision,
+  PlannerResult,
+  RouteMetadata,
+  ModelRef,
+  ModelRefKind,
+  BrowserRouteEvent,
+} from "./routing/index.js";

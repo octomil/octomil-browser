@@ -419,6 +419,8 @@ export class TelemetryReporter {
       "route.policy": sanitized.policy,
       "route.planner_source": sanitized.planner_source,
       "route.final_locality": sanitized.final_locality ?? "",
+      "route.selected_locality": sanitized.selected_locality ?? "",
+      "route.final_mode": sanitized.final_mode ?? "",
       "route.engine": sanitized.engine ?? "",
       "route.artifact_id": sanitized.artifact_id ?? "",
       "route.fallback_used": sanitized.fallback_used,

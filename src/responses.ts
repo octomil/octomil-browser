@@ -11,16 +11,20 @@ import type {
   LocalResponsesRuntimeResolver,
 } from "./responses-runtime.js";
 import {
-  BrowserAttemptRunner,
-  type AttemptLoopResult,
   type CandidatePlan,
   type RouteAttempt,
+  type RuntimeChecker,
 } from "./runtime/attempt-runner.js";
 import {
+  BrowserRequestRouter,
+  type BrowserRoutingDecision,
+  type PlannerResult,
+  type RouteMetadata,
+} from "./runtime/routing/request-router.js";
+import {
   buildAttemptDetail,
-  generateCorrelationId,
   type BrowserRouteEvent,
-} from "./route-event.js";
+} from "./runtime/routing/route-event.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -95,6 +99,7 @@ export interface Response {
   output: ResponseOutput[];
   finishReason: string;
   usage?: ResponseUsage;
+  route?: RouteMetadata;
 }
 
 export interface ResponseUsage {
@@ -134,6 +139,15 @@ export interface ResponsesClientOptions {
   localRuntime?: LocalResponsesRuntime | LocalResponsesRuntimeResolver | null;
 }
 
+const INJECTED_LOCAL_RUNTIME_CHECKER: RuntimeChecker = {
+  async checkProvider() {
+    return { available: true };
+  },
+  async checkEngineAvailable() {
+    return { available: true };
+  },
+};
+
 // ---------------------------------------------------------------------------
 // ResponsesClient
 // ---------------------------------------------------------------------------
@@ -163,37 +177,51 @@ export class ResponsesClient {
    */
   async create(request: ResponseRequest): Promise<Response> {
     const localRuntime = this.resolveLocalRuntime(request.model);
-    const runner = new BrowserAttemptRunner({
-      fallbackAllowed: this.cloudFallbackAllowed(request),
-      localEndpoint: localRuntime ? "injected-runtime" : null,
-    });
-    const result = await runner.runWithInference<Response>(
-      this.responseCandidates(localRuntime),
-      async (candidate) => {
-        if (candidate.locality === "local") {
-          if (!localRuntime) {
-            throw new OctomilError(
-              "NETWORK_UNAVAILABLE",
-              "No local runtime is configured",
-            );
-          }
-          return this.createLocal(request, localRuntime);
-        }
-        return this.createCloud(request);
-      },
-    );
-
-    if (result.selectedAttempt && result.value) {
-      this.reportRouteEvent(request, result);
-      return result.value;
+    const decision = await this.resolveRoute(request, false, localRuntime);
+    if (!decision.mode) {
+      throw new OctomilError(
+        "NETWORK_UNAVAILABLE",
+        "No response route succeeded",
+      );
     }
-    throw (
-      result.error ??
-      new OctomilError("NETWORK_UNAVAILABLE", "No response route succeeded")
-    );
+
+    if (decision.locality === "cloud") {
+      return this.createCloud(request, decision.routeMetadata, decision.routeEvent);
+    }
+
+    if (!localRuntime) {
+      throw new OctomilError(
+        "NETWORK_UNAVAILABLE",
+        "No browser-local runtime is configured",
+      );
+    }
+
+    try {
+      return await this.createLocal(
+        request,
+        localRuntime,
+        decision.routeMetadata,
+        decision.routeEvent,
+      );
+    } catch (error) {
+      const fallbackRoute = this.buildFallbackRouteMetadata(
+        decision,
+        error,
+        false,
+        false,
+      );
+      if (!fallbackRoute) {
+        throw error;
+      }
+      return this.createCloud(request, fallbackRoute, decision.routeEvent);
+    }
   }
 
-  private async createCloud(request: ResponseRequest): Promise<Response> {
+  private async createCloud(
+    request: ResponseRequest,
+    route?: RouteMetadata,
+    routeEvent?: BrowserRouteEvent,
+  ): Promise<Response> {
     const body = this.buildRequestBody(request, false);
     const url = `${this.serverUrl}/v1/chat/completions`;
 
@@ -208,9 +236,12 @@ export class ResponsesClient {
     }
 
     this.telemetry?.reportInferenceStarted(request.model, {
-      target: "cloud",
-      method: "responses.create",
-      locality: "cloud",
+      ...this.inferenceTelemetryAttrs(
+        "responses.create",
+        "cloud",
+        route,
+        routeEvent,
+      ),
     });
 
     const start = performance.now();
@@ -244,15 +275,22 @@ export class ResponsesClient {
     }
 
     const data = await resp.json();
-    const response = this.parseResponse(request.model, data);
+    const response = this.attachRoute(
+      this.parseResponse(request.model, data),
+      route,
+    );
     const durationMs = performance.now() - start;
 
     this.telemetry?.reportInferenceCompleted(request.model, durationMs, {
-      target: "cloud",
-      method: "responses.create",
-      locality: "cloud",
+      ...this.inferenceTelemetryAttrs(
+        "responses.create",
+        "cloud",
+        route,
+        routeEvent,
+      ),
     });
 
+    this.reportRouteDecision(route, routeEvent);
     this.cacheResponse(response);
 
     return response;
@@ -267,52 +305,45 @@ export class ResponsesClient {
    */
   async *stream(request: ResponseRequest): AsyncGenerator<ResponseStreamEvent> {
     const localRuntime = this.resolveLocalRuntime(request.model);
-    const candidates = this.responseCandidates(localRuntime);
-
-    const runner = new BrowserAttemptRunner({
-      fallbackAllowed: this.cloudFallbackAllowed(request),
-      streaming: true,
-      localEndpoint: localRuntime ? "injected-runtime" : null,
-    });
-    const readiness = await runner.run(candidates);
-    const selected = readiness.selectedAttempt;
-    if (!selected) {
+    const decision = await this.resolveRoute(request, true, localRuntime);
+    if (!decision.mode) {
       throw new OctomilError("NETWORK_UNAVAILABLE", "No response route succeeded");
     }
 
-    if (selected.locality === "cloud") {
-      yield* this.streamCloud(request);
-      this.reportRouteEvent(request, readiness);
+    if (decision.locality === "cloud") {
+      yield* this.streamCloud(request, decision.routeMetadata, decision.routeEvent);
       return;
+    }
+
+    if (!localRuntime) {
+      throw new OctomilError(
+        "NETWORK_UNAVAILABLE",
+        "No browser-local runtime is configured",
+      );
     }
 
     let firstOutputEmitted = false;
     try {
-      if (!localRuntime) {
-        throw new OctomilError(
-          "NETWORK_UNAVAILABLE",
-          "No local runtime is configured",
-        );
-      }
-      for await (const event of this.streamLocal(request, localRuntime)) {
+      for await (const event of this.streamLocal(
+        request,
+        localRuntime,
+        decision.routeMetadata,
+        decision.routeEvent,
+      )) {
         if (event.type !== "done") {
           firstOutputEmitted = true;
         }
         yield event;
       }
-      this.reportRouteEvent(request, readiness);
     } catch (error) {
-      if (
-        runner.shouldFallbackAfterInferenceError(firstOutputEmitted) &&
-        candidates.some(
-          (candidate) => candidate.locality === "cloud",
-        )
-      ) {
-        yield* this.streamCloud(request);
-        this.reportRouteEvent(
-          request,
-          this.buildStreamingFallbackResult(readiness, error),
-        );
+      const fallbackRoute = this.buildFallbackRouteMetadata(
+        decision,
+        error,
+        true,
+        firstOutputEmitted,
+      );
+      if (fallbackRoute) {
+        yield* this.streamCloud(request, fallbackRoute, decision.routeEvent);
         return;
       }
       throw error;
@@ -321,6 +352,8 @@ export class ResponsesClient {
 
   private async *streamCloud(
     request: ResponseRequest,
+    route?: RouteMetadata,
+    routeEvent?: BrowserRouteEvent,
   ): AsyncGenerator<ResponseStreamEvent> {
     const body = this.buildRequestBody(request, true);
     const url = `${this.serverUrl}/v1/chat/completions`;
@@ -336,9 +369,12 @@ export class ResponsesClient {
     }
 
     this.telemetry?.reportInferenceStarted(request.model, {
-      target: "cloud",
-      method: "responses.stream",
-      locality: "cloud",
+      ...this.inferenceTelemetryAttrs(
+        "responses.stream",
+        "cloud",
+        route,
+        routeEvent,
+      ),
     });
 
     const start = performance.now();
@@ -484,42 +520,18 @@ export class ResponsesClient {
 
     const durationMs = performance.now() - start;
     this.telemetry?.reportInferenceCompleted(request.model, durationMs, {
-      target: "cloud",
-      method: "responses.stream",
-      locality: "cloud",
+      ...this.inferenceTelemetryAttrs(
+        "responses.stream",
+        "cloud",
+        route,
+        routeEvent,
+      ),
     });
 
-    this.cacheResponse(response);
-    yield { type: "done", response } as DoneEvent;
-  }
-
-  // -----------------------------------------------------------------------
-  // Private
-  // -----------------------------------------------------------------------
-
-  private responseCandidates(
-    localRuntime: LocalResponsesRuntime | null,
-  ): CandidatePlan[] {
-    const candidates: CandidatePlan[] = [];
-    if (localRuntime) {
-      candidates.push({
-        locality: "local",
-        engine: "external_endpoint",
-        priority: 0,
-      });
-    }
-    candidates.push({
-      locality: "cloud",
-      engine: "cloud",
-      priority: candidates.length,
-    });
-    return candidates;
-  }
-
-  private cloudFallbackAllowed(request: ResponseRequest): boolean {
-    const policy =
-      request.metadata?.routing_policy ?? request.metadata?.routingPolicy;
-    return policy !== "private" && policy !== "local_only";
+    const routedResponse = this.attachRoute(response, route);
+    this.reportRouteDecision(route, routeEvent);
+    this.cacheResponse(routedResponse);
+    yield { type: "done", response: routedResponse } as DoneEvent;
   }
 
   private resolveLocalRuntime(model: string): LocalResponsesRuntime | null {
@@ -541,30 +553,40 @@ export class ResponsesClient {
   private async createLocal(
     request: ResponseRequest,
     localRuntime: LocalResponsesRuntime,
+    route?: RouteMetadata,
+    routeEvent?: BrowserRouteEvent,
   ): Promise<Response> {
     const effectiveRequest = this.buildEffectiveRequest(request);
 
     this.telemetry?.reportInferenceStarted(request.model, {
-      target: "device",
-      method: "responses.create",
-      locality: "local",
+      ...this.inferenceTelemetryAttrs(
+        "responses.create",
+        "local",
+        route,
+        routeEvent,
+      ),
     });
 
     const start = performance.now();
     try {
-      const response = await localRuntime.create(effectiveRequest);
+      const response = this.attachRoute(
+        await localRuntime.create(effectiveRequest),
+        route,
+      );
       this.cacheResponse(response);
 
       this.telemetry?.reportInferenceCompleted(
         request.model,
         performance.now() - start,
-        {
-          target: "device",
-          method: "responses.create",
-          locality: "local",
-        },
+        this.inferenceTelemetryAttrs(
+          "responses.create",
+          "local",
+          route,
+          routeEvent,
+        ),
       );
 
+      this.reportRouteDecision(route, routeEvent);
       return response;
     } catch (error) {
       this.telemetry?.reportInferenceFailed(
@@ -579,13 +601,18 @@ export class ResponsesClient {
   private async *streamLocal(
     request: ResponseRequest,
     localRuntime: LocalResponsesRuntime,
+    route?: RouteMetadata,
+    routeEvent?: BrowserRouteEvent,
   ): AsyncGenerator<ResponseStreamEvent> {
     const effectiveRequest = this.buildEffectiveRequest(request);
 
     this.telemetry?.reportInferenceStarted(request.model, {
-      target: "device",
-      method: "responses.stream",
-      locality: "local",
+      ...this.inferenceTelemetryAttrs(
+        "responses.stream",
+        "local",
+        route,
+        routeEvent,
+      ),
     });
 
     const start = performance.now();
@@ -596,16 +623,21 @@ export class ResponsesClient {
           this.telemetry?.reportChunkProduced(request.model, chunkIndex);
           chunkIndex++;
         } else {
-          this.cacheResponse(event.response);
+          const routedResponse = this.attachRoute(event.response, route);
+          this.cacheResponse(routedResponse);
           this.telemetry?.reportInferenceCompleted(
             request.model,
             performance.now() - start,
-            {
-              target: "device",
-              method: "responses.stream",
-              locality: "local",
-            },
+            this.inferenceTelemetryAttrs(
+              "responses.stream",
+              "local",
+              route,
+              routeEvent,
+            ),
           );
+          this.reportRouteDecision(route, routeEvent);
+          yield { ...event, response: routedResponse };
+          continue;
         }
         yield event;
       }
@@ -647,87 +679,221 @@ export class ResponsesClient {
     };
   }
 
-  private reportRouteEvent(
+  private async resolveRoute(
     request: ResponseRequest,
-    result: AttemptLoopResult<unknown>,
-  ): void {
-    if (!this.telemetry || !result.selectedAttempt) {
-      return;
-    }
-    this.telemetry.reportRouteEvent(this.buildRouteEvent(request, result));
+    streaming: boolean,
+    localRuntime: LocalResponsesRuntime | null,
+  ): Promise<BrowserRoutingDecision> {
+    const router = new BrowserRequestRouter({
+      serverUrl: this.serverUrl,
+      runtimeChecker: localRuntime ? INJECTED_LOCAL_RUNTIME_CHECKER : null,
+    });
+    const policy =
+      request.metadata?.routing_policy ?? request.metadata?.routingPolicy;
+
+    return router.resolve({
+      model: request.model,
+      capability: "chat",
+      streaming,
+      cachedPlan: localRuntime
+        ? this.buildLocalRuntimePlan(localRuntime, policy)
+        : undefined,
+      routingPolicy: policy,
+    });
   }
 
-  private buildRouteEvent(
-    request: ResponseRequest,
-    result: AttemptLoopResult<unknown>,
-  ): BrowserRouteEvent {
-    const selected = result.selectedAttempt;
+  private buildLocalRuntimePlan(
+    localRuntime: LocalResponsesRuntime,
+    policyOverride?: string,
+  ): PlannerResult {
+    const policy = policyOverride ?? "local_first";
+    const allowLocal = policy !== "cloud_only";
+    const allowCloud = policy !== "private" && policy !== "local_only";
+    const cloudFirst = policy === "cloud_first" || policy === "cloud_only";
+    const localCandidate: CandidatePlan = {
+      locality: "local",
+      priority: 0,
+      ...(localRuntime.route?.engine
+        ? { engine: localRuntime.route.engine }
+        : {}),
+      ...(localRuntime.route?.executionProvider
+        ? { executionProvider: localRuntime.route.executionProvider }
+        : {}),
+      ...(localRuntime.route?.artifact
+        ? { artifact: localRuntime.route.artifact }
+        : {}),
+    };
+    const candidates: CandidatePlan[] = [];
+    let priority = 0;
+
+    if (cloudFirst && allowCloud) {
+      candidates.push({ locality: "cloud", priority: priority++ });
+    }
+    if (allowLocal) {
+      candidates.push({ ...localCandidate, priority: priority++ });
+    }
+    if (!cloudFirst && allowCloud) {
+      candidates.push({ locality: "cloud", priority: priority++ });
+    }
+
+    const hasLocal = candidates.some((candidate) => candidate.locality === "local");
+    const hasCloud = candidates.some((candidate) => candidate.locality === "cloud");
     return {
-      route_id: generateCorrelationId("rt"),
-      plan_id: generateCorrelationId("pl"),
-      request_id: generateCorrelationId("rq"),
-      capability: "responses",
-      policy:
-        request.metadata?.routing_policy ?? request.metadata?.routingPolicy ?? "auto",
-      planner_source: "offline",
-      final_locality: selected?.locality ?? null,
-      engine: selected?.locality === "cloud" ? null : (selected?.engine ?? null),
-      artifact_id: null,
-      fallback_used: result.fallbackUsed,
-      fallback_trigger_code: result.fallbackTrigger?.code ?? null,
-      fallback_trigger_stage: result.fallbackTrigger?.stage ?? null,
-      candidate_attempts: result.attempts.length,
-      attempt_details: result.attempts.map((attempt) => buildAttemptDetail(attempt)),
-      app_id: this.deviceContext?.appId ?? undefined,
+      candidates,
+      fallbackAllowed: hasLocal && hasCloud,
+      policy,
     };
   }
 
-  private buildStreamingFallbackResult(
-    readiness: AttemptLoopResult<unknown>,
+  private buildFallbackRouteMetadata(
+    decision: BrowserRoutingDecision,
     error: unknown,
-  ): AttemptLoopResult<unknown> {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const failedSelected = readiness.selectedAttempt
-      ? ({
-          ...readiness.selectedAttempt,
-          status: "failed",
-          reason: {
-            code: "inference_error_before_first_output",
-            message: errorMessage,
-          },
-        } as RouteAttempt)
-      : null;
-    const attempts = readiness.attempts.map((attempt) =>
-      attempt.index === readiness.selectedAttempt?.index && failedSelected
-        ? failedSelected
-        : attempt,
+    streaming: boolean,
+    firstOutputEmitted: boolean,
+  ): RouteMetadata | null {
+    const selectedAttempt = decision.attemptResult.selectedAttempt;
+    const cloudIndex = decision.plan.candidates.findIndex(
+      (candidate) => candidate.locality === "cloud",
     );
+    if (
+      decision.locality !== "local" ||
+      !selectedAttempt ||
+      cloudIndex < 0 ||
+      !decision.plan.fallbackAllowed ||
+      (streaming && firstOutputEmitted)
+    ) {
+      return null;
+    }
+
+    const reasonCode =
+      streaming
+        ? firstOutputEmitted
+          ? "inference_error_after_first_output"
+          : "inference_error_before_first_output"
+        : "inference_error";
+    const message =
+      error instanceof Error ? error.message : String(error);
+    const failedAttempt: RouteAttempt = {
+      ...selectedAttempt,
+      status: "failed",
+      stage: "inference",
+      reason: {
+        code: reasonCode,
+        message,
+      },
+    };
     const cloudAttempt: RouteAttempt = {
-      index: attempts.length,
+      index: cloudIndex,
       locality: "cloud",
       mode: "hosted_gateway",
       engine: null,
       artifact: null,
       status: "selected",
       stage: "inference",
-      gate_results: [{ code: "runtime_available", status: "passed" }],
+      gate_results: [
+        {
+          code: "runtime_available",
+          status: "passed",
+        },
+      ],
       reason: {
         code: "selected",
         message: "cloud gateway available",
       },
     };
+
     return {
-      selectedAttempt: cloudAttempt,
-      attempts: [...attempts, cloudAttempt],
-      fallbackUsed: true,
-      fallbackTrigger: {
-        code: "inference_error_before_first_output",
-        stage: "inference",
-        message: errorMessage,
+      ...decision.routeMetadata,
+      status: "selected",
+      execution: {
+        locality: "cloud",
+        mode: "hosted_gateway",
+        engine: null,
       },
-      fromAttempt: readiness.selectedAttempt?.index ?? null,
-      toAttempt: cloudAttempt.index,
+      fallback: {
+        used: true,
+        from_attempt: failedAttempt.index,
+        to_attempt: cloudIndex,
+        trigger: {
+          code: reasonCode,
+          stage: "inference",
+          message,
+        },
+      },
+      attempts: decision.routeMetadata.attempts
+        .map((attempt) =>
+          attempt.index === failedAttempt.index ? failedAttempt : attempt,
+        )
+        .concat(cloudAttempt),
     };
+  }
+
+  private attachRoute(response: Response, route?: RouteMetadata): Response {
+    if (!route) {
+      return response;
+    }
+    return {
+      ...response,
+      route,
+    };
+  }
+
+  private reportRouteDecision(
+    route?: RouteMetadata,
+    routeEvent?: BrowserRouteEvent,
+  ): void {
+    if (!this.telemetry || !routeEvent) {
+      return;
+    }
+
+    if (!route) {
+      this.telemetry.reportRouteEvent(routeEvent);
+      return;
+    }
+
+    this.telemetry.reportRouteEvent({
+      ...routeEvent,
+      final_locality: route.execution?.locality ?? null,
+      selected_locality: route.execution?.locality ?? null,
+      final_mode: route.execution?.mode ?? null,
+      engine: route.execution?.engine ?? null,
+      fallback_used: route.fallback.used,
+      fallback_trigger_code: route.fallback.trigger?.code ?? null,
+      fallback_trigger_stage: route.fallback.trigger?.stage ?? null,
+      candidate_attempts: route.attempts.length,
+      attempt_details: route.attempts.map((attempt) =>
+        buildAttemptDetail(attempt),
+      ),
+      app_id: routeEvent.app_id ?? this.deviceContext?.appId ?? undefined,
+    });
+  }
+
+  private inferenceTelemetryAttrs(
+    method: "responses.create" | "responses.stream",
+    locality: "local" | "cloud",
+    route?: RouteMetadata,
+    routeEvent?: BrowserRouteEvent,
+  ): Record<string, string | number | boolean> {
+    const attrs: Record<string, string | number | boolean> = {
+      target: locality === "cloud" ? "cloud" : "device",
+      method,
+      locality,
+    };
+    if (route?.execution?.mode) {
+      attrs["route.mode"] = route.execution.mode;
+    }
+    if (route) {
+      attrs["route.status"] = route.status;
+      attrs["route.fallback_used"] = route.fallback.used;
+      attrs["route.attempts"] = route.attempts.length;
+    }
+    if (routeEvent?.route_id) {
+      attrs["route.id"] = routeEvent.route_id;
+    }
+    if (routeEvent?.fallback_trigger_code) {
+      attrs["route.fallback_trigger_code"] = routeEvent.fallback_trigger_code;
+    }
+    return attrs;
   }
 
   private buildRequestBody(request: ResponseRequest, stream: boolean) {
