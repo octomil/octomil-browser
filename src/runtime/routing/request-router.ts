@@ -449,6 +449,10 @@ export class BrowserRequestRouter {
       ),
     };
 
+    // Model ref metadata — always populated
+    event.model_ref = modelRef.raw;
+    event.model_ref_kind = modelRef.kind;
+
     // Add ref-specific fields
     if (modelRef.kind === "app" && modelRef.appSlug) {
       event.app_slug = modelRef.appSlug;

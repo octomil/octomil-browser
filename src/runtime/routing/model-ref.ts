@@ -18,11 +18,14 @@
 // ---------------------------------------------------------------------------
 
 export type ModelRefKind =
+  | "model"
   | "app"
   | "capability"
   | "deployment"
   | "experiment"
-  | "model";
+  | "alias"
+  | "default"
+  | "unknown";
 
 export interface ModelRef {
   raw: string;
