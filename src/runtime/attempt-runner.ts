@@ -321,7 +321,10 @@ export class BrowserAttemptRunner {
       // Local candidate without sdk_runtime support and no endpoint
       // -----------------------------------------------------------------
       if (locality === "local" && !this.localEndpoint) {
-        const reasonCode = this.runtimeChecker
+        const routeReasonCode = this.runtimeChecker
+          ? "unsupported_artifact_target"
+          : "runtime_unavailable";
+        const gateReasonCode = this.runtimeChecker
           ? "unsupported_artifact_target"
           : "no_browser_runtime";
         const message = this.runtimeChecker
@@ -339,11 +342,11 @@ export class BrowserAttemptRunner {
             {
               code: "runtime_available",
               status: "failed",
-              reason_code: reasonCode,
+              reason_code: gateReasonCode,
             },
           ],
           reason: {
-            code: reasonCode,
+            code: routeReasonCode,
             message,
           },
         };
@@ -352,7 +355,7 @@ export class BrowserAttemptRunner {
         if (this.fallbackAllowed && idx < candidates.length - 1) {
           if (!fallbackTrigger) {
             fallbackTrigger = {
-              code: reasonCode,
+              code: routeReasonCode,
               stage: "prepare",
               message,
             };
