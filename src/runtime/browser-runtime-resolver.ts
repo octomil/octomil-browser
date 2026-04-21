@@ -176,6 +176,15 @@ export class BrowserRuntimeChecker implements RuntimeChecker {
  * selects a candidate.
  */
 export class BrowserArtifactChecker implements ArtifactChecker {
+  private static readonly BROWSER_SAFE_FORMATS = new Set([
+    "onnx",
+    "ort",
+    "safetensors",
+    "transformers.js",
+    "transformersjs",
+    "wasm",
+  ]);
+
   private readonly cache: ModelCache;
   private readonly serverUrl: string | undefined;
   /** Maximum artifact size to consider downloadable in-browser (default 2GB) */
@@ -198,6 +207,15 @@ export class BrowserArtifactChecker implements ArtifactChecker {
   }> {
     if (!artifact) {
       return { available: true, cacheStatus: "not_applicable" };
+    }
+
+    const format = this.resolveArtifactFormat(artifact);
+    if (!format || !BrowserArtifactChecker.BROWSER_SAFE_FORMATS.has(format)) {
+      return {
+        available: false,
+        cacheStatus: "unavailable",
+        reasonCode: "unsupported_artifact_target",
+      };
     }
 
     // Check size constraint
@@ -245,5 +263,20 @@ export class BrowserArtifactChecker implements ArtifactChecker {
       cacheStatus: "unavailable",
       reasonCode: "no_download_source",
     };
+  }
+
+  private resolveArtifactFormat(artifact: CandidatePlan["artifact"]): string | null {
+    if (!artifact) return null;
+    if (artifact.format) return artifact.format.toLowerCase();
+    if (!artifact.download_url) return null;
+
+    try {
+      const path = new URL(artifact.download_url).pathname.toLowerCase();
+      const suffix = path.split(".").pop();
+      return suffix || null;
+    } catch {
+      const suffix = artifact.download_url.toLowerCase().split("?")[0]?.split(".").pop();
+      return suffix || null;
+    }
   }
 }

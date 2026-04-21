@@ -125,6 +125,7 @@ export interface CandidatePlan {
     digest?: string;
     download_url?: string;
     size_bytes?: number;
+    format?: string;
   };
   gates?: CandidateGate[];
   priority: number;
@@ -319,7 +320,13 @@ export class BrowserAttemptRunner {
       // -----------------------------------------------------------------
       // Local candidate without sdk_runtime support and no endpoint
       // -----------------------------------------------------------------
-      if (locality === "local" && !this.localEndpoint && !this.runtimeChecker) {
+      if (locality === "local" && !this.localEndpoint) {
+        const reasonCode = this.runtimeChecker
+          ? "unsupported_artifact_target"
+          : "no_browser_runtime";
+        const message = this.runtimeChecker
+          ? "candidate requires a native/server-side runtime or unsupported artifact target"
+          : "no browser runtime configured and no external endpoint";
         const attempt: RouteAttempt = {
           index: idx,
           locality,
@@ -332,12 +339,12 @@ export class BrowserAttemptRunner {
             {
               code: "runtime_available",
               status: "failed",
-              reason_code: "no_browser_runtime",
+              reason_code: reasonCode,
             },
           ],
           reason: {
-            code: "runtime_unavailable",
-            message: "no browser runtime configured and no external endpoint",
+            code: reasonCode,
+            message,
           },
         };
         attempts.push(attempt);
@@ -345,9 +352,9 @@ export class BrowserAttemptRunner {
         if (this.fallbackAllowed && idx < candidates.length - 1) {
           if (!fallbackTrigger) {
             fallbackTrigger = {
-              code: "runtime_unavailable",
+              code: reasonCode,
               stage: "prepare",
-              message: "no browser runtime available",
+              message,
             };
             fromAttempt = idx;
           }
@@ -519,11 +526,20 @@ export class BrowserAttemptRunner {
     "transformersjs",
   ]);
 
+  private static readonly BROWSER_ARTIFACT_FORMATS = new Set([
+    "onnx",
+    "ort",
+    "safetensors",
+    "transformers.js",
+    "transformersjs",
+    "wasm",
+  ]);
+
   /**
    * A candidate is an sdk_runtime candidate when:
    * - It has an explicit `executionProvider` ("webgpu" | "wasm"), OR
    * - It has a browser-native engine name (onnx-web, transformers.js), OR
-   * - It has NO engine but has an artifact AND no localEndpoint (implying in-browser)
+   * - It has no engine but declares a browser-safe artifact format.
    *
    * Server-side engines (mlx-lm, llama.cpp, coreml, etc.) are NOT sdk_runtime —
    * they run on the local server via external_endpoint.
@@ -537,8 +553,15 @@ export class BrowserAttemptRunner {
       BrowserAttemptRunner.BROWSER_ENGINES.has(candidate.engine)
     )
       return true;
-    // Has artifact but no localEndpoint — implies in-browser model loading
-    if (candidate.artifact && !this.localEndpoint) return true;
+    // Artifact-only plans are browser-local only if the artifact format is safe.
+    if (
+      !candidate.engine &&
+      candidate.artifact?.format &&
+      BrowserAttemptRunner.BROWSER_ARTIFACT_FORMATS.has(
+        candidate.artifact.format.toLowerCase(),
+      )
+    )
+      return true;
     // No engine, no artifact, no localEndpoint but we have a runtimeChecker → try sdk_runtime
     if (!candidate.engine && !this.localEndpoint && this.runtimeChecker)
       return true;

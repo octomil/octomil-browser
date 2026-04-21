@@ -253,6 +253,34 @@ describe("sdk_runtime: true in-browser execution", () => {
     expect(result.selectedAttempt!.artifact!.cache.status).toBe("miss");
   });
 
+  it("rejects native artifact candidates instead of treating them as sdk_runtime", async () => {
+    const runner = new BrowserAttemptRunner({
+      fallbackAllowed: true,
+      runtimeChecker: createMockRuntimeChecker({ webgpu: true, engine: true }),
+    });
+
+    const candidates: CandidatePlan[] = [
+      {
+        locality: "local",
+        engine: "mlx-lm",
+        artifact: {
+          artifact_id: "art_mlx",
+          digest: "sha256:native",
+          format: "mlx",
+        },
+        priority: 0,
+      },
+      { locality: "cloud", priority: 1 },
+    ];
+
+    const result = await runner.run(candidates);
+
+    expect(result.selectedAttempt!.mode).toBe("hosted_gateway");
+    expect(result.fallbackUsed).toBe(true);
+    expect(result.attempts[0]!.reason.code).toBe("unsupported_artifact_target");
+    expect(result.fallbackTrigger!.code).toBe("unsupported_artifact_target");
+  });
+
   it("fails when artifact is too large for browser", async () => {
     const runner = new BrowserAttemptRunner({
       fallbackAllowed: true,
@@ -751,10 +779,33 @@ describe("BrowserArtifactChecker", () => {
     const result = await checker.check({
       artifact_id: "art_big",
       size_bytes: 5_000_000_000, // 5GB
+      format: "onnx",
     });
 
     expect(result.available).toBe(false);
     expect(result.cacheStatus).toBe("unavailable");
     expect(result.reasonCode).toBe("artifact_too_large");
+  });
+
+  it("rejects native/server-side artifact formats", async () => {
+    const mockCache = {
+      get: vi.fn(),
+      put: vi.fn(),
+      has: vi.fn().mockResolvedValue(false),
+      remove: vi.fn(),
+      info: vi.fn(),
+    };
+
+    const checker = new BrowserArtifactChecker({ cache: mockCache });
+    const result = await checker.check({
+      artifact_id: "art_gguf",
+      download_url: "https://models.octomil.com/gemma.gguf",
+      format: "gguf",
+    });
+
+    expect(result.available).toBe(false);
+    expect(result.cacheStatus).toBe("unavailable");
+    expect(result.reasonCode).toBe("unsupported_artifact_target");
+    expect(mockCache.has).not.toHaveBeenCalled();
   });
 });
