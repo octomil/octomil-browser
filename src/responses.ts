@@ -21,7 +21,10 @@ import {
   type PlannerResult,
   type RouteMetadata,
 } from "./runtime/routing/request-router.js";
-import type { BrowserRouteEvent } from "./runtime/routing/route-event.js";
+import {
+  buildAttemptDetail,
+  type BrowserRouteEvent,
+} from "./runtime/routing/route-event.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -287,6 +290,7 @@ export class ResponsesClient {
       ),
     });
 
+    this.reportRouteDecision(route, routeEvent);
     this.cacheResponse(response);
 
     return response;
@@ -525,6 +529,7 @@ export class ResponsesClient {
     });
 
     const routedResponse = this.attachRoute(response, route);
+    this.reportRouteDecision(route, routeEvent);
     this.cacheResponse(routedResponse);
     yield { type: "done", response: routedResponse } as DoneEvent;
   }
@@ -581,6 +586,7 @@ export class ResponsesClient {
         ),
       );
 
+      this.reportRouteDecision(route, routeEvent);
       return response;
     } catch (error) {
       this.telemetry?.reportInferenceFailed(
@@ -629,6 +635,7 @@ export class ResponsesClient {
               routeEvent,
             ),
           );
+          this.reportRouteDecision(route, routeEvent);
           yield { ...event, response: routedResponse };
           continue;
         }
@@ -829,6 +836,36 @@ export class ResponsesClient {
       ...response,
       route,
     };
+  }
+
+  private reportRouteDecision(
+    route?: RouteMetadata,
+    routeEvent?: BrowserRouteEvent,
+  ): void {
+    if (!this.telemetry || !routeEvent) {
+      return;
+    }
+
+    if (!route) {
+      this.telemetry.reportRouteEvent(routeEvent);
+      return;
+    }
+
+    this.telemetry.reportRouteEvent({
+      ...routeEvent,
+      final_locality: route.execution?.locality ?? null,
+      selected_locality: route.execution?.locality ?? null,
+      final_mode: route.execution?.mode ?? null,
+      engine: route.execution?.engine ?? null,
+      fallback_used: route.fallback.used,
+      fallback_trigger_code: route.fallback.trigger?.code ?? null,
+      fallback_trigger_stage: route.fallback.trigger?.stage ?? null,
+      candidate_attempts: route.attempts.length,
+      attempt_details: route.attempts.map((attempt) =>
+        buildAttemptDetail(attempt),
+      ),
+      app_id: routeEvent.app_id ?? this.deviceContext?.appId ?? undefined,
+    });
   }
 
   private inferenceTelemetryAttrs(

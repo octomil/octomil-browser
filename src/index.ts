@@ -224,8 +224,21 @@ export type {
   RouteMetadata,
   ModelRef,
   ModelRefKind,
-  BrowserRouteEvent,
 } from "./runtime/index.js";
+
+// Route events (canonical cross-SDK telemetry shape)
+export {
+  stripForbiddenKeys,
+  findForbiddenKeys,
+  buildAttemptDetail,
+  generateCorrelationId,
+  FORBIDDEN_TELEMETRY_KEYS,
+} from "./route-event.js";
+export type {
+  BrowserRouteEvent,
+  RouteAttemptDetail,
+  GateSummary,
+} from "./route-event.js";
 
 // Embeddings
 export { embed } from "./embeddings.js";

@@ -31,7 +31,11 @@ import {
   type RouteAttempt,
 } from "../attempt-runner.js";
 import { parseModelRef, type ModelRef } from "./model-ref.js";
-import type { BrowserRouteEvent } from "./route-event.js";
+import {
+  buildAttemptDetail,
+  generateCorrelationId,
+  type BrowserRouteEvent,
+} from "./route-event.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -426,18 +430,29 @@ export class BrowserRequestRouter {
   ): BrowserRouteEvent {
     const event: BrowserRouteEvent = {
       route_id: routeId,
+      plan_id: generateCorrelationId("pl"),
       request_id: requestId,
       capability: ctx.capability,
       policy: plan.policy,
+      planner_source: ctx.cachedPlan ? "server" : "local_default",
       final_locality: finalLocality,
+      selected_locality: finalLocality,
       final_mode: finalMode,
+      engine: attemptResult.selectedAttempt?.engine ?? null,
+      artifact_id: attemptResult.selectedAttempt?.artifact?.id ?? null,
       fallback_used: attemptResult.fallbackUsed,
-      fallback_trigger_code: attemptResult.fallbackTrigger?.code,
+      fallback_trigger_code: attemptResult.fallbackTrigger?.code ?? null,
+      fallback_trigger_stage: attemptResult.fallbackTrigger?.stage ?? null,
       candidate_attempts: attemptResult.attempts.length,
-      ref_kind: modelRef.kind,
+      attempt_details: attemptResult.attempts.map((attempt) =>
+        buildAttemptDetail(attempt),
+      ),
     };
 
     // Add ref-specific fields
+    if (modelRef.kind === "app" && modelRef.appSlug) {
+      event.app_slug = modelRef.appSlug;
+    }
     if (modelRef.kind === "deployment" && modelRef.deploymentId) {
       event.deployment_id = modelRef.deploymentId;
     }
