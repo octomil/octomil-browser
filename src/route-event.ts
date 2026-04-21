@@ -33,6 +33,10 @@ export const FORBIDDEN_TELEMETRY_KEYS: ReadonlySet<string> = new Set([
   "messages",
   "system_prompt",
   "documents",
+  "image",
+  "image_url",
+  "embedding",
+  "embeddings",
 ]);
 
 // ---------------------------------------------------------------------------
@@ -103,6 +107,15 @@ export interface BrowserRouteEvent {
   candidate_attempts: number;
   /** Structured details for each attempt -- privacy safe */
   attempt_details: RouteAttemptDetail[];
+
+  // -- Model ref metadata --
+
+  /** Raw model string the user passed */
+  model_ref?: string;
+  /** Canonical model ref kind: model|app|capability|deployment|experiment|alias|default|unknown */
+  model_ref_kind?: string;
+  /** Cache status for the route decision: "hit" | "miss" | "not_applicable" */
+  cache_status?: string;
 
   // -- Optional correlation identifiers --
 

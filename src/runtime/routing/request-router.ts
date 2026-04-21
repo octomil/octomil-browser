@@ -440,6 +440,8 @@ export class BrowserRequestRouter {
       final_mode: finalMode,
       engine: attemptResult.selectedAttempt?.engine ?? null,
       artifact_id: attemptResult.selectedAttempt?.artifact?.id ?? null,
+      cache_status:
+        attemptResult.selectedAttempt?.artifact?.cache.status ?? "not_applicable",
       fallback_used: attemptResult.fallbackUsed,
       fallback_trigger_code: attemptResult.fallbackTrigger?.code ?? null,
       fallback_trigger_stage: attemptResult.fallbackTrigger?.stage ?? null,
@@ -448,6 +450,10 @@ export class BrowserRequestRouter {
         buildAttemptDetail(attempt),
       ),
     };
+
+    // Model ref metadata — always populated
+    event.model_ref = modelRef.raw;
+    event.model_ref_kind = modelRef.kind;
 
     // Add ref-specific fields
     if (modelRef.kind === "app" && modelRef.appSlug) {

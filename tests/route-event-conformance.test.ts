@@ -27,6 +27,7 @@ import {
   TelemetryReporter,
 } from "../src/telemetry.js";
 import type { ExportLogsServiceRequest } from "../src/telemetry.js";
+import { parseModelRef } from "../src/runtime/routing/model-ref.js";
 
 // ---------------------------------------------------------------------------
 // Load fixture
@@ -198,6 +199,26 @@ describe("Route event canonical shape", () => {
     expect(event.attempt_details).toHaveLength(
       expectedTelemetry.attempt_details.length,
     );
+  });
+});
+
+describe("parseModelRef canonical kinds", () => {
+  it.each([
+    ["gemma3-1b", "model"],
+    ["@app/translator/chat", "app"],
+    ["@capability/embeddings", "capability"],
+    ["deploy_abc123", "deployment"],
+    ["exp_v1/variant_a", "experiment"],
+    ["alias:prod-chat", "alias"],
+    ["", "default"],
+    ["@bad/ref", "unknown"],
+    ["https://example.com/model.onnx", "unknown"],
+  ] as const)("classifies %s as %s", (model, expectedKind) => {
+    expect(parseModelRef(model).kind).toBe(expectedKind);
+  });
+
+  it("keeps deployment IDs canonical including the deploy_ prefix", () => {
+    expect(parseModelRef("deploy_abc123").deploymentId).toBe("deploy_abc123");
   });
 });
 
