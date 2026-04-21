@@ -17,6 +17,7 @@ import { embed } from "./embeddings.js";
 import { configure } from "./configure.js";
 import { validatePublishableKey } from "./silent-auth-config.js";
 import type { AuthConfig, EmbeddingResult } from "./types.js";
+import { resolvePlannerEnabled } from "./planner-defaults.js";
 
 // ---------------------------------------------------------------------------
 // Options
@@ -29,6 +30,18 @@ export interface OctomilFacadeOptions {
   auth?: AuthConfig;
   serverUrl?: string;
   telemetry?: boolean;
+  /**
+   * Explicit planner routing override.
+   *
+   * - `undefined` (default): planner routing is ON when hosted credentials
+   *   (publishableKey or apiKey) exist, OFF otherwise.
+   * - `true`: force planner routing ON.
+   * - `false`: force planner routing OFF (direct routing only).
+   *
+   * Privacy invariant: "private" and "local_only" routing policies NEVER
+   * route to cloud regardless of this setting.
+   */
+  plannerRouting?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -108,6 +121,9 @@ export class Octomil {
   private readonly _embeddings: FacadeEmbeddings;
   private readonly options: OctomilFacadeOptions;
 
+  /** Whether planner routing is active for this client. */
+  readonly plannerEnabled: boolean;
+
   constructor(options: OctomilFacadeOptions) {
     // Validate publishable key prefix eagerly
     if (options.publishableKey) {
@@ -126,6 +142,14 @@ export class Octomil {
       (options.auth?.type === "org_api_key" ? options.auth.apiKey : undefined);
 
     const resolvedApiKey = apiKey ?? options.publishableKey ?? "";
+
+    // Resolve planner routing default: ON when hosted credentials exist
+    this.plannerEnabled = resolvePlannerEnabled({
+      plannerRouting: options.plannerRouting,
+      apiKey,
+      publishableKey: options.publishableKey,
+      hasAuth: !!options.auth,
+    });
 
     this.responsesClient = new ResponsesClient({
       serverUrl,
