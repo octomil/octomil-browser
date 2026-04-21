@@ -282,6 +282,32 @@ export { ExperimentsClient } from "./experiments.js";
 // Routing
 export { RoutingClient, detectDeviceCapabilities } from "./routing.js";
 
+// Planner (runtime planner types + policy validation)
+export {
+  RoutingPolicy,
+  VALID_ROUTING_POLICIES,
+  LOCAL_ONLY_POLICIES,
+  validateRoutingPolicy,
+  assertBrowserCompatiblePolicy,
+} from "./planner/index.js";
+export type {
+  RoutingPolicyName,
+  RouteExecution,
+  RouteModelRequested,
+  RouteModelResolved,
+  RouteModel,
+  ArtifactCache,
+  RouteArtifact,
+  PlannerInfo,
+  FallbackInfo,
+  RouteReason,
+  RouteMetadata as PlannerRouteMetadata,
+  RuntimeArtifactPlan,
+  RuntimeCandidatePlan,
+  RuntimePlanResponse,
+  RuntimeSelection,
+} from "./planner/index.js";
+
 // Types
 export type {
   AuthConfig,
