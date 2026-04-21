@@ -301,7 +301,7 @@ export type {
   PlannerInfo,
   FallbackInfo,
   RouteReason,
-  RouteMetadata,
+  RouteMetadata as PlannerRouteMetadata,
   RuntimeArtifactPlan,
   RuntimeCandidatePlan,
   RuntimePlanResponse,
