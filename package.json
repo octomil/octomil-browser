@@ -1,6 +1,6 @@
 {
   "name": "@octomil/browser",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "In-browser ML inference via ONNX Runtime Web + WebGPU",
   "type": "module",
   "main": "dist/index.cjs",
