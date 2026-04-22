@@ -185,19 +185,18 @@ describe("BrowserAttemptRunner — sdk_runtime rejection", () => {
     expect(attempt.status).toBe("failed");
     expect(attempt.stage).toBe("prepare");
     expect(attempt.artifact).toBeNull();
-    expect(attempt.reason.code).toBe("runtime_unavailable");
-    expect(attempt.reason.message).toContain("browser");
-    expect(attempt.reason.message).toContain("runtime");
+    expect(attempt.reason.code).toBe("unsupported_artifact_target");
+    // Gate 0 rejects non-browser engines
   });
 
-  it("gate result includes no_browser_runtime reason_code", async () => {
+  it("gate result includes unsupported_artifact_target reason_code for non-browser engine", async () => {
     const runner = new BrowserAttemptRunner({ fallbackAllowed: false });
     const result = await runner.run([localEngineCandidate()]);
 
     const gate = result.attempts[0]!.gate_results[0]!;
     expect(gate.code).toBe("runtime_available");
     expect(gate.status).toBe("failed");
-    expect(gate.reason_code).toBe("no_browser_runtime");
+    expect(gate.reason_code).toBe("unsupported_artifact_target");
   });
 
   it("rejects any engine name without runtimeChecker", async () => {
@@ -207,7 +206,7 @@ describe("BrowserAttemptRunner — sdk_runtime rejection", () => {
     expect(result.attempts[0]!.engine).toBe("coreml");
     expect(result.attempts[0]!.status).toBe("failed");
     expect(result.attempts[0]!.gate_results[0]!.reason_code).toBe(
-      "no_browser_runtime",
+      "unsupported_artifact_target",
     );
   });
 });
@@ -235,7 +234,7 @@ describe("BrowserAttemptRunner — fallback", () => {
 
     expect(result.fallbackUsed).toBe(true);
     expect(result.fallbackTrigger).not.toBeNull();
-    expect(result.fallbackTrigger!.code).toBe("runtime_unavailable");
+    expect(result.fallbackTrigger!.code).toBe("unsupported_artifact_target");
     expect(result.fallbackTrigger!.stage).toBe("prepare");
     expect(result.fromAttempt).toBe(0);
     expect(result.toAttempt).toBe(1);
@@ -256,6 +255,7 @@ describe("BrowserAttemptRunner — fallback", () => {
 
     expect(result.selectedAttempt!.locality).toBe("cloud");
     expect(result.fallbackUsed).toBe(true);
+    // Endpoint failure is runtime_unavailable (not Gate 0)
     expect(result.fallbackTrigger!.code).toBe("runtime_unavailable");
     expect(result.fromAttempt).toBe(0);
     expect(result.toAttempt).toBe(1);
@@ -288,7 +288,7 @@ describe("BrowserAttemptRunner — fallback", () => {
       cloudCandidate(3),
     ]);
 
-    expect(result.fallbackTrigger!.code).toBe("runtime_unavailable");
+    expect(result.fallbackTrigger!.code).toBe("unsupported_artifact_target");
     // fromAttempt should be the first failure
     expect(result.fromAttempt).toBe(0);
   });
@@ -379,9 +379,9 @@ describe("BrowserAttemptRunner — output shape", () => {
     expect(["passed", "failed", "unknown", "not_required"]).toContain(
       gate.status,
     );
-    // reason_code should be "no_browser_runtime" when no runtimeChecker
+    // reason_code should be "unsupported_artifact_target" — Gate 0 fires for non-browser engine
     expect(typeof gate.reason_code).toBe("string");
-    expect(gate.reason_code).toBe("no_browser_runtime");
+    expect(gate.reason_code).toBe("unsupported_artifact_target");
   });
 
   it("AttemptLoopResult has all required fields", async () => {
