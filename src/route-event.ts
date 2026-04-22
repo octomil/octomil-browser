@@ -85,7 +85,7 @@ export interface BrowserRouteEvent {
   capability: string;
   /** Routing policy that was in effect */
   policy: string;
-  /** Source of the planner result: "server" or "local_default" */
+  /** Source of the planner result — canonical: "server" | "cache" | "offline" */
   planner_source: string;
   /** Final locality chosen: "local" or "cloud", null if unavailable */
   final_locality: string | null;
