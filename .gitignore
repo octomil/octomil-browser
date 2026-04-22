@@ -2,4 +2,8 @@ node_modules/
 dist/
 coverage/
 *.tsbuildinfo
+.turbo/
+.DS_Store
+*.log
+test-results/
 .claude/worktrees/
