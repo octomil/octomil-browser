@@ -413,7 +413,7 @@ describe("SDK Contract Conformance — Browser", () => {
           (g) =>
             g.code === "runtime_available" &&
             g.status === "failed" &&
-            g.reason_code === "no_browser_runtime",
+            g.reason_code === "unsupported_artifact_target",
         ),
       ).toBe(true);
     });
@@ -472,7 +472,7 @@ describe("SDK Contract Conformance — Browser", () => {
       expect(result.selectedAttempt!.locality).toBe("cloud");
       expect(result.fallbackUsed).toBe(true);
       expect(result.fallbackTrigger).not.toBeNull();
-      expect(result.fallbackTrigger!.code).toBe("runtime_unavailable");
+      expect(result.fallbackTrigger!.code).toBe("unsupported_artifact_target");
       expect(result.fromAttempt).toBe(0);
       expect(result.toAttempt).toBe(1);
     });

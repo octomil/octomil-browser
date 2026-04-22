@@ -529,6 +529,16 @@ export class BrowserAttemptRunner {
     "transformersjs",
   ]);
 
+  /**
+   * Artifact formats that CAN run in the browser.
+   *
+   * CAVEAT: "safetensors" is ambiguous — it is used by both Transformers.js
+   * (browser-safe) and PyTorch/HuggingFace server-side checkpoints (NOT
+   * browser-safe). A safetensors artifact is only trusted when paired with
+   * a known browser engine (BROWSER_ENGINES). Gate 0 in evaluateSdkRuntime
+   * enforces this: if the engine is not in BROWSER_ENGINES, the candidate
+   * is rejected regardless of artifact format.
+   */
   private static readonly BROWSER_ARTIFACT_FORMATS = new Set([
     "onnx",
     "ort",
@@ -542,12 +552,41 @@ export class BrowserAttemptRunner {
    * A candidate is an sdk_runtime candidate when:
    * - It has an explicit `executionProvider` ("webgpu" | "wasm"), OR
    * - It has a browser-native engine name (onnx-web, transformers.js), OR
-   * - It has no engine but declares a browser-safe artifact format.
+   * - It has no engine but declares a browser-safe artifact format, AND
+   *   does NOT have a `localEndpoint` (those are external_endpoint).
    *
    * Server-side engines (mlx-lm, llama.cpp, coreml, etc.) are NOT sdk_runtime —
-   * they run on the local server via external_endpoint.
+   * they should fail with a clear error in evaluateSdkRuntime's Gate 0.
+   *
+   * A candidate with an unknown engine that is NOT in BROWSER_ENGINES is
+   * classified as sdk_runtime so it enters evaluateSdkRuntime where Gate 0
+   * rejects it with a clear `unsupported_artifact_target` error.
    */
   private isSdkRuntimeCandidate(candidate: CandidatePlan): boolean {
+    // If there's a localEndpoint, non-browser-engine local candidates
+    // should be routed through external_endpoint, not sdk_runtime.
+    if (this.localEndpoint) {
+      // Only classify as sdk_runtime if the engine is explicitly browser-safe
+      // or the candidate has a browser-safe artifact format.
+      if (candidate.executionProvider) return true;
+      if (
+        candidate.engine &&
+        BrowserAttemptRunner.BROWSER_ENGINES.has(candidate.engine)
+      )
+        return true;
+      if (
+        candidate.artifact?.format &&
+        BrowserAttemptRunner.BROWSER_ARTIFACT_FORMATS.has(
+          candidate.artifact.format.toLowerCase(),
+        )
+      )
+        return true;
+      return false;
+    }
+
+    // No localEndpoint — all local candidates must go through sdk_runtime
+    // evaluation. Gate 0 in evaluateSdkRuntime will reject non-browser engines.
+
     // Explicit execution provider means in-browser
     if (candidate.executionProvider) return true;
     // Known browser engine
@@ -556,17 +595,14 @@ export class BrowserAttemptRunner {
       BrowserAttemptRunner.BROWSER_ENGINES.has(candidate.engine)
     )
       return true;
-    // Artifact-only plans are browser-local only if the artifact format is safe.
-    if (
-      !candidate.engine &&
-      candidate.artifact?.format &&
-      BrowserAttemptRunner.BROWSER_ARTIFACT_FORMATS.has(
-        candidate.artifact.format.toLowerCase(),
-      )
-    )
-      return true;
-    // No engine, no artifact, no localEndpoint but we have a runtimeChecker → try sdk_runtime
-    if (!candidate.engine && !this.localEndpoint && this.runtimeChecker)
+    // Non-browser engine: still route through sdk_runtime so Gate 0 rejects
+    // it with a clear error rather than silently falling through.
+    if (candidate.engine) return true;
+    // Any artifact format: route through sdk_runtime so Gate 0b can reject
+    // non-browser formats with a clear unsupported_artifact_target error.
+    if (candidate.artifact?.format) return true;
+    // No engine, no artifact, but we have a runtimeChecker → try sdk_runtime
+    if (!candidate.engine && !candidate.artifact && this.runtimeChecker)
       return true;
     return false;
   }
@@ -575,6 +611,38 @@ export class BrowserAttemptRunner {
   // Private: sdk_runtime evaluation
   // -----------------------------------------------------------------------
 
+  /**
+   * Build a failed RouteAttempt for use in gate rejection helpers.
+   */
+  private failAttempt(
+    idx: number,
+    engine: string,
+    stage: AttemptStage,
+    reasonCode: string,
+    message: string,
+  ): RouteAttempt {
+    return {
+      index: idx,
+      locality: "local",
+      mode: "sdk_runtime",
+      engine,
+      artifact: null,
+      status: "failed",
+      stage,
+      gate_results: [
+        {
+          code: "runtime_available",
+          status: "failed",
+          reason_code: reasonCode,
+        },
+      ],
+      reason: {
+        code: reasonCode,
+        message,
+      },
+    };
+  }
+
   private async evaluateSdkRuntime(
     candidate: CandidatePlan,
     idx: number,
@@ -582,6 +650,35 @@ export class BrowserAttemptRunner {
     const gateResults: GateResult[] = [];
     const provider = candidate.executionProvider ?? "webgpu";
     const engine = candidate.engine ?? "onnx-web";
+
+    // Gate 0: Browser safety — reject non-browser engines
+    if (candidate.engine && !BrowserAttemptRunner.BROWSER_ENGINES.has(candidate.engine)) {
+      return this.failAttempt(
+        idx,
+        candidate.engine,
+        "prepare",
+        "unsupported_artifact_target",
+        `Engine "${candidate.engine}" is not browser-safe. ` +
+          `Browser supports: ${[...BrowserAttemptRunner.BROWSER_ENGINES].join(", ")}`,
+      );
+    }
+
+    // Gate 0b: Browser safety — reject non-browser artifact formats
+    if (
+      candidate.artifact?.format &&
+      !BrowserAttemptRunner.BROWSER_ARTIFACT_FORMATS.has(
+        candidate.artifact.format.toLowerCase(),
+      )
+    ) {
+      return this.failAttempt(
+        idx,
+        engine,
+        "prepare",
+        "unsupported_artifact_target",
+        `Artifact format "${candidate.artifact.format}" is not browser-safe. ` +
+          `Browser supports: ${[...BrowserAttemptRunner.BROWSER_ARTIFACT_FORMATS].join(", ")}`,
+      );
+    }
 
     // Without a runtime checker, we cannot verify browser runtime availability.
     // Fail with a clear reason — callers must provide a runtimeChecker to
