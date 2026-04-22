@@ -94,8 +94,8 @@ export interface RouteMetadata {
       capability: string;
     };
   };
-  /** Planner source info */
-  planner: { source: "server" | "local_default" };
+  /** Planner source info — canonical: "server" | "cache" | "offline" */
+  planner: { source: "server" | "cache" | "offline" };
   /** Fallback info */
   fallback: {
     used: boolean;
@@ -407,7 +407,7 @@ export class BrowserRequestRouter {
           capability: ctx.capability,
         },
       },
-      planner: { source: ctx.cachedPlan ? "server" : "local_default" },
+      planner: { source: ctx.cachedPlan ? "server" : "offline" },
       fallback: {
         used: attemptResult.fallbackUsed,
         from_attempt: attemptResult.fromAttempt,
@@ -434,7 +434,7 @@ export class BrowserRequestRouter {
       request_id: requestId,
       capability: ctx.capability,
       policy: plan.policy,
-      planner_source: ctx.cachedPlan ? "server" : "local_default",
+      planner_source: ctx.cachedPlan ? "server" : "offline",
       final_locality: finalLocality,
       selected_locality: finalLocality,
       final_mode: finalMode,
