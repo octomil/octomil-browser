@@ -228,6 +228,7 @@ export {
 export type {
   BrowserRoutingContext,
   BrowserRoutingDecision,
+  CanonicalRouteMetadata,
   PlannerResult,
   RouteMetadata,
   ModelRef,
