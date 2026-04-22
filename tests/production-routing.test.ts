@@ -97,7 +97,9 @@ describe("BrowserRequestRouter ref kind propagation", () => {
     });
 
     expect(decision.routeMetadata).toBeDefined();
-    expect(decision.routeMetadata.planner.source).toBe("local_default");
+    // "local_default" is a non-canonical planner source that gets normalized
+    // to "offline" per the contract (PlannerSource enum: server | cache | offline).
+    expect(decision.routeMetadata.planner.source).toBe("offline");
     expect(decision.routeMetadata.model.requested.ref).toBe("gemma-2b");
     expect(decision.routeMetadata.model.requested.kind).toBe("model");
   });

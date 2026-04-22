@@ -11,7 +11,7 @@
  */
 
 // Types
-export { RoutingPolicy } from "./types.js";
+export { RoutingPolicy, ContractPlannerSource, ModelRefKind } from "./types.js";
 export type {
   RoutingPolicyName,
   RouteExecution,
@@ -29,7 +29,12 @@ export type {
   RuntimePlanResponse,
   RuntimeSelection,
 } from "./types.js";
-export { VALID_ROUTING_POLICIES, LOCAL_ONLY_POLICIES } from "./types.js";
+export {
+  VALID_ROUTING_POLICIES,
+  LOCAL_ONLY_POLICIES,
+  CANONICAL_PLANNER_SOURCES,
+  normalizePlannerSource,
+} from "./types.js";
 
 // Validation
 export {

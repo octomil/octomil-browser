@@ -19,3 +19,14 @@ export {
   TELEMETRY_EVENTS,
   EVENT_REQUIRED_ATTRIBUTES,
 } from "./telemetry_events.js";
+
+// Runtime planner enums
+export { PlannerSource } from "./planner_source.js";
+export { ModelRefKind } from "./model_ref_kind.js";
+export { RouteLocality } from "./route_locality.js";
+export { RouteMode } from "./route_mode.js";
+export { ExecutionMode } from "./execution_mode.js";
+export { ArtifactCacheStatus } from "./artifact_cache_status.js";
+export { FallbackTriggerStage } from "./fallback_trigger_stage.js";
+export { RoutingPolicy } from "./routing_policy.js";
+export { RuntimeExecutor } from "./runtime_executor.js";

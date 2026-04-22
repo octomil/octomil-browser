@@ -3,18 +3,24 @@
  *
  * Shared type definitions for routing policy and route metadata that match
  * the Python SDK (octomil-python/octomil/runtime/planner/schemas.py) and the
- * contract-generated RoutingPolicy enum.
+ * contract-generated enums.
  *
  * The browser SDK is cloud-only — it cannot download model artifacts or run
  * local inference engines. These types exist for API surface parity so that
  * code shared across SDKs can reference a single set of policy names and
  * metadata shapes.
+ *
+ * Canonical enum values are imported from contract-generated code in
+ * `src/_generated/` to prevent cross-SDK type drift.
  */
 
 import { RoutingPolicy } from "../_generated/routing_policy.js";
+import { PlannerSource as ContractPlannerSource } from "../_generated/planner_source.js";
+import { ModelRefKind } from "../_generated/model_ref_kind.js";
 
-// Re-export the contract enum for convenience.
+// Re-export contract enums for convenience.
 export { RoutingPolicy };
+export { ContractPlannerSource, ModelRefKind };
 
 // ---------------------------------------------------------------------------
 // Routing policy helpers
@@ -39,16 +45,17 @@ export type RoutingPolicyName =
 
 /**
  * Set of valid routing policy names accepted by the SDK.
- * Used for runtime validation — keeps `quality_first` and other
- * non-canonical names out.
+ *
+ * Derived from the generated `RoutingPolicy` enum values (excluding "auto"
+ * which is server-resolved and should not be set by clients).
  */
 export const VALID_ROUTING_POLICIES: ReadonlySet<string> = new Set<RoutingPolicyName>([
-  "private",
-  "local_only",
-  "local_first",
-  "cloud_first",
-  "cloud_only",
-  "performance_first",
+  RoutingPolicy.Private as RoutingPolicyName,
+  RoutingPolicy.LocalOnly as RoutingPolicyName,
+  RoutingPolicy.LocalFirst as RoutingPolicyName,
+  RoutingPolicy.CloudFirst as RoutingPolicyName,
+  RoutingPolicy.CloudOnly as RoutingPolicyName,
+  RoutingPolicy.PerformanceFirst as RoutingPolicyName,
 ]);
 
 /**
@@ -56,8 +63,8 @@ export const VALID_ROUTING_POLICIES: ReadonlySet<string> = new Set<RoutingPolicy
  * The browser SDK cannot fulfil these — callers get a clear error.
  */
 export const LOCAL_ONLY_POLICIES: ReadonlySet<string> = new Set<RoutingPolicyName>([
-  "private",
-  "local_only",
+  RoutingPolicy.Private as RoutingPolicyName,
+  RoutingPolicy.LocalOnly as RoutingPolicyName,
 ]);
 
 // ---------------------------------------------------------------------------
@@ -75,10 +82,14 @@ export interface RouteExecution {
   engine: string | null;
 }
 
-/** The model reference the caller originally requested. */
+/**
+ * The model reference the caller originally requested.
+ *
+ * `kind` values are derived from the contract-generated `ModelRefKind` enum.
+ */
 export interface RouteModelRequested {
   ref: string;
-  kind: "model" | "app" | "deployment" | "alias" | "default" | "unknown";
+  kind: "model" | "app" | "capability" | "deployment" | "experiment" | "alias" | "default" | "unknown";
   capability: string | null;
 }
 
@@ -115,14 +126,23 @@ export interface RouteArtifact {
 // Planner source normalization
 // ---------------------------------------------------------------------------
 
-/** Canonical planner source values. */
+/**
+ * Canonical planner source values.
+ *
+ * Matches the contract-generated `PlannerSource` enum values.
+ */
 export type PlannerSource = "server" | "cache" | "offline";
 
-/** Canonical set for runtime validation. */
+/**
+ * Canonical set for runtime validation.
+ *
+ * Derived from the generated `ContractPlannerSource` enum to prevent
+ * cross-SDK type drift.
+ */
 export const CANONICAL_PLANNER_SOURCES: ReadonlySet<PlannerSource> = new Set([
-  "server",
-  "cache",
-  "offline",
+  ContractPlannerSource.Server as PlannerSource,
+  ContractPlannerSource.Cache as PlannerSource,
+  ContractPlannerSource.Offline as PlannerSource,
 ]);
 
 const PLANNER_SOURCE_ALIASES: Record<string, PlannerSource> = {
