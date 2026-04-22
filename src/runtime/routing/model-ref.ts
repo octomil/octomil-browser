@@ -30,6 +30,8 @@ export type ModelRefKind =
 export interface ModelRef {
   raw: string;
   kind: ModelRefKind;
+  /** For model refs: the model slug (same as raw) */
+  modelSlug?: string;
   /** For app refs: the app slug */
   appSlug?: string;
   /** For app or capability refs: the capability */
@@ -82,17 +84,20 @@ export function parseModelRef(ref: string): ModelRef {
     };
   }
 
-  // deploy_<id>
-  if (trimmed.startsWith("deploy_") && trimmed.length > "deploy_".length) {
-    return {
-      raw: trimmed,
-      kind: "deployment",
-      deploymentId: trimmed,
-    };
+  // deploy_<id> — must have non-empty suffix
+  if (trimmed.startsWith("deploy_")) {
+    if (trimmed.length > "deploy_".length) {
+      return {
+        raw: trimmed,
+        kind: "deployment",
+        deploymentId: trimmed,
+      };
+    }
+    return { raw: trimmed, kind: "unknown" };
   }
 
-  // exp/<variant> or exp_<id>/<variant>
-  const expMatch = trimmed.match(/^(exp[^/]*)\/([^/]+)$/);
+  // exp_<id>/<variant> — requires non-empty variant
+  const expMatch = trimmed.match(/^(exp_[^/]+)\/(.+)$/);
   if (expMatch) {
     return {
       raw: trimmed,
@@ -102,11 +107,17 @@ export function parseModelRef(ref: string): ModelRef {
     };
   }
 
-  const aliasMatch = trimmed.match(/^alias:(.+)$/);
-  if (aliasMatch) {
+  // exp_ prefix with trailing slash but empty variant → unknown
+  if (trimmed.startsWith("exp_") && trimmed.includes("/")) {
+    return { raw: trimmed, kind: "unknown" };
+  }
+
+  // alias:name — must have non-empty name
+  if (trimmed.startsWith("alias:")) {
+    const name = trimmed.slice(6);
     return {
       raw: trimmed,
-      kind: aliasMatch[1] ? "alias" : "unknown",
+      kind: name ? "alias" : "unknown",
     };
   }
 
@@ -121,5 +132,6 @@ export function parseModelRef(ref: string): ModelRef {
   return {
     raw: trimmed,
     kind: "model",
+    modelSlug: trimmed,
   };
 }
