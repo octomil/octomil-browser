@@ -36,6 +36,7 @@ import {
   generateCorrelationId,
   type BrowserRouteEvent,
 } from "./route-event.js";
+import type { RouteMetadata as ContractRouteMetadata } from "../../planner/types.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -76,6 +77,11 @@ export interface PlannerResult {
 /**
  * Route metadata attached to every response. Consumers can inspect this
  * to understand how a request was routed.
+ *
+ * @deprecated Use {@link CanonicalRouteMetadata} (the contract-backed nested shape
+ * from `planner/types.ts`) instead. This shape is retained for backward
+ * compatibility. Access the canonical shape via
+ * `BrowserRoutingDecision.canonicalMetadata`.
  */
 export interface RouteMetadata {
   /** Overall status: "selected" if a route was found, "unavailable" or "failed" otherwise */
@@ -108,6 +114,15 @@ export interface RouteMetadata {
 }
 
 /**
+ * Contract-backed canonical route metadata shape.
+ *
+ * Re-export from planner/types.ts for convenience. This is the canonical
+ * nested shape defined in octomil-contracts, shared across all SDKs.
+ * Prefer this over the deprecated runtime {@link RouteMetadata}.
+ */
+export type CanonicalRouteMetadata = ContractRouteMetadata;
+
+/**
  * The resolved routing decision, including the endpoint to call,
  * metadata, and the attempt loop result.
  */
@@ -124,8 +139,13 @@ export interface BrowserRoutingDecision {
   engine: string | null;
   /** For sdk_runtime: artifact info for model loading */
   artifact: CandidatePlan["artifact"] | null;
-  /** Full route metadata for attaching to the response */
+  /**
+   * Route metadata for attaching to the response.
+   * @deprecated Use {@link canonicalMetadata} instead.
+   */
   routeMetadata: RouteMetadata;
+  /** Contract-backed canonical route metadata (nested shape). */
+  canonicalMetadata: CanonicalRouteMetadata;
   /** The plan used to make this decision */
   plan: PlannerResult;
   /** The raw attempt loop result from the BrowserAttemptRunner */
@@ -249,6 +269,7 @@ export class BrowserRequestRouter {
         engine: null,
         artifact: null,
         routeMetadata,
+        canonicalMetadata: this.buildCanonicalMetadata(ctx, modelRef, attemptResult),
         plan,
         attemptResult,
         modelRef,
@@ -300,6 +321,7 @@ export class BrowserRequestRouter {
       engine,
       artifact,
       routeMetadata,
+      canonicalMetadata: this.buildCanonicalMetadata(ctx, modelRef, attemptResult),
       plan,
       attemptResult,
       modelRef,
@@ -415,6 +437,39 @@ export class BrowserRequestRouter {
         trigger: attemptResult.fallbackTrigger,
       },
       attempts: attemptResult.attempts,
+    };
+  }
+
+  private buildCanonicalMetadata(
+    ctx: BrowserRoutingContext,
+    modelRef: ModelRef,
+    attemptResult: AttemptLoopResult,
+  ): CanonicalRouteMetadata {
+    const selected = attemptResult.selectedAttempt;
+    return {
+      status: selected ? "selected" : "unavailable",
+      execution: selected
+        ? {
+            locality: selected.locality as "local" | "cloud",
+            mode: selected.mode as "sdk_runtime" | "hosted_gateway" | "external_endpoint",
+            engine: selected.engine ?? null,
+          }
+        : null,
+      model: {
+        requested: {
+          ref: modelRef.raw,
+          kind: modelRef.kind as CanonicalRouteMetadata["model"]["requested"]["kind"],
+          capability: ctx.capability ?? null,
+        },
+        resolved: null,
+      },
+      artifact: null,
+      planner: { source: ctx.cachedPlan ? "server" : "offline" },
+      fallback: { used: attemptResult.fallbackUsed },
+      reason: {
+        code: selected ? "ok" : "no_candidate",
+        message: selected?.reason ?? "no viable route",
+      },
     };
   }
 
