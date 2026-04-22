@@ -529,6 +529,16 @@ export class BrowserAttemptRunner {
     "transformersjs",
   ]);
 
+  /**
+   * Artifact formats that CAN run in the browser.
+   *
+   * CAVEAT: "safetensors" is ambiguous — it is used by both Transformers.js
+   * (browser-safe) and PyTorch/HuggingFace server-side checkpoints (NOT
+   * browser-safe). A safetensors artifact is only trusted when paired with
+   * a known browser engine (BROWSER_ENGINES). Gate 0 in evaluateSdkRuntime
+   * enforces this: if the engine is not in BROWSER_ENGINES, the candidate
+   * is rejected regardless of artifact format.
+   */
   private static readonly BROWSER_ARTIFACT_FORMATS = new Set([
     "onnx",
     "ort",
@@ -588,14 +598,9 @@ export class BrowserAttemptRunner {
     // Non-browser engine: still route through sdk_runtime so Gate 0 rejects
     // it with a clear error rather than silently falling through.
     if (candidate.engine) return true;
-    // Artifact-only plans: browser-local only if the artifact format is safe.
-    if (
-      candidate.artifact?.format &&
-      BrowserAttemptRunner.BROWSER_ARTIFACT_FORMATS.has(
-        candidate.artifact.format.toLowerCase(),
-      )
-    )
-      return true;
+    // Any artifact format: route through sdk_runtime so Gate 0b can reject
+    // non-browser formats with a clear unsupported_artifact_target error.
+    if (candidate.artifact?.format) return true;
     // No engine, no artifact, but we have a runtimeChecker → try sdk_runtime
     if (!candidate.engine && !candidate.artifact && this.runtimeChecker)
       return true;
