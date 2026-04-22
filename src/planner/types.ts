@@ -17,6 +17,21 @@ import { RoutingPolicy } from "../_generated/routing_policy.js";
 export { RoutingPolicy };
 
 // ---------------------------------------------------------------------------
+// Contract-generated enum re-exports
+// ---------------------------------------------------------------------------
+
+export { PlannerSource as ContractPlannerSource } from "../_generated/planner_source.js";
+export { CacheStatus as ContractCacheStatus } from "../_generated/cache_status.js";
+export { ArtifactCacheStatus as ContractArtifactCacheStatus } from "../_generated/artifact_cache_status.js";
+export { ExecutionMode as ContractExecutionMode } from "../_generated/execution_mode.js";
+export { RouteLocality as ContractRouteLocality } from "../_generated/route_locality.js";
+export { RouteMode as ContractRouteMode } from "../_generated/route_mode.js";
+export { ModelRefKind as ContractModelRefKind } from "../_generated/model_ref_kind.js";
+export { FallbackTriggerStage as ContractFallbackTriggerStage } from "../_generated/fallback_trigger_stage.js";
+
+import { PlannerSource as GenPlannerSource } from "../_generated/planner_source.js";
+
+// ---------------------------------------------------------------------------
 // Routing policy helpers
 // ---------------------------------------------------------------------------
 
@@ -115,23 +130,27 @@ export interface RouteArtifact {
 // Planner source normalization
 // ---------------------------------------------------------------------------
 
-/** Canonical planner source values. */
+/**
+ * Canonical planner source values.
+ * String union kept for backward compatibility — validated against
+ * the contract-generated ContractPlannerSource enum.
+ */
 export type PlannerSource = "server" | "cache" | "offline";
 
-/** Canonical set for runtime validation. */
+/** Canonical set for runtime validation (backed by generated enum values). */
 export const CANONICAL_PLANNER_SOURCES: ReadonlySet<PlannerSource> = new Set([
-  "server",
-  "cache",
-  "offline",
+  GenPlannerSource.Server as PlannerSource,
+  GenPlannerSource.Cache as PlannerSource,
+  GenPlannerSource.Offline as PlannerSource,
 ]);
 
 const PLANNER_SOURCE_ALIASES: Record<string, PlannerSource> = {
-  local_default: "offline",
-  server_plan: "server",
-  cached: "cache",
-  fallback: "offline",
-  none: "offline",
-  local_benchmark: "offline",
+  local_default: GenPlannerSource.Offline as PlannerSource,
+  server_plan: GenPlannerSource.Server as PlannerSource,
+  cached: GenPlannerSource.Cache as PlannerSource,
+  fallback: GenPlannerSource.Offline as PlannerSource,
+  none: GenPlannerSource.Offline as PlannerSource,
+  local_benchmark: GenPlannerSource.Offline as PlannerSource,
 };
 
 /**
