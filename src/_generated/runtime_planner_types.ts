@@ -53,7 +53,7 @@ export interface RouteAttempt {
   engine?: string | null;
   artifact?: AttemptArtifact | null;
   status: "skipped" | "failed" | "selected";
-  stage: "policy" | "prepare" | "download" | "verify" | "load" | "benchmark" | "gate" | "inference";
+  stage: "policy" | "prepare" | "download" | "verify" | "load" | "benchmark" | "gate" | "inference" | "output_quality";
   gate_results?: Array<GateResult>;
   reason: Record<string, unknown>;
 }
@@ -69,7 +69,14 @@ export interface GateResult {
   status: "passed" | "failed" | "unknown" | "not_required";
   observed_number?: number;
   threshold_number?: number;
+  threshold_string?: string;
   reason_code?: string | null;
+  gate_class?: "readiness" | "performance" | "output_quality";
+  evaluation_phase?: "pre_inference" | "during_inference" | "post_inference";
+  required?: boolean;
+  fallback_eligible?: boolean;
+  observed_string?: string;
+  safe_metadata?: Record<string, unknown>;
 }
 
 export interface RouteEvent {
@@ -94,7 +101,7 @@ export interface RouteEvent {
   cache_status?: "hit" | "miss" | "downloaded" | "not_applicable" | "unavailable" | null;
   fallback_used: boolean;
   fallback_trigger_code?: string | null;
-  fallback_trigger_stage?: "policy" | "prepare" | "download" | "verify" | "load" | "benchmark" | "gate" | "inference" | "timeout" | "not_applicable" | null;
+  fallback_trigger_stage?: "policy" | "prepare" | "download" | "verify" | "load" | "benchmark" | "gate" | "inference" | "output_quality" | "timeout" | "not_applicable" | null;
   candidate_attempts: number;
   attempt_details?: Array<RouteEventAttemptDetail>;
   ttft_ms?: number | null;
@@ -109,7 +116,7 @@ export interface RouteEventAttemptDetail {
   mode: "sdk_runtime" | "hosted_gateway" | "external_endpoint";
   engine: string | null;
   status: "skipped" | "failed" | "selected";
-  stage: "policy" | "prepare" | "download" | "verify" | "load" | "benchmark" | "gate" | "inference";
+  stage: "policy" | "prepare" | "download" | "verify" | "load" | "benchmark" | "gate" | "inference" | "output_quality";
   gate_summary: Record<string, unknown>;
   reason_code: string;
 }

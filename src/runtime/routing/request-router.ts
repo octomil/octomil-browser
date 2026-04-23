@@ -28,6 +28,8 @@ import {
   type EndpointChecker,
   type RuntimeChecker,
   type ArtifactChecker,
+  type OutputQualityEvaluator,
+  type RouteAttempt,
 } from "../attempt-runner.js";
 import { parseModelRef, type ModelRef } from "./model-ref.js";
 import {
@@ -82,7 +84,7 @@ export interface PlannerResult {
  * The resolved routing decision, including the endpoint to call,
  * metadata, and the attempt loop result.
  */
-export interface BrowserRoutingDecision {
+export interface BrowserRoutingDecision<T = unknown> {
   /** Final locality: "local" or "cloud", null if no route was selected */
   locality: "local" | "cloud" | null;
   /** Execution mode, null if no route was selected */
@@ -100,7 +102,7 @@ export interface BrowserRoutingDecision {
   /** The plan used to make this decision */
   plan: PlannerResult;
   /** The raw attempt loop result from the BrowserAttemptRunner */
-  attemptResult: AttemptLoopResult;
+  attemptResult: AttemptLoopResult<T>;
   /** Parsed model reference */
   modelRef: ModelRef;
   /** Telemetry-safe route event */
@@ -187,8 +189,58 @@ export class BrowserRequestRouter {
     });
 
     const attemptResult = await runner.run(candidates);
-    const selected = attemptResult.selectedAttempt;
+    return this.decisionFromAttemptResult(ctx, modelRef, plan, candidates, attemptResult);
+  }
 
+  /**
+   * Resolve and execute a routing decision for product request paths.
+   *
+   * Unlike resolve(), this keeps actual inference inside the attempt loop so
+   * post-inference output-quality gates can trigger fallback before a
+   * non-streaming response is returned. For streaming requests, callers must
+   * expose firstOutputEmitted so the runner can lock out fallback after output.
+   */
+  async resolveWithInference<T>(
+    ctx: BrowserRoutingContext,
+    executeCandidate: (
+      candidate: CandidatePlan,
+      attempt: RouteAttempt,
+    ) => Promise<T> | T,
+    opts: {
+      outputQualityEvaluator?: OutputQualityEvaluator | null;
+      firstOutputEmitted?: () => boolean;
+    } = {},
+  ): Promise<BrowserRoutingDecision<T>> {
+    const modelRef = parseModelRef(ctx.model);
+    const plan = ctx.cachedPlan ?? this.defaultPlan(ctx);
+    const candidates = plan.candidates;
+
+    const runner = new BrowserAttemptRunner({
+      fallbackAllowed: plan.fallbackAllowed,
+      streaming: ctx.streaming,
+      localEndpoint: ctx.localEndpoint ?? null,
+      endpointChecker: ctx.localEndpoint ? this.endpointChecker : null,
+      runtimeChecker: this.runtimeChecker,
+      artifactChecker: this.artifactChecker,
+      outputQualityEvaluator: opts.outputQualityEvaluator ?? null,
+    });
+
+    const attemptResult = await runner.runWithInference(
+      candidates,
+      executeCandidate,
+      { firstOutputEmitted: opts.firstOutputEmitted },
+    );
+    return this.decisionFromAttemptResult(ctx, modelRef, plan, candidates, attemptResult);
+  }
+
+  private decisionFromAttemptResult<T>(
+    ctx: BrowserRoutingContext,
+    modelRef: ModelRef,
+    plan: PlannerResult,
+    candidates: CandidatePlan[],
+    attemptResult: AttemptLoopResult<T>,
+  ): BrowserRoutingDecision<T> {
+    const selected = attemptResult.selectedAttempt;
     const routeMetadata = this.buildRouteMetadata(
       ctx,
       modelRef,

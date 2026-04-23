@@ -21,6 +21,7 @@ import {
   type AttemptLoopResult,
   type CandidatePlan,
   type EndpointChecker,
+  type RuntimeChecker,
   type RouteAttempt,
   type GateResult,
   type FallbackTrigger,
@@ -59,6 +60,13 @@ function availableChecker(): EndpointChecker {
 function unavailableChecker(reasonCode = "connection_refused"): EndpointChecker {
   return {
     check: vi.fn().mockResolvedValue({ available: false, reasonCode }),
+  };
+}
+
+function availableRuntimeChecker(): RuntimeChecker {
+  return {
+    checkEngineAvailable: vi.fn().mockResolvedValue({ available: true }),
+    checkProvider: vi.fn().mockResolvedValue({ available: true }),
   };
 }
 
@@ -216,6 +224,30 @@ describe("BrowserAttemptRunner — sdk_runtime rejection", () => {
 // ---------------------------------------------------------------------------
 
 describe("BrowserAttemptRunner — fallback", () => {
+  it("fails closed for required device gates and falls back to cloud", async () => {
+    const runner = new BrowserAttemptRunner({
+      fallbackAllowed: true,
+      runtimeChecker: availableRuntimeChecker(),
+    });
+    const result = await runner.run([
+      {
+        locality: "local",
+        engine: "onnx-web",
+        executionProvider: "wasm",
+        priority: 1,
+        gates: [{ code: "require_wifi", required: true, source: "server" }],
+      },
+      cloudCandidate(2),
+    ]);
+
+    expect(result.attempts[0]!.status).toBe("failed");
+    expect(result.attempts[0]!.stage).toBe("gate");
+    expect(result.attempts[0]!.gate_results.some(
+      (gate) => gate.code === "require_wifi" && gate.reason_code === "network_state_unavailable",
+    )).toBe(true);
+    expect(result.selectedAttempt!.locality).toBe("cloud");
+  });
+
   it("falls back from sdk_runtime to cloud", async () => {
     const runner = new BrowserAttemptRunner({ fallbackAllowed: true });
     const result = await runner.run([

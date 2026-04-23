@@ -213,6 +213,24 @@ export type {
   ArtifactChecker,
 } from "./runtime/index.js";
 
+// Output quality evaluators (browser-safe, built-in gate evaluators)
+export {
+  JsonParseableEvaluator,
+  JsonSchemaEvaluator,
+  ToolCallValidEvaluator,
+  RegexPredicateEvaluator,
+  SafetyPassedEvaluator,
+  EvaluatorRegistry,
+  RegistryBackedEvaluator,
+  extractText,
+  extractToolCalls,
+} from "./runtime/index.js";
+export type {
+  EvaluatorResult,
+  GateEvaluator,
+  SafetyCheckFn,
+} from "./runtime/index.js";
+
 // Browser runtime resolver (WebGPU/WASM probing + artifact cache checks)
 export {
   BrowserRuntimeChecker,
