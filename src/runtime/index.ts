@@ -24,6 +24,24 @@ export type {
   ArtifactChecker,
 } from "./attempt-runner.js";
 
+// Output quality evaluators (browser-safe, no Node.js deps)
+export {
+  JsonParseableEvaluator,
+  JsonSchemaEvaluator,
+  ToolCallValidEvaluator,
+  RegexPredicateEvaluator,
+  SafetyPassedEvaluator,
+  EvaluatorRegistry,
+  RegistryBackedEvaluator,
+  extractText,
+  extractToolCalls,
+} from "./evaluators.js";
+export type {
+  EvaluatorResult,
+  GateEvaluator,
+  SafetyCheckFn,
+} from "./evaluators.js";
+
 // Browser runtime resolver (WebGPU/WASM probing + artifact cache checks)
 export {
   BrowserRuntimeChecker,
