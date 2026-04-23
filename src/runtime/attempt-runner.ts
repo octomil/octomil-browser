@@ -199,6 +199,13 @@ export const GATE_CLASSIFICATION: Record<
   max_refusal_rate: { gate_class: "output_quality", evaluation_phase: "post_inference", blocking_default: false },
 };
 
+const DEVICE_ENVIRONMENT_GATE_CODES = new Set<string>([
+  "min_battery_pct",
+  "max_thermal_state",
+  "require_charging",
+  "require_wifi",
+]);
+
 /**
  * Classify a gate code. Returns default classification for unknown codes.
  */
@@ -957,15 +964,36 @@ export class BrowserAttemptRunner {
         if (classification.evaluation_phase === "post_inference") {
           continue;
         }
-        // In browser, most numeric gates pass optimistically (we don't have
-        // profiling data). Mark required gates as unknown if we can't evaluate.
-        gateResults.push({
-          code: gate.code,
-          status: gate.required ? "unknown" : "not_required",
-          threshold_number: gate.threshold_number,
-          gate_class: gate.gate_class ?? classification.gate_class,
-          evaluation_phase: gate.evaluation_phase ?? classification.evaluation_phase,
-        });
+
+        const result = DEVICE_ENVIRONMENT_GATE_CODES.has(gate.code)
+          ? await this.evaluateDeviceEnvironmentGate(gate)
+          : {
+              code: gate.code,
+              status: gate.required ? "unknown" : "not_required",
+              threshold_number: gate.threshold_number,
+              gate_class: gate.gate_class ?? classification.gate_class,
+              evaluation_phase: gate.evaluation_phase ?? classification.evaluation_phase,
+              required: gate.required,
+              fallback_eligible: gate.fallback_eligible,
+            } satisfies GateResult;
+
+        gateResults.push(result);
+        if (gate.required && result.status === "failed") {
+          return {
+            index: idx,
+            locality: "local",
+            mode: "sdk_runtime",
+            engine,
+            artifact: artifactInfo,
+            status: "failed",
+            stage: "gate",
+            gate_results: gateResults,
+            reason: {
+              code: "gate_failed",
+              message: `${gate.code} gate failed`,
+            },
+          };
+        }
       }
     }
 
@@ -989,6 +1017,94 @@ export class BrowserAttemptRunner {
   // -----------------------------------------------------------------------
   // Private: external_endpoint evaluation
   // -----------------------------------------------------------------------
+
+  private async evaluateDeviceEnvironmentGate(
+    gate: CandidateGate,
+  ): Promise<GateResult> {
+    const classification = classifyGate(gate.code);
+    const base: Pick<
+      GateResult,
+      | "code"
+      | "threshold_number"
+      | "gate_class"
+      | "evaluation_phase"
+      | "required"
+      | "fallback_eligible"
+    > = {
+      code: gate.code,
+      threshold_number: gate.threshold_number,
+      gate_class: gate.gate_class ?? classification.gate_class,
+      evaluation_phase: gate.evaluation_phase ?? classification.evaluation_phase,
+      required: gate.required,
+      fallback_eligible: gate.fallback_eligible,
+    };
+
+    const unavailable = (reasonCode: string): GateResult => ({
+      ...base,
+      status: gate.required ? "failed" : "unknown",
+      reason_code: gate.required ? reasonCode : null,
+    });
+
+    if (gate.code === "require_wifi") {
+      const nav = globalThis.navigator as
+        | (Navigator & { connection?: { type?: string } })
+        | undefined;
+      const networkType = nav?.connection?.type ?? "unknown";
+      if (networkType === "unknown") {
+        return unavailable("network_state_unavailable");
+      }
+      return {
+        ...base,
+        status: networkType === "wifi" ? "passed" : "failed",
+        observed_string: networkType,
+        reason_code: networkType === "wifi" ? null : "wifi_required",
+      };
+    }
+
+    const nav = globalThis.navigator as
+      | (Navigator & {
+          getBattery?: () => Promise<{ level?: number; charging?: boolean }>;
+        })
+      | undefined;
+    if (gate.code === "min_battery_pct") {
+      if (typeof gate.threshold_number !== "number") {
+        return unavailable("threshold_missing");
+      }
+      if (!nav?.getBattery) {
+        return unavailable("device_metric_unavailable");
+      }
+      const battery = await nav.getBattery();
+      if (typeof battery.level !== "number") {
+        return unavailable("device_metric_unavailable");
+      }
+      const observedPct = battery.level * 100;
+      const passed = observedPct >= gate.threshold_number;
+      return {
+        ...base,
+        status: passed ? "passed" : "failed",
+        observed_number: observedPct,
+        reason_code: passed ? null : "battery_below_threshold",
+      };
+    }
+
+    if (gate.code === "require_charging") {
+      if (!nav?.getBattery) {
+        return unavailable("device_metric_unavailable");
+      }
+      const battery = await nav.getBattery();
+      if (typeof battery.charging !== "boolean") {
+        return unavailable("device_metric_unavailable");
+      }
+      return {
+        ...base,
+        status: battery.charging ? "passed" : "failed",
+        observed_string: battery.charging ? "charging" : "not_charging",
+        reason_code: battery.charging ? null : "device_not_charging",
+      };
+    }
+
+    return unavailable("device_metric_unavailable");
+  }
 
   // -----------------------------------------------------------------------
   // Private: post-inference output quality gate evaluation
