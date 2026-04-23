@@ -48,8 +48,8 @@ describe("OctomilClient.predictStream", () => {
       "fetch",
       vi.fn().mockResolvedValue(
         sseTokenResponse([
-          { token: "The", done: false, provider: "ollama" },
-          { token: " answer", done: false, provider: "ollama" },
+          { token: "The", done: false, provider: "cloud" },
+          { token: " answer", done: false, provider: "cloud" },
           { done: true, latency_ms: 42.5, session_id: "abc-123" },
         ]),
       ),
@@ -64,7 +64,7 @@ describe("OctomilClient.predictStream", () => {
     expect(tokens[0]).toEqual({
       token: "The",
       done: false,
-      provider: "ollama",
+      provider: "cloud",
       latencyMs: undefined,
       sessionId: undefined,
     });
