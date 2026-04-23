@@ -43,7 +43,7 @@ export type AttemptStatus = "skipped" | "failed" | "selected";
 
 export type GateStatus = "passed" | "failed" | "unknown" | "not_required";
 
-// 18 gate codes from the contract
+// 22 gate codes from the contract
 export type GateCode =
   | "artifact_verified"
   | "runtime_available"
@@ -57,6 +57,10 @@ export type GateCode =
   | "min_free_memory_bytes"
   | "min_free_storage_bytes"
   | "benchmark_fresh"
+  | "min_battery_pct"
+  | "max_thermal_state"
+  | "require_charging"
+  | "require_wifi"
   | "schema_valid"
   | "tool_call_valid"
   | "safety_passed"
@@ -183,6 +187,10 @@ export const GATE_CLASSIFICATION: Record<
   min_free_memory_bytes: { gate_class: "performance", evaluation_phase: "pre_inference", blocking_default: true },
   min_free_storage_bytes: { gate_class: "performance", evaluation_phase: "pre_inference", blocking_default: true },
   benchmark_fresh: { gate_class: "performance", evaluation_phase: "pre_inference", blocking_default: false },
+  min_battery_pct: { gate_class: "performance", evaluation_phase: "pre_inference", blocking_default: false },
+  max_thermal_state: { gate_class: "performance", evaluation_phase: "pre_inference", blocking_default: false },
+  require_charging: { gate_class: "performance", evaluation_phase: "pre_inference", blocking_default: false },
+  require_wifi: { gate_class: "readiness", evaluation_phase: "pre_inference", blocking_default: true },
   schema_valid: { gate_class: "output_quality", evaluation_phase: "post_inference", blocking_default: true },
   tool_call_valid: { gate_class: "output_quality", evaluation_phase: "post_inference", blocking_default: true },
   safety_passed: { gate_class: "output_quality", evaluation_phase: "post_inference", blocking_default: true },
