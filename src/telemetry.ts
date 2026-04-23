@@ -412,12 +412,12 @@ export class TelemetryReporter {
 
     // Flatten the route event into OTLP-compatible flat attributes.
     const attrs: Record<string, string | number | boolean> = {
-      "route.id": sanitized.route_id,
-      "route.plan_id": sanitized.plan_id,
-      "route.request_id": sanitized.request_id,
-      "route.capability": sanitized.capability,
-      "route.policy": sanitized.policy,
-      "route.planner_source": sanitized.planner_source,
+      "route.id": sanitized.route_id ?? "",
+      "route.plan_id": sanitized.plan_id ?? "",
+      "route.request_id": sanitized.request_id ?? "",
+      "route.capability": sanitized.capability ?? "",
+      "route.policy": sanitized.policy ?? "",
+      "route.planner_source": sanitized.planner_source ?? "",
       "route.final_locality": sanitized.final_locality ?? "",
       "route.selected_locality": sanitized.selected_locality ?? "",
       "route.final_mode": sanitized.final_mode ?? "",

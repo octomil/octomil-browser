@@ -802,6 +802,8 @@ export class ResponsesClient {
       },
     };
 
+    const attempts = decision.routeMetadata.attempts ?? [];
+
     return {
       ...decision.routeMetadata,
       status: "selected",
@@ -820,7 +822,7 @@ export class ResponsesClient {
           message,
         },
       },
-      attempts: decision.routeMetadata.attempts
+      attempts: attempts
         .map((attempt) =>
           attempt.index === failedAttempt.index ? failedAttempt : attempt,
         )
@@ -851,6 +853,8 @@ export class ResponsesClient {
       return;
     }
 
+    const attempts = route.attempts ?? [];
+
     this.telemetry.reportRouteEvent({
       ...routeEvent,
       final_locality: route.execution?.locality ?? null,
@@ -859,10 +863,11 @@ export class ResponsesClient {
       engine: route.execution?.engine ?? null,
       fallback_used: route.fallback.used,
       fallback_trigger_code: route.fallback.trigger?.code ?? null,
-      fallback_trigger_stage: route.fallback.trigger?.stage ?? null,
-      candidate_attempts: route.attempts.length,
-      attempt_details: route.attempts.map((attempt) =>
-        buildAttemptDetail(attempt),
+      fallback_trigger_stage: route.fallback.trigger
+        ?.stage as BrowserRouteEvent["fallback_trigger_stage"],
+      candidate_attempts: attempts.length,
+      attempt_details: attempts.map((attempt) =>
+        buildAttemptDetail(attempt as Parameters<typeof buildAttemptDetail>[0]),
       ),
       app_id: routeEvent.app_id ?? this.deviceContext?.appId ?? undefined,
     });
@@ -885,7 +890,7 @@ export class ResponsesClient {
     if (route) {
       attrs["route.status"] = route.status;
       attrs["route.fallback_used"] = route.fallback.used;
-      attrs["route.attempts"] = route.attempts.length;
+      attrs["route.attempts"] = route.attempts?.length ?? 0;
     }
     if (routeEvent?.route_id) {
       attrs["route.id"] = routeEvent.route_id;

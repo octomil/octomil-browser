@@ -28,7 +28,6 @@ import {
   type EndpointChecker,
   type RuntimeChecker,
   type ArtifactChecker,
-  type RouteAttempt,
 } from "../attempt-runner.js";
 import { parseModelRef, type ModelRef } from "./model-ref.js";
 import {
@@ -36,7 +35,12 @@ import {
   generateCorrelationId,
   type BrowserRouteEvent,
 } from "./route-event.js";
-import type { RouteMetadata as ContractRouteMetadata } from "../../planner/types.js";
+import type {
+  RouteMetadata,
+  RouteEvent,
+} from "../../_generated/runtime_planner_types.js";
+
+export type { RouteMetadata } from "../../_generated/runtime_planner_types.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -75,54 +79,6 @@ export interface PlannerResult {
 }
 
 /**
- * Route metadata attached to every response. Consumers can inspect this
- * to understand how a request was routed.
- *
- * @deprecated Use {@link CanonicalRouteMetadata} (the contract-backed nested shape
- * from `planner/types.ts`) instead. This shape is retained for backward
- * compatibility. Access the canonical shape via
- * `BrowserRoutingDecision.canonicalMetadata`.
- */
-export interface RouteMetadata {
-  /** Overall status: "selected" if a route was found, "unavailable" or "failed" otherwise */
-  status: "selected" | "unavailable" | "failed";
-  /** The execution details of the selected route */
-  execution: {
-    locality: "local" | "cloud";
-    mode: "sdk_runtime" | "hosted_gateway" | "external_endpoint";
-    engine: string | null;
-  } | null;
-  /** Parsed model reference */
-  model: {
-    requested: {
-      ref: string;
-      kind: string;
-      capability: string;
-    };
-  };
-  /** Planner source info — canonical: "server" | "cache" | "offline" */
-  planner: { source: "server" | "cache" | "offline" };
-  /** Fallback info */
-  fallback: {
-    used: boolean;
-    from_attempt: number | null;
-    to_attempt: number | null;
-    trigger: { code: string; stage: string; message: string } | null;
-  };
-  /** All evaluated attempts */
-  attempts: RouteAttempt[];
-}
-
-/**
- * Contract-backed canonical route metadata shape.
- *
- * Re-export from planner/types.ts for convenience. This is the canonical
- * nested shape defined in octomil-contracts, shared across all SDKs.
- * Prefer this over the deprecated runtime {@link RouteMetadata}.
- */
-export type CanonicalRouteMetadata = ContractRouteMetadata;
-
-/**
  * The resolved routing decision, including the endpoint to call,
  * metadata, and the attempt loop result.
  */
@@ -139,13 +95,8 @@ export interface BrowserRoutingDecision {
   engine: string | null;
   /** For sdk_runtime: artifact info for model loading */
   artifact: CandidatePlan["artifact"] | null;
-  /**
-   * Route metadata for attaching to the response.
-   * @deprecated Use {@link canonicalMetadata} instead.
-   */
+  /** Contract-generated route metadata for attaching to the response. */
   routeMetadata: RouteMetadata;
-  /** Contract-backed canonical route metadata (nested shape). */
-  canonicalMetadata: CanonicalRouteMetadata;
   /** The plan used to make this decision */
   plan: PlannerResult;
   /** The raw attempt loop result from the BrowserAttemptRunner */
@@ -269,7 +220,6 @@ export class BrowserRequestRouter {
         engine: null,
         artifact: null,
         routeMetadata,
-        canonicalMetadata: this.buildCanonicalMetadata(ctx, modelRef, attemptResult),
         plan,
         attemptResult,
         modelRef,
@@ -321,7 +271,6 @@ export class BrowserRequestRouter {
       engine,
       artifact,
       routeMetadata,
-      canonicalMetadata: this.buildCanonicalMetadata(ctx, modelRef, attemptResult),
       plan,
       attemptResult,
       modelRef,
@@ -425,7 +374,7 @@ export class BrowserRequestRouter {
       model: {
         requested: {
           ref: modelRef.raw,
-          kind: modelRef.kind,
+          kind: modelRef.kind as RouteMetadata["model"]["requested"]["kind"],
           capability: ctx.capability,
         },
       },
@@ -436,36 +385,7 @@ export class BrowserRequestRouter {
         to_attempt: attemptResult.toAttempt,
         trigger: attemptResult.fallbackTrigger,
       },
-      attempts: attemptResult.attempts,
-    };
-  }
-
-  private buildCanonicalMetadata(
-    ctx: BrowserRoutingContext,
-    modelRef: ModelRef,
-    attemptResult: AttemptLoopResult,
-  ): CanonicalRouteMetadata {
-    const selected = attemptResult.selectedAttempt;
-    return {
-      status: selected ? "selected" : "unavailable",
-      execution: selected
-        ? {
-            locality: selected.locality as "local" | "cloud",
-            mode: selected.mode as "sdk_runtime" | "hosted_gateway" | "external_endpoint",
-            engine: selected.engine ?? null,
-          }
-        : null,
-      model: {
-        requested: {
-          ref: modelRef.raw,
-          kind: modelRef.kind as CanonicalRouteMetadata["model"]["requested"]["kind"],
-          capability: ctx.capability ?? null,
-        },
-        resolved: null,
-      },
-      artifact: null,
-      planner: { source: ctx.cachedPlan ? "server" : "offline" },
-      fallback: { used: attemptResult.fallbackUsed },
+      attempts: attemptResult.attempts as RouteMetadata["attempts"],
       reason: {
         code: selected ? "ok" : "no_candidate",
         message: selected?.reason.message ?? "no viable route",
@@ -480,8 +400,8 @@ export class BrowserRequestRouter {
     modelRef: ModelRef,
     plan: PlannerResult,
     attemptResult: AttemptLoopResult,
-    finalLocality: string | null,
-    finalMode: string | null,
+    finalLocality: RouteEvent["final_locality"],
+    finalMode: RouteEvent["final_mode"],
   ): BrowserRouteEvent {
     const event: BrowserRouteEvent = {
       route_id: routeId,
@@ -496,10 +416,12 @@ export class BrowserRequestRouter {
       engine: attemptResult.selectedAttempt?.engine ?? null,
       artifact_id: attemptResult.selectedAttempt?.artifact?.id ?? null,
       cache_status:
-        attemptResult.selectedAttempt?.artifact?.cache.status ?? "not_applicable",
+        (attemptResult.selectedAttempt?.artifact?.cache.status ??
+          "not_applicable") as RouteEvent["cache_status"],
       fallback_used: attemptResult.fallbackUsed,
       fallback_trigger_code: attemptResult.fallbackTrigger?.code ?? null,
-      fallback_trigger_stage: attemptResult.fallbackTrigger?.stage ?? null,
+      fallback_trigger_stage:
+        attemptResult.fallbackTrigger?.stage as RouteEvent["fallback_trigger_stage"],
       candidate_attempts: attemptResult.attempts.length,
       attempt_details: attemptResult.attempts.map((attempt) =>
         buildAttemptDetail(attempt),
@@ -508,7 +430,7 @@ export class BrowserRequestRouter {
 
     // Model ref metadata — always populated
     event.model_ref = modelRef.raw;
-    event.model_ref_kind = modelRef.kind;
+    event.model_ref_kind = modelRef.kind as RouteEvent["model_ref_kind"];
 
     // Add ref-specific fields
     if (modelRef.kind === "app" && modelRef.appSlug) {
