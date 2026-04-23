@@ -117,6 +117,26 @@ export interface BrowserRouteEvent {
   /** Cache status for the route decision: "hit" | "miss" | "not_applicable" */
   cache_status?: string;
 
+  // -- Output quality telemetry --
+
+  /** Name of the output quality evaluator that ran, if any */
+  quality_evaluator_name?: string;
+  /** Score from the evaluator, if any */
+  quality_score?: number;
+  /** Reason code from the evaluator, if any */
+  quality_reason_code?: string;
+  /** Non-blocking gate failures (advisory gates that failed but didn't disqualify) */
+  advisory_failures?: Array<{
+    code: string;
+    gate_class: string;
+    observed?: number;
+    threshold?: number;
+  }>;
+  /** Count of gate failures across all attempts */
+  gate_failure_count?: number;
+  /** Whether output was visible before the failure that triggered fallback */
+  output_visible_before_failure?: boolean;
+
   // -- Optional correlation identifiers --
 
   /** App slug when the model ref is an app reference */
