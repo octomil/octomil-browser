@@ -468,7 +468,7 @@ export class BrowserRequestRouter {
       fallback: { used: attemptResult.fallbackUsed },
       reason: {
         code: selected ? "ok" : "no_candidate",
-        message: selected?.reason ?? "no viable route",
+        message: selected?.reason.message ?? "no viable route",
       },
     };
   }
