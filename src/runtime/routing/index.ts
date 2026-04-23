@@ -5,7 +5,6 @@ export {
 export type {
   BrowserRoutingContext,
   BrowserRoutingDecision,
-  CanonicalRouteMetadata,
   PlannerResult,
   RouteMetadata,
 } from "./request-router.js";

@@ -145,8 +145,8 @@ describe("Output quality gates — gate classification", () => {
     expect(result.blocking_default).toBe(true);
   });
 
-  it("GATE_CLASSIFICATION covers all 18 gate codes", () => {
-    expect(Object.keys(GATE_CLASSIFICATION)).toHaveLength(18);
+  it("GATE_CLASSIFICATION covers all 22 gate codes", () => {
+    expect(Object.keys(GATE_CLASSIFICATION)).toHaveLength(22);
   });
 });
 
