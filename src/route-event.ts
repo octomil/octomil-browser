@@ -11,6 +11,10 @@
  */
 
 import type { RouteAttempt } from "./runtime/attempt-runner.js";
+import type {
+  RouteEvent,
+  RouteEventAttemptDetail,
+} from "./_generated/runtime_planner_types.js";
 
 // ---------------------------------------------------------------------------
 // Banned payload keys -- stripped before upload, no exceptions
@@ -49,87 +53,13 @@ export interface GateSummary {
   failed: string[];
 }
 
-/**
- * Privacy-safe summary of a single candidate attempt.
- * No prompt/output/content data -- only structural routing metadata.
- */
-export interface RouteAttemptDetail {
-  index: number;
-  locality: string;
-  mode: string;
-  engine: string | null;
-  status: string;
-  stage: string;
-  gate_summary: GateSummary;
-  reason_code: string;
-}
+export type RouteAttemptDetail = RouteEventAttemptDetail;
 
 // ---------------------------------------------------------------------------
 // BrowserRouteEvent -- canonical cross-SDK route event
 // ---------------------------------------------------------------------------
 
-/**
- * Telemetry payload for a routing decision.
- *
- * Safe for upload -- contains only structural metadata, never user content.
- * All SDKs (Python, Node, iOS, Android, Browser) emit this same shape.
- */
-export interface BrowserRouteEvent {
-  /** Unique id for this route decision */
-  route_id: string;
-  /** Unique id for the routing plan that produced this decision */
-  plan_id: string;
-  /** Correlation id for the originating request */
-  request_id: string;
-  /** The capability used (e.g. "chat", "embeddings", "transcriptions") */
-  capability: string;
-  /** Routing policy that was in effect */
-  policy: string;
-  /** Source of the planner result — canonical: "server" | "cache" | "offline" */
-  planner_source: string;
-  /** Final locality chosen: "local" or "cloud", null if unavailable */
-  final_locality: string | null;
-  /** Alias for final_locality used by cross-SDK monitoring queries. */
-  selected_locality: string | null;
-  /** Final execution mode: sdk_runtime, hosted_gateway, external_endpoint, or null. */
-  final_mode: string | null;
-  /** Final engine used, null for cloud */
-  engine: string | null;
-  /** Artifact id if a local artifact was used, null otherwise */
-  artifact_id: string | null;
-  /** Whether fallback was used */
-  fallback_used: boolean;
-  /** The trigger code if fallback was used */
-  fallback_trigger_code: string | null;
-  /** The stage at which fallback was triggered */
-  fallback_trigger_stage: string | null;
-  /** Number of candidate attempts evaluated */
-  candidate_attempts: number;
-  /** Structured details for each attempt -- privacy safe */
-  attempt_details: RouteAttemptDetail[];
-
-  // -- Model ref metadata --
-
-  /** Raw model string the user passed */
-  model_ref?: string;
-  /** Canonical model ref kind: model|app|capability|deployment|experiment|alias|default|unknown */
-  model_ref_kind?: string;
-  /** Cache status for the route decision: "hit" | "miss" | "not_applicable" */
-  cache_status?: string;
-
-  // -- Optional correlation identifiers --
-
-  /** App slug when the model ref is an app reference */
-  app_slug?: string;
-  /** App id when browser auth or request context is app-scoped */
-  app_id?: string;
-  /** Deployment id when the model ref is a deployment reference */
-  deployment_id?: string;
-  /** Experiment id when the model ref is an experiment reference */
-  experiment_id?: string;
-  /** Variant id when the model ref is an experiment variant */
-  variant_id?: string;
-}
+export type BrowserRouteEvent = RouteEvent;
 
 // ---------------------------------------------------------------------------
 // Builder helpers
@@ -152,11 +82,11 @@ export function buildAttemptDetail(attempt: RouteAttempt): RouteAttemptDetail {
 
   return {
     index: attempt.index,
-    locality: attempt.locality,
-    mode: attempt.mode,
+    locality: attempt.locality as RouteAttemptDetail["locality"],
+    mode: attempt.mode as RouteAttemptDetail["mode"],
     engine: attempt.engine,
-    status: attempt.status,
-    stage: attempt.stage,
+    status: attempt.status as RouteAttemptDetail["status"],
+    stage: attempt.stage as RouteAttemptDetail["stage"],
     gate_summary: { passed, failed },
     reason_code: attempt.reason.code,
   };
