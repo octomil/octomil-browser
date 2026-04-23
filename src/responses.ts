@@ -22,6 +22,10 @@ import {
   type RouteMetadata,
 } from "./runtime/routing/request-router.js";
 import {
+  EvaluatorRegistry,
+  RegistryBackedEvaluator,
+} from "./runtime/evaluators.js";
+import {
   buildAttemptDetail,
   type BrowserRouteEvent,
 } from "./runtime/routing/route-event.js";
@@ -177,44 +181,24 @@ export class ResponsesClient {
    */
   async create(request: ResponseRequest): Promise<Response> {
     const localRuntime = this.resolveLocalRuntime(request.model);
-    const decision = await this.resolveRoute(request, false, localRuntime);
+    const decision = await this.resolveRouteWithInference(request, localRuntime);
     if (!decision.mode) {
       throw new OctomilError(
         "NETWORK_UNAVAILABLE",
-        "No response route succeeded",
+        decision.attemptResult.error instanceof Error
+          ? decision.attemptResult.error.message
+          : "No response route succeeded",
       );
     }
 
-    if (decision.locality === "cloud") {
-      return this.createCloud(request, decision.routeMetadata, decision.routeEvent);
+    if (!decision.value) {
+      throw new OctomilError("NETWORK_UNAVAILABLE", "No response route succeeded");
     }
 
-    if (!localRuntime) {
-      throw new OctomilError(
-        "NETWORK_UNAVAILABLE",
-        "No browser-local runtime is configured",
-      );
-    }
-
-    try {
-      return await this.createLocal(
-        request,
-        localRuntime,
-        decision.routeMetadata,
-        decision.routeEvent,
-      );
-    } catch (error) {
-      const fallbackRoute = this.buildFallbackRouteMetadata(
-        decision,
-        error,
-        false,
-        false,
-      );
-      if (!fallbackRoute) {
-        throw error;
-      }
-      return this.createCloud(request, fallbackRoute, decision.routeEvent);
-    }
+    const response = this.attachRoute(decision.value, decision.routeMetadata);
+    this.reportRouteDecision(decision.routeMetadata, decision.routeEvent);
+    this.cacheResponse(response);
+    return response;
   }
 
   private async createCloud(
@@ -700,6 +684,74 @@ export class ResponsesClient {
         : undefined,
       routingPolicy: policy,
     });
+  }
+
+  private async resolveRouteWithInference(
+    request: ResponseRequest,
+    localRuntime: LocalResponsesRuntime | null,
+  ): Promise<BrowserRoutingDecision<Response>> {
+    const router = new BrowserRequestRouter({
+      serverUrl: this.serverUrl,
+      runtimeChecker: localRuntime ? INJECTED_LOCAL_RUNTIME_CHECKER : null,
+    });
+    const policy =
+      request.metadata?.routing_policy ?? request.metadata?.routingPolicy;
+
+    return router.resolveWithInference<Response>(
+      {
+        model: request.model,
+        capability: "chat",
+        streaming: false,
+        cachedPlan: localRuntime
+          ? this.buildLocalRuntimePlan(localRuntime, policy)
+          : undefined,
+        routingPolicy: policy,
+      },
+      async (candidate) => {
+        if (candidate.locality === "cloud") {
+          return this.createCloud(request);
+        }
+        if (!localRuntime) {
+          throw new OctomilError(
+            "NETWORK_UNAVAILABLE",
+            "No browser-local runtime is configured",
+          );
+        }
+        return this.createLocal(request, localRuntime);
+      },
+      {
+        outputQualityEvaluator: this.outputQualityEvaluatorForRequest(request),
+      },
+    );
+  }
+
+  private outputQualityEvaluatorForRequest(
+    request: ResponseRequest,
+  ): RegistryBackedEvaluator {
+    return new RegistryBackedEvaluator(
+      EvaluatorRegistry.withDefaults({
+        jsonSchema: this.parseJsonSchemaMetadata(request),
+      }),
+    );
+  }
+
+  private parseJsonSchemaMetadata(
+    request: ResponseRequest,
+  ): Record<string, unknown> | null {
+    const raw =
+      request.metadata?.json_schema ??
+      request.metadata?.jsonSchema ??
+      request.metadata?.response_schema ??
+      request.metadata?.responseSchema;
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : null;
+    } catch {
+      return null;
+    }
   }
 
   private buildLocalRuntimePlan(

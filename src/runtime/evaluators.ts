@@ -484,9 +484,8 @@ export type SafetyCheckFn = (
  * Adapter stub for app-provided safety evaluation.
  *
  * This evaluator does NOT implement a classifier itself. It delegates to
- * an app-provided `check` callback. If no callback is provided, it passes
- * by default (fail-open for advisory, fail-closed handled by the runner
- * when no evaluator is registered).
+ * an app-provided `check` callback. If no callback is provided, it fails
+ * closed so required `safety_passed` gates cannot accidentally pass.
  *
  * Maps to gate code `safety_passed`.
  */
@@ -505,7 +504,7 @@ export class SafetyPassedEvaluator implements OutputQualityEvaluator {
   }): Promise<EvaluatorResult> {
     if (this._check === null) {
       return {
-        passed: true,
+        passed: false,
         reason_code: "no_safety_checker_configured",
         safe_metadata: { evaluator_name: this.name },
       };
@@ -583,10 +582,12 @@ export class EvaluatorRegistry {
       new JsonSchemaEvaluator({ defaultSchema: opts?.jsonSchema ?? null }),
     );
     reg.register("tool_call_valid", new ToolCallValidEvaluator());
-    reg.register(
-      "safety_passed",
-      new SafetyPassedEvaluator({ check: opts?.safetyCheck ?? null }),
-    );
+    if (opts?.safetyCheck) {
+      reg.register(
+        "safety_passed",
+        new SafetyPassedEvaluator({ check: opts.safetyCheck }),
+      );
+    }
     if (opts?.regexPattern !== undefined) {
       reg.register(
         "evaluator_score_min",

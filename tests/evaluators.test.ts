@@ -646,14 +646,14 @@ describe("RegexPredicateEvaluator", () => {
 // ---------------------------------------------------------------------------
 
 describe("SafetyPassedEvaluator", () => {
-  it("passes by default when no check configured", async () => {
+  it("fails closed when no check configured", async () => {
     const evaluator = new SafetyPassedEvaluator();
     const result = await evaluator.evaluate({
       request: null,
       response: "some output",
       gate: gate("safety_passed"),
     });
-    expect(result.passed).toBe(true);
+    expect(result.passed).toBe(false);
     expect(result.reason_code).toBe("no_safety_checker_configured");
   });
 
@@ -755,11 +755,16 @@ describe("EvaluatorRegistry", () => {
     expect(reg.get("unknown_code")).toBeUndefined();
   });
 
-  it("withDefaults registers built-in evaluators", () => {
+  it("withDefaults registers safe built-in evaluators", () => {
     const reg = EvaluatorRegistry.withDefaults();
     expect(reg.get("json_parseable")).toBeInstanceOf(JsonParseableEvaluator);
     expect(reg.get("schema_valid")).toBeInstanceOf(JsonSchemaEvaluator);
     expect(reg.get("tool_call_valid")).toBeInstanceOf(ToolCallValidEvaluator);
+    expect(reg.get("safety_passed")).toBeUndefined();
+  });
+
+  it("withDefaults registers safety evaluator only when a check is provided", () => {
+    const reg = EvaluatorRegistry.withDefaults({ safetyCheck: () => true });
     expect(reg.get("safety_passed")).toBeInstanceOf(SafetyPassedEvaluator);
   });
 
