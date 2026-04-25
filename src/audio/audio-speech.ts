@@ -1,0 +1,93 @@
+/**
+ * AudioSpeech — hosted text-to-speech for the browser SDK.
+ *
+ * Mirrors OpenAI's ``client.audio.speech.create(...)`` shape. Posts to the
+ * server's ``/v1/audio/speech`` endpoint and returns the raw audio bytes
+ * as a Blob plus Octomil routing metadata surfaced via ``X-Octomil-*``
+ * response headers.
+ */
+
+import { OctomilError } from "../types.js";
+
+const SPEECH_PATH = "/audio/speech";
+
+export interface SpeechCreateRequest {
+  model: string;
+  input: string;
+  voice?: string;
+  responseFormat?: "mp3" | "wav" | "ogg" | "opus" | "flac" | "aac" | "pcm";
+  speed?: number;
+}
+
+export interface SpeechResponse {
+  audio: Blob;
+  contentType: string;
+  provider?: string;
+  model?: string;
+  latencyMs?: number;
+  billedUnits?: number;
+  unitKind?: string;
+}
+
+export class AudioSpeech {
+  private readonly serverUrl: string;
+  private readonly apiKey: string;
+
+  constructor(serverUrl: string, apiKey: string) {
+    this.serverUrl = serverUrl.replace(/\/+$/, "");
+    this.apiKey = apiKey;
+  }
+
+  async create(request: SpeechCreateRequest): Promise<SpeechResponse> {
+    if (!request.input || !request.input.trim()) {
+      throw new OctomilError(
+        "INVALID_INPUT",
+        "`input` must be a non-empty string.",
+      );
+    }
+
+    const body = {
+      model: request.model,
+      input: request.input,
+      voice: request.voice,
+      response_format: request.responseFormat ?? "mp3",
+      speed: request.speed ?? 1.0,
+    };
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (this.apiKey) {
+      headers["Authorization"] = `Bearer ${this.apiKey}`;
+    }
+
+    const resp = await fetch(this.serverUrl + SPEECH_PATH, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => "");
+      throw OctomilError.fromHttpStatus(
+        resp.status,
+        `Hosted speech request failed: ${resp.status} ${resp.statusText}: ${text.slice(0, 500)}`,
+      );
+    }
+
+    const blob = await resp.blob();
+    const latencyRaw = resp.headers.get("x-octomil-latency-ms");
+    const billedRaw = resp.headers.get("x-octomil-billed-units");
+
+    return {
+      audio: blob,
+      contentType:
+        resp.headers.get("content-type") ?? "application/octet-stream",
+      provider: resp.headers.get("x-octomil-provider") ?? undefined,
+      model: resp.headers.get("x-octomil-model") ?? request.model,
+      latencyMs: latencyRaw != null ? Number(latencyRaw) : undefined,
+      billedUnits: billedRaw != null ? Number(billedRaw) : undefined,
+      unitKind: resp.headers.get("x-octomil-unit-kind") ?? undefined,
+    };
+  }
+}
