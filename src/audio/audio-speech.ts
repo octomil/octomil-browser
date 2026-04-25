@@ -9,7 +9,7 @@
 
 import { OctomilError } from "../types.js";
 
-const SPEECH_PATH = "/audio/speech";
+const SPEECH_PATH = "/v1/audio/speech";
 
 export interface SpeechCreateRequest {
   model: string;
@@ -61,11 +61,22 @@ export class AudioSpeech {
       headers["Authorization"] = `Bearer ${this.apiKey}`;
     }
 
-    const resp = await fetch(this.serverUrl + SPEECH_PATH, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-    });
+    let resp: Response;
+    try {
+      resp = await fetch(this.serverUrl + SPEECH_PATH, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+      });
+    } catch (cause) {
+      // Offline / CORS / DNS / connection abort — convert to a stable
+      // network error. Without this the caller sees a raw TypeError.
+      throw new OctomilError(
+        "NETWORK_UNAVAILABLE",
+        `Hosted speech network failure: ${(cause as Error)?.message ?? cause}`,
+        cause,
+      );
+    }
 
     if (!resp.ok) {
       const text = await resp.text().catch(() => "");
