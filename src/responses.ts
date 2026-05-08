@@ -4,6 +4,7 @@
  */
 
 import { OctomilError } from "./types.js";
+import { resolveHostUrl } from "./profile.js";
 import type { TelemetryReporter } from "./telemetry.js";
 import type { DeviceContext } from "./device-context.js";
 import type {
@@ -169,7 +170,7 @@ export class ResponsesClient {
   private readonly MAX_CACHE = 100;
 
   constructor(options: ResponsesClientOptions = {}) {
-    this.serverUrl = options.serverUrl || "https://api.octomil.com";
+    this.serverUrl = resolveHostUrl({ baseUrl: options.serverUrl });
     this.apiKey = options.apiKey;
     this.telemetry = options.telemetry ?? null;
     this.deviceContext = options.deviceContext ?? null;

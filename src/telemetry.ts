@@ -10,6 +10,7 @@
  */
 
 import type { TelemetryEvent } from "./types.js";
+import { resolveHostUrl } from "./profile.js";
 import { TELEMETRY_EVENTS } from "./_generated/telemetry_events.js";
 import { OTLP_RESOURCE_ATTRIBUTES } from "./_generated/otlp_resource_attributes.js";
 import { getInstallId } from "./install-id.js";
@@ -22,7 +23,10 @@ import { stripForbiddenKeys } from "./route-event.js";
 
 const DEFAULT_FLUSH_INTERVAL_MS = 30_000; // 30 seconds
 const DEFAULT_MAX_BATCH_SIZE = 50;
-const DEFAULT_TELEMETRY_URL = "https://api.octomil.com/api/v2/telemetry/events";
+// Computed lazily so OCTOMIL_PROFILE flips the host at construction
+// time rather than at module load (matters for Vite where
+// import.meta.env is build-time substituted).
+const DEFAULT_TELEMETRY_PATH = "/api/v2/telemetry/events";
 const SDK_NAME = "browser";
 export const DEFAULT_SDK_VERSION = "1.0.0";
 
@@ -130,7 +134,7 @@ export class TelemetryReporter {
   private disposed = false;
 
   constructor(options: TelemetryReporterOptions = {}) {
-    this.url = options.url ?? DEFAULT_TELEMETRY_URL;
+    this.url = options.url ?? resolveHostUrl() + DEFAULT_TELEMETRY_PATH;
     this.flushIntervalMs =
       options.flushIntervalMs ?? DEFAULT_FLUSH_INTERVAL_MS;
     this.maxBatchSize = options.maxBatchSize ?? DEFAULT_MAX_BATCH_SIZE;

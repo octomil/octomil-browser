@@ -7,6 +7,7 @@
  */
 
 import { OctomilError } from "./types.js";
+import { resolveHostUrl } from "./profile.js";
 import type { ControlSyncResult } from "./types.js";
 import { SPAN_NAMES } from "./_generated/span_names.js";
 import { SPAN_ATTRIBUTES } from "./_generated/span_attributes.js";
@@ -163,7 +164,7 @@ export class ControlClient {
   private readonly telemetry: TelemetryReporter | null;
 
   constructor(options: ControlClientOptions) {
-    this.serverUrl = (options.serverUrl || "https://api.octomil.com").replace(
+    this.serverUrl = resolveHostUrl({ baseUrl: options.serverUrl }).replace(
       /\/+$/,
       "",
     );

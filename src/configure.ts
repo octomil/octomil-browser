@@ -7,6 +7,7 @@
  */
 
 import { DeviceContext } from "./device-context.js";
+import { resolveHostUrl } from "./profile.js";
 import {
   type SilentAuthConfig,
   validatePublishableKey,
@@ -95,7 +96,7 @@ async function silentRegister(
     options.auth?.type === "anonymous" ? null : options.auth?.orgId ?? null;
 
   try {
-    const baseUrl = options.baseUrl || "https://api.octomil.com";
+    const baseUrl = resolveHostUrl({ baseUrl: options.baseUrl });
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
@@ -194,7 +195,7 @@ function startHeartbeat(
     if (!headers) return;
 
     try {
-      const baseUrl = options.baseUrl || "https://api.octomil.com";
+      const baseUrl = resolveHostUrl({ baseUrl: options.baseUrl });
       if (!context.serverDeviceId) return;
       await fetch(
         `${baseUrl.replace(/\/+$/, "")}/api/v1/devices/${context.serverDeviceId}/heartbeat`,

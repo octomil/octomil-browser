@@ -8,6 +8,7 @@
  */
 
 import { ResponsesClient } from "./responses.js";
+import { resolveHostUrl } from "./profile.js";
 import type {
   ResponseRequest,
   Response,
@@ -158,7 +159,7 @@ export class Octomil {
 
     this._responses = new FacadeResponses(this.responsesClient);
     this._embeddings = new FacadeEmbeddings(
-      serverUrl ?? "https://api.octomil.com",
+      resolveHostUrl({ baseUrl: serverUrl }),
       resolvedApiKey,
     );
   }

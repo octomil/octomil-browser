@@ -1,4 +1,5 @@
 import { OctomilError } from "./types.js";
+import { resolveHostUrl } from "./profile.js";
 
 export interface ServerClientOptions {
   serverUrl?: string;
@@ -14,7 +15,7 @@ export class ServerApiClient {
   protected readonly orgId: string | undefined;
 
   constructor(options: ServerClientOptions = {}) {
-    this.serverUrl = (options.serverUrl ?? "https://api.octomil.com").replace(
+    this.serverUrl = resolveHostUrl({ baseUrl: options.serverUrl }).replace(
       /\/+$/,
       "",
     );
