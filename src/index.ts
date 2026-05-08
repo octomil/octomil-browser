@@ -22,6 +22,28 @@
 // Main class
 export { OctomilClient } from "./octomil.js";
 
+// Profile / environment selection — boot code calls
+// configureProfile({env: import.meta.env}) once to flip every SDK
+// constructor to staging in lockstep (codex R4 export gap).
+export {
+  Profile,
+  artifactBucketFor,
+  baseUrlForV1,
+  cacheNamespaceFor,
+  configureProfile,
+  hostUrlFor,
+  resolveBaseUrlV1,
+  resolveHostUrl,
+  resolveProfile,
+} from "./profile.js";
+export type {
+  ConfigureProfileOptions,
+  ProfileResolution,
+  ProfileSource,
+  ResolveBaseUrlOptions,
+  ResolveProfileOptions,
+} from "./profile.js";
+
 // Unified facade (cloud-backed responses, no model required at construction)
 export { Octomil, OctomilNotInitializedError, FacadeEmbeddings } from "./facade.js";
 export type { OctomilFacadeOptions } from "./facade.js";
