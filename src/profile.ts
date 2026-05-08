@@ -123,6 +123,38 @@ const HOST_INFERENCE_MARKERS: ReadonlyArray<[Profile, ReadonlySet<string>]> = [
 
 export type ProfileSource = "explicit" | "env" | "url_inferred" | "default";
 
+// Module-level profile/env cache. The browser SDK has no process.env
+// so callers MUST opt into staging by:
+//   1. Calling configureProfile({profile: "staging"}) at app boot, OR
+//   2. Calling configureProfile({env: import.meta.env}) — Vite/etc.
+// Without either, every resolveProfile() call defaults to production.
+// This is the only mechanism by which OCTOMIL_PROFILE flips browser
+// SDK defaults; the wiring sites pass no args so they read this cache.
+let _moduleProfile: string | undefined;
+let _moduleEnv: Record<string, string | undefined> | undefined;
+
+export interface ConfigureProfileOptions {
+  profile?: string;
+  env?: Record<string, string | undefined>;
+}
+
+/**
+ * Set a module-level profile / env that all subsequent
+ * `resolveProfile()` / `resolveHostUrl()` calls consult by default.
+ * Call once at app boot. Browser-only mechanism — the Node SDK reads
+ * `process.env` directly and does not need this.
+ */
+export function configureProfile(options: ConfigureProfileOptions): void {
+  _moduleProfile = options.profile;
+  _moduleEnv = options.env;
+}
+
+/** Test-only: reset the module-level cache. */
+export function _resetProfileCacheForTesting(): void {
+  _moduleProfile = undefined;
+  _moduleEnv = undefined;
+}
+
 export interface ProfileResolution {
   readonly profile: Profile;
   readonly source: ProfileSource;
@@ -184,11 +216,12 @@ export interface ResolveProfileOptions {
 export function resolveProfile(
   options: ResolveProfileOptions = {},
 ): ProfileResolution {
-  const env = options.env ?? {};
+  const env = options.env ?? _moduleEnv ?? {};
+  const explicitProfile = options.profile ?? _moduleProfile;
 
   // 1. Explicit argument wins.
-  if (options.profile && options.profile.trim() !== "") {
-    return { profile: profileFromString(options.profile), source: "explicit" };
+  if (explicitProfile && explicitProfile.trim() !== "") {
+    return { profile: profileFromString(explicitProfile), source: "explicit" };
   }
 
   // 2. OCTOMIL_PROFILE in env dict.

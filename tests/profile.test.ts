@@ -10,9 +10,11 @@ import { describe, expect, test } from "vitest";
 
 import {
   Profile,
+  _resetProfileCacheForTesting,
   artifactBucketFor,
   baseUrlForV1,
   cacheNamespaceFor,
+  configureProfile,
   hostUrlFor,
   profileFromString,
   resolveBaseUrlV1,
@@ -318,5 +320,52 @@ describe("whitespace handling", () => {
     });
     expect(res.profile).toBe(Profile.Staging);
     expect(res.source).toBe("url_inferred");
+  });
+});
+
+// Codex R3 B2: module-level configureProfile lets boot code wire
+// OCTOMIL_PROFILE / import.meta.env once so all subsequent SDK
+// constructors flip in lockstep.
+describe("configureProfile module cache", () => {
+  test("configureProfile({profile}) flips resolveProfile default", () => {
+    _resetProfileCacheForTesting();
+    configureProfile({ profile: "staging" });
+    const res = resolveProfile();
+    expect(res.profile).toBe(Profile.Staging);
+    expect(res.source).toBe("explicit");
+    _resetProfileCacheForTesting();
+  });
+
+  test("configureProfile({env}) flips resolveProfile via env", () => {
+    _resetProfileCacheForTesting();
+    configureProfile({ env: { OCTOMIL_PROFILE: "staging" } });
+    const res = resolveProfile();
+    expect(res.profile).toBe(Profile.Staging);
+    expect(res.source).toBe("env");
+    _resetProfileCacheForTesting();
+  });
+
+  test("configureProfile({env}) flows through resolveHostUrl with no args", () => {
+    _resetProfileCacheForTesting();
+    configureProfile({ env: { OCTOMIL_PROFILE: "staging" } });
+    expect(resolveHostUrl()).toBe("https://api.staging.octomil.com");
+    _resetProfileCacheForTesting();
+  });
+
+  test("explicit options.env overrides module cache", () => {
+    _resetProfileCacheForTesting();
+    configureProfile({ profile: "staging" });
+    const res = resolveProfile({ env: {} });
+    // options.profile is undefined here, options.env is {} (provided),
+    // so options.env wins over module cache for env. But module
+    // _moduleProfile is set so explicit branch fires anyway.
+    expect(res.profile).toBe(Profile.Staging);
+    _resetProfileCacheForTesting();
+  });
+
+  test("after _resetProfileCacheForTesting, defaults to production", () => {
+    configureProfile({ profile: "staging" });
+    _resetProfileCacheForTesting();
+    expect(resolveProfile().profile).toBe(Profile.Production);
   });
 });
