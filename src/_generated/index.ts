@@ -15,7 +15,3 @@ export { FinishReason } from "./finish_reason.js";
 export { CompatibilityLevel } from "./compatibility_level.js";
 export { OTLP_RESOURCE_ATTRIBUTES } from "./otlp_resource_attributes.js";
 export { KvCacheStrategy } from "./kv_cache_strategy.js";
-export {
-  TELEMETRY_EVENTS,
-  EVENT_REQUIRED_ATTRIBUTES,
-} from "./telemetry_events.js";

@@ -3,7 +3,6 @@
  */
 import { describe, expect, it } from "vitest";
 import { ErrorCode } from "../../src/_generated/error_code";
-import { TELEMETRY_EVENTS } from "../../src/_generated/telemetry_events";
 import {
   ArtifactsClient,
   ChatClient,
@@ -33,17 +32,6 @@ describe("Contract Conformance", () => {
       expect(codes).toContain("training_failed");
       expect(codes).toContain("training_not_supported");
       expect(codes).toContain("weight_upload_failed");
-    });
-  });
-
-  describe("Telemetry events", () => {
-    it("has all 6 canonical event names", () => {
-      expect(TELEMETRY_EVENTS.inferenceStarted).toBe("inference.started");
-      expect(TELEMETRY_EVENTS.inferenceCompleted).toBe("inference.completed");
-      expect(TELEMETRY_EVENTS.inferenceFailed).toBe("inference.failed");
-      expect(TELEMETRY_EVENTS.inferenceChunkProduced).toBe("inference.chunk_produced");
-      expect(TELEMETRY_EVENTS.deployStarted).toBe("deploy.started");
-      expect(TELEMETRY_EVENTS.deployCompleted).toBe("deploy.completed");
     });
   });
 

@@ -10,7 +10,6 @@
  */
 
 import type { TelemetryEvent } from "./types.js";
-import { TELEMETRY_EVENTS } from "./_generated/telemetry_events.js";
 import { OTLP_RESOURCE_ATTRIBUTES } from "./_generated/otlp_resource_attributes.js";
 import { getInstallId } from "./install-id.js";
 import type { BrowserRouteEvent } from "./route-event.js";
@@ -222,7 +221,7 @@ export class TelemetryReporter {
     attrs?: Record<string, string | number | boolean>,
   ): void {
     this.track(
-      this.makeEvent(TELEMETRY_EVENTS.inferenceStarted, {
+      this.makeEvent("inference.started", {
         "model.id": modelId,
         ...attrs,
       }),
@@ -235,7 +234,7 @@ export class TelemetryReporter {
     attrs?: Record<string, string | number | boolean>,
   ): void {
     this.track(
-      this.makeEvent(TELEMETRY_EVENTS.inferenceCompleted, {
+      this.makeEvent("inference.completed", {
         "model.id": modelId,
         "inference.duration_ms": durationMs,
         ...attrs,
@@ -249,7 +248,7 @@ export class TelemetryReporter {
     errorMessage: string,
   ): void {
     this.track(
-      this.makeEvent(TELEMETRY_EVENTS.inferenceFailed, {
+      this.makeEvent("inference.failed", {
         "model.id": modelId,
         "error.type": errorType,
         "error.message": errorMessage,
@@ -262,7 +261,7 @@ export class TelemetryReporter {
     attrs?: Record<string, string | number | boolean>,
   ): void {
     this.track(
-      this.makeEvent(TELEMETRY_EVENTS.inferenceChunkProduced, {
+      this.makeEvent("inference.chunk_produced", {
         "model.id": modelId,
         ...attrs,
       }),
@@ -280,7 +279,7 @@ export class TelemetryReporter {
     attrs?: Record<string, string | number | boolean>,
   ): void {
     this.track(
-      this.makeEvent(TELEMETRY_EVENTS.inferenceChunkProduced, {
+      this.makeEvent("inference.chunk_produced", {
         "model.id": modelId,
         "inference.chunk_index": chunkIndex,
         ...attrs,

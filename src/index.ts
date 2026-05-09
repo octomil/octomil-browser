@@ -418,8 +418,6 @@ export {
   FinishReason,
   CompatibilityLevel,
   OTLP_RESOURCE_ATTRIBUTES,
-  TELEMETRY_EVENTS,
-  EVENT_REQUIRED_ATTRIBUTES,
 } from "./_generated/index.js";
 
 // Helpers
