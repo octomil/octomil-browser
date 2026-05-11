@@ -846,6 +846,8 @@ export class ResponsesClient {
         {
           code: "runtime_available",
           status: "passed",
+          gate_class: "readiness",
+          evaluation_phase: "pre_inference",
         },
       ],
       reason: {
