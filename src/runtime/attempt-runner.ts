@@ -78,8 +78,8 @@ export interface GateResult {
   observed_number?: number;
   threshold_number?: number;
   reason_code?: string | null;
-  gate_class?: GateClass;
-  evaluation_phase?: EvaluationPhase;
+  gate_class: GateClass;
+  evaluation_phase: EvaluationPhase;
   required?: boolean;
   fallback_eligible?: boolean;
   observed_string?: string;
@@ -221,6 +221,18 @@ export function classifyGate(code: string): {
       blocking_default: true,
     }
   );
+}
+
+export function completeGateResult(
+  result: Omit<GateResult, "gate_class" | "evaluation_phase"> &
+    Partial<Pick<GateResult, "gate_class" | "evaluation_phase">>,
+): GateResult {
+  const classification = classifyGate(result.code);
+  return {
+    ...result,
+    gate_class: result.gate_class ?? classification.gate_class,
+    evaluation_phase: result.evaluation_phase ?? classification.evaluation_phase,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -456,11 +468,11 @@ export class BrowserAttemptRunner {
           status: "failed",
           stage: "prepare",
           gate_results: [
-            {
+            completeGateResult({
               code: "runtime_available",
               status: "failed",
               reason_code: gateReasonCode,
-            },
+            }),
           ],
           reason: {
             code: routeReasonCode,
@@ -488,10 +500,10 @@ export class BrowserAttemptRunner {
       // -----------------------------------------------------------------
       if (locality === "cloud") {
         const gateResults: GateResult[] = [
-          {
+          completeGateResult({
             code: "runtime_available",
             status: "passed",
-          },
+          }),
         ];
 
         const attempt: RouteAttempt = {
@@ -769,11 +781,11 @@ export class BrowserAttemptRunner {
       status: "failed",
       stage,
       gate_results: [
-        {
+        completeGateResult({
           code: "runtime_available",
           status: "failed",
           reason_code: reasonCode,
-        },
+        }),
       ],
       reason: {
         code: reasonCode,
@@ -823,11 +835,11 @@ export class BrowserAttemptRunner {
     // Fail with a clear reason — callers must provide a runtimeChecker to
     // enable in-browser execution.
     if (!this.runtimeChecker) {
-      gateResults.push({
+      gateResults.push(completeGateResult({
         code: "runtime_available",
         status: "failed",
         reason_code: "no_browser_runtime",
-      });
+      }));
       return {
         index: idx,
         locality: "local",
@@ -849,11 +861,11 @@ export class BrowserAttemptRunner {
       const engineCheck =
         await this.runtimeChecker.checkEngineAvailable(engine);
       if (!engineCheck.available) {
-        gateResults.push({
+        gateResults.push(completeGateResult({
           code: "runtime_available",
           status: "failed",
           reason_code: engineCheck.reasonCode ?? "engine_not_available",
-        });
+        }));
         return {
           index: idx,
           locality: "local",
@@ -869,7 +881,7 @@ export class BrowserAttemptRunner {
           },
         };
       }
-      gateResults.push({ code: "runtime_available", status: "passed" });
+      gateResults.push(completeGateResult({ code: "runtime_available", status: "passed" }));
     }
 
     // Gate 2: Check execution provider (WebGPU/WASM)
@@ -878,11 +890,11 @@ export class BrowserAttemptRunner {
       if (!providerCheck.available) {
         // If WebGPU failed, this candidate fails — planner should have
         // a separate WASM candidate for local fallback
-        gateResults.push({
+        gateResults.push(completeGateResult({
           code: "runtime_available",
           status: "failed",
           reason_code: providerCheck.reasonCode ?? `${provider}_unavailable`,
-        });
+        }));
         return {
           index: idx,
           locality: "local",
@@ -898,11 +910,11 @@ export class BrowserAttemptRunner {
           },
         };
       }
-      gateResults.push({
+      gateResults.push(completeGateResult({
         code: "runtime_available",
         status: "passed",
         reason_code: provider,
-      });
+      }));
     }
 
     // Gate 3: Artifact availability (download/cache check)
@@ -918,11 +930,11 @@ export class BrowserAttemptRunner {
       };
 
       if (!artifactCheck.available) {
-        gateResults.push({
+        gateResults.push(completeGateResult({
           code: "artifact_verified",
           status: "failed",
           reason_code: artifactCheck.reasonCode ?? "artifact_unavailable",
-        });
+        }));
         return {
           index: idx,
           locality: "local",
@@ -938,7 +950,7 @@ export class BrowserAttemptRunner {
           },
         };
       }
-      gateResults.push({ code: "artifact_verified", status: "passed" });
+      gateResults.push(completeGateResult({ code: "artifact_verified", status: "passed" }));
     } else if (candidate.artifact) {
       // No checker but artifact specified — assume available (optimistic)
       artifactInfo = {
@@ -946,7 +958,7 @@ export class BrowserAttemptRunner {
         digest: candidate.artifact.digest ?? null,
         cache: { status: "not_applicable", managed_by: "octomil" },
       };
-      gateResults.push({ code: "artifact_verified", status: "passed" });
+      gateResults.push(completeGateResult({ code: "artifact_verified", status: "passed" }));
     }
 
     // Gate 4: Evaluate additional server-defined gates
@@ -1251,11 +1263,11 @@ export class BrowserAttemptRunner {
     if (this.endpointChecker && this.localEndpoint) {
       const result = await this.endpointChecker.check(this.localEndpoint);
       if (!result.available) {
-        gateResults.push({
+        gateResults.push(completeGateResult({
           code: "runtime_available",
           status: "failed",
           reason_code: result.reasonCode,
-        });
+        }));
         return {
           index: idx,
           locality: "local",
@@ -1274,7 +1286,7 @@ export class BrowserAttemptRunner {
     }
 
     // Endpoint is available (or no checker provided — optimistic)
-    gateResults.push({ code: "runtime_available", status: "passed" });
+    gateResults.push(completeGateResult({ code: "runtime_available", status: "passed" }));
 
     return {
       index: idx,
