@@ -6,9 +6,9 @@
  * contract-generated RoutingPolicy enum.
  *
  * The browser SDK is cloud-only — it cannot download model artifacts or run
- * local inference engines. These types exist for API surface parity so that
- * code shared across SDKs can reference a single set of policy names and
- * metadata shapes.
+ * local inference engines, and local C ABI native execution is unavailable.
+ * These types exist for API surface parity so that code shared across SDKs
+ * can reference a single set of policy names and metadata shapes.
  */
 
 import { RoutingPolicy } from "../_generated/routing_policy.js";
@@ -74,6 +74,13 @@ export const LOCAL_ONLY_POLICIES: ReadonlySet<string> = new Set<RoutingPolicyNam
   "private",
   "local_only",
 ]);
+
+/**
+ * Browser-local C ABI native execution is not available.
+ *
+ * Browser local execution is WebGPU / WASM / explicit endpoint only.
+ */
+export const LOCAL_C_ABI_NATIVE_EXECUTION_AVAILABLE = false as const;
 
 // ---------------------------------------------------------------------------
 // Route metadata — contract-backed nested shape

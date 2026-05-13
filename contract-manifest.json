@@ -90,6 +90,15 @@
           ]
         }
       ]
+    },
+    "supports_server_native_routes": {
+      "implemented": true,
+      "description": "Browser clients may call server routes backed by native runtimes, but the SDK does not execute native code locally."
+    },
+    "supports_local_c_abi_native_execution": {
+      "implemented": false,
+      "skipReason": "browser cannot load the native C ABI locally; use server native routes or a platform SDK",
+      "details": "No local liboctomil_runtime / liboctomil_runtime_jni loading in browser environments."
     }
   },
   "behaviorTests": [

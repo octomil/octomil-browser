@@ -16,6 +16,7 @@ import {
   RoutingPolicy,
   VALID_ROUTING_POLICIES,
   LOCAL_ONLY_POLICIES,
+  LOCAL_C_ABI_NATIVE_EXECUTION_AVAILABLE,
   validateRoutingPolicy,
   assertBrowserCompatiblePolicy,
 } from "../src/planner/index.js";
@@ -77,6 +78,16 @@ describe("LOCAL_ONLY_POLICIES", () => {
     expect(LOCAL_ONLY_POLICIES.has("cloud_first")).toBe(false);
     expect(LOCAL_ONLY_POLICIES.has("local_first")).toBe(false);
     expect(LOCAL_ONLY_POLICIES.has("performance_first")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Browser C ABI availability flag
+// ---------------------------------------------------------------------------
+
+describe("LOCAL_C_ABI_NATIVE_EXECUTION_AVAILABLE", () => {
+  it("states that browser local C ABI execution is unavailable", () => {
+    expect(LOCAL_C_ABI_NATIVE_EXECUTION_AVAILABLE).toBe(false);
   });
 });
 

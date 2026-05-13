@@ -29,7 +29,11 @@ export type {
   RuntimePlanResponse,
   RuntimeSelection,
 } from "./types.js";
-export { VALID_ROUTING_POLICIES, LOCAL_ONLY_POLICIES } from "./types.js";
+export {
+  VALID_ROUTING_POLICIES,
+  LOCAL_ONLY_POLICIES,
+  LOCAL_C_ABI_NATIVE_EXECUTION_AVAILABLE,
+} from "./types.js";
 
 // Validation
 export {

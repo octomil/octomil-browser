@@ -15,6 +15,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { LOCAL_C_ABI_NATIVE_EXECUTION_AVAILABLE } from "../src/planner/types";
+import { RuntimeCapability } from "../src/_generated/runtime_capability";
 
 import {
   BrowserAttemptRunner,
@@ -617,6 +619,51 @@ describe("SDK Contract Conformance — Browser", () => {
       });
       expect(runner.shouldFallbackAfterInferenceError(false)).toBe(true);
       expect(runner.shouldFallbackAfterInferenceError(true)).toBe(true);
+    });
+  });
+
+  describe("native honesty", () => {
+    it("can name native runtime capabilities without claiming local C-ABI support", () => {
+      expect(Object.values(RuntimeCapability)).toEqual(
+        expect.arrayContaining([
+          "audio.diarization",
+          "audio.stt.batch",
+          "audio.transcription",
+          "audio.tts.batch",
+          "audio.tts.stream",
+          "audio.vad",
+          "cache.introspect",
+          "chat.completion",
+          "embeddings.text",
+        ]),
+      );
+      expect(Object.values(RuntimeCapability)).toContain("chat.stream");
+      expect(LOCAL_C_ABI_NATIVE_EXECUTION_AVAILABLE).toBe(false);
+    });
+
+    it("states that local C-ABI native execution is unavailable", () => {
+      const manifest = JSON.parse(
+        readFileSync(join(__dirname, "..", "contract-manifest.json"), "utf-8"),
+      ) as {
+        capabilities: Record<
+          string,
+          { implemented: boolean; skipReason?: string; description?: string }
+        >;
+      };
+
+      expect(LOCAL_C_ABI_NATIVE_EXECUTION_AVAILABLE).toBe(false);
+      expect(
+        manifest.capabilities.supports_local_c_abi_native_execution.implemented,
+      ).toBe(false);
+      expect(
+        manifest.capabilities.supports_local_c_abi_native_execution.skipReason,
+      ).toContain("browser cannot load the native C ABI locally");
+      expect(
+        manifest.capabilities.supports_server_native_routes.implemented,
+      ).toBe(true);
+      expect(
+        manifest.capabilities.supports_server_native_routes.description,
+      ).toContain("server routes backed by native runtimes");
     });
   });
 });
