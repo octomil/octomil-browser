@@ -30,6 +30,7 @@
  */
 
 import { OctomilError } from "../types.js";
+import { stripTrailingSlashes } from "./url-utils.js";
 
 const TTS_STREAM_PATH = "/v1/audio/speech/stream";
 
@@ -109,7 +110,7 @@ export class AudioTtsStream {
   private readonly apiKey: string;
 
   constructor(serverUrl: string, apiKey: string) {
-    this.serverUrl = serverUrl.replace(/\/+$/, "");
+    this.serverUrl = stripTrailingSlashes(serverUrl);
     this.apiKey = apiKey;
   }
 

@@ -20,6 +20,7 @@
  */
 
 import { OctomilError } from "../types.js";
+import { stripTrailingSlashes } from "./url-utils.js";
 
 const SPEAKER_EMBEDDINGS_PATH = "/v1/audio/speaker_embeddings";
 
@@ -70,7 +71,7 @@ export class SpeakerEmbedding {
   private readonly apiKey: string;
 
   constructor(serverUrl: string, apiKey: string) {
-    this.serverUrl = serverUrl.replace(/\/+$/, "");
+    this.serverUrl = stripTrailingSlashes(serverUrl);
     this.apiKey = apiKey;
   }
 
