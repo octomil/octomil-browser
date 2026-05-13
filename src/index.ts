@@ -34,7 +34,7 @@ export type {
   BrowserLocalProvider,
 } from "./local-lifecycle.js";
 
-// Audio namespace (transcriptions)
+// Audio namespace
 export { OctomilAudio } from "./audio/octomil-audio.js";
 export { AudioTranscriptions } from "./audio/audio-transcriptions.js";
 export type { TranscriptionRequest } from "./audio/audio-transcriptions.js";
@@ -42,6 +42,29 @@ export type {
   TranscriptionResult,
   TranscriptionSegment,
 } from "./audio/transcription-types.js";
+export { AudioVad } from "./audio/audio-vad.js";
+export type {
+  VadDetectRequest,
+  VadDetectResponse,
+  VadTransition,
+} from "./audio/audio-vad.js";
+export { SpeakerEmbedding } from "./audio/speaker-embedding.js";
+export type {
+  SpeakerEmbeddingCreateRequest,
+  SpeakerEmbeddingCreateResponse,
+} from "./audio/speaker-embedding.js";
+export { AudioDiarization } from "./audio/audio-diarization.js";
+export type {
+  DiarizationCreateRequest,
+  DiarizationCreateResponse,
+  DiarizationSegment,
+} from "./audio/audio-diarization.js";
+export { AudioTtsStream } from "./audio/audio-tts-stream.js";
+export type {
+  TtsStreamRequest,
+  TtsStreamResponse,
+  TtsStreamMetadata,
+} from "./audio/audio-tts-stream.js";
 
 // Chat namespace (OpenAI-compatible chat completions)
 export { ChatClient, messagesToResponseInput } from "./chat.js";
