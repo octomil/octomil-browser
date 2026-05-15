@@ -3,6 +3,21 @@
  *
  * Calls the Octomil embeddings endpoint and returns dense vectors
  * suitable for semantic search, clustering, and RAG pipelines.
+ *
+ * Scope: text only. The browser SDK has no native FFI / runtime-ABI
+ * surface, so the `embeddings.image` capability (introduced in
+ * runtime ABI minor 11) is intentionally NOT exposed here. Native
+ * SDKs (Python / Node / iOS / Android) gate an optional image-embed
+ * path on `runtime.abi.minor >= 11 && capabilities.includes(
+ * "embeddings.image")`; the browser cannot — there is no in-process
+ * runtime to advertise that capability. If/when a server route for
+ * image embeddings ships and is documented in octomil-contracts,
+ * the corresponding browser facade lands at that point. Until then
+ * this module accepts `string | string[]` only by design.
+ *
+ * Note: the `{ image }` shape on `OctomilClient.predict()` is an
+ * unrelated convenience for raw local ONNX inference (pixel → NCHW
+ * tensor) and does NOT implement the `embeddings.image` capability.
  */
 
 import type { EmbeddingResult, EmbeddingResponse } from "./types.js";
