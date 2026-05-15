@@ -84,6 +84,10 @@ const result = await client.embeddings.create({
 });
 ```
 
+#### Image embeddings — server-routed, not in browser
+
+`client.embeddings.create()` accepts text only. The browser SDK has no native FFI surface, so it does not participate in runtime ABI minor 11's `embeddings.image` capability — that gate exists for the native SDKs (Python / Node / iOS / Android), which load a local runtime binary. In the browser there is no in-process runtime to advertise a capability, so image embeddings, if/when they are offered, will be exposed as a server HTTP route documented in `octomil-contracts`. There is no `client.embeddings.image(...)` stub by design: stubs would mislead. The `{ image }` shape on `OctomilClient.predict()` is unrelated — it is a local-ONNX convenience that turns a canvas / `ImageData` / `<img>` into an NCHW tensor for the model you supplied, not an embedding service.
+
 ### Migrating from OctomilClient
 
 `OctomilClient` and the low-level `ResponsesClient` APIs still work exactly as before. The `Octomil` facade is a convenience wrapper for the cloud-backed Responses path — it delegates to `ResponsesClient` internally. For local ONNX inference, continue using `OctomilClient` directly.
