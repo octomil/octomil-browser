@@ -66,16 +66,20 @@ describe("OctomilError — backward-compat legacy string codes", () => {
     expect(err.code).toBe("INVALID_INPUT");
   });
 
-  it("legacy string code with no enum match falls back gracefully", () => {
+  it("legacy string code resolves classification via reverse map (parity with Node SDK)", () => {
+    // Review fix: legacy UPPER_SNAKE strings normalize to canonical
+    // classification via `LEGACY_CODE_TO_ENUM`. Previously fell back to
+    // unknown defaults; now matches Node SDK behavior where `code` is
+    // preserved as-supplied but computed metadata uses the resolved enum.
     const err = new OctomilError("INVALID_INPUT", "bad input");
-    // Not a snake_case enum value — computed props return safe defaults
+    expect(err.code).toBe("INVALID_INPUT");
     expect(err.retryable).toBe(false);
-    expect(err.category).toBe("unknown");
-    expect(err.suggestedAction).toBe("report_bug");
+    expect(err.category).toBe("input");
+    expect(err.suggestedAction).toBe("fix_request");
     expect(err.fallbackEligible).toBe(false);
   });
 
-  it("unknown string code also falls back gracefully", () => {
+  it("truly unknown string code falls back gracefully", () => {
     const err = new OctomilError("TOTALLY_MADE_UP", "something");
     expect(err.retryable).toBe(false);
     expect(err.category).toBe("unknown");

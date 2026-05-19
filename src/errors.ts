@@ -177,12 +177,25 @@ export const ERROR_CODE_MAP: Readonly<Record<ErrorCode, OctomilErrorCode>> = {
 /** Reverse map: snake_case ErrorCode string value -> ErrorCode enum key. */
 const CONTRACT_VALUES_SET = new Set<string>(Object.values(ErrorCode));
 
+/** Reverse map: legacy UPPER_SNAKE_CASE string -> ErrorCode enum value
+ * (e.g. "INVALID_INPUT" -> "invalid_input"). Mirrors Node SDK behavior so
+ * existing callers using `new OctomilError("RATE_LIMITED", ...)` get a
+ * normalized `.code` of `ErrorCode.RateLimited` rather than the raw legacy
+ * string. */
+const LEGACY_CODE_TO_ENUM: Record<string, ErrorCode> = Object.fromEntries(
+  Object.entries(ERROR_CODE_MAP).map(([enumValue, legacy]) => [
+    legacy,
+    enumValue as ErrorCode,
+  ]),
+);
+
 function resolveEnumKey(code: ErrorCode | string): ErrorCode | undefined {
   // Direct enum value match (e.g. ErrorCode.RateLimited = "rate_limited")
   if (CONTRACT_VALUES_SET.has(code)) {
     return code as ErrorCode;
   }
-  return undefined;
+  // Legacy UPPER_SNAKE_CASE → enum value (e.g. "RATE_LIMITED" → "rate_limited")
+  return LEGACY_CODE_TO_ENUM[code];
 }
 
 // ---------------------------------------------------------------------------
