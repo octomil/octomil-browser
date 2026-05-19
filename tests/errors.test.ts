@@ -1,255 +1,334 @@
 /**
- * Tests for OctomilError codes, retryable property, fromHttpStatus, and fromServerResponse.
+ * Tests for OctomilError typed error surface.
+ *
+ * Covers: construction from ErrorCode enum, computed properties, retryAfterMs
+ * round-trips, fromHttpStatus, fromServerResponse, fallback for unknown strings.
  */
 
 import { describe, it, expect } from "vitest";
-import { OctomilError } from "../src/types.js";
-import type { OctomilErrorCode } from "../src/types.js";
+import { OctomilError, ErrorCode } from "../src/errors.js";
 
 // ---------------------------------------------------------------------------
-// All 36 canonical codes from octomil-contracts
+// Helpers
 // ---------------------------------------------------------------------------
 
-const ALL_CODES: OctomilErrorCode[] = [
-  // Auth / Access
-  "INVALID_API_KEY",
-  "AUTHENTICATION_FAILED",
-  "FORBIDDEN",
-  "DEVICE_NOT_REGISTERED",
-  "TOKEN_EXPIRED",
-  "DEVICE_REVOKED",
-  // Network / Transport
-  "NETWORK_UNAVAILABLE",
-  "REQUEST_TIMEOUT",
-  "SERVER_ERROR",
-  "RATE_LIMITED",
-  // Input / Validation
-  "INVALID_INPUT",
-  "UNSUPPORTED_MODALITY",
-  "CONTEXT_TOO_LARGE",
-  // Catalog / Model Resolution
-  "MODEL_NOT_FOUND",
-  "MODEL_LOAD_FAILED",
-  "MODEL_DISABLED",
-  "VERSION_NOT_FOUND",
-  // Download / Artifact Integrity
-  "DOWNLOAD_FAILED",
-  "CHECKSUM_MISMATCH",
-  // Device / Environment
-  "INSUFFICIENT_STORAGE",
-  "INSUFFICIENT_MEMORY",
-  "RUNTIME_UNAVAILABLE",
-  "ACCELERATOR_UNAVAILABLE",
-  // Runtime / Inference
-  "INFERENCE_FAILED",
-  "STREAM_INTERRUPTED",
-  // Policy / Routing
-  "POLICY_DENIED",
-  "CLOUD_FALLBACK_DISALLOWED",
-  "MAX_TOOL_ROUNDS_EXCEEDED",
-  // Training
-  "TRAINING_FAILED",
-  "TRAINING_NOT_SUPPORTED",
-  "WEIGHT_UPLOAD_FAILED",
-  // Control Plane / Rollout
-  "CONTROL_SYNC_FAILED",
-  "ASSIGNMENT_NOT_FOUND",
-  // Cancellation / Lifecycle
-  "CANCELLED",
-  "APP_BACKGROUNDED",
-  // Unknown
-  "UNKNOWN",
+const ALL_ENUM_CODES = Object.values(ErrorCode);
+
+const RETRYABLE_ENUM_CODES: ErrorCode[] = [
+  ErrorCode.NetworkUnavailable,
+  ErrorCode.RequestTimeout,
+  ErrorCode.ServerError,
+  ErrorCode.RateLimited,
+  ErrorCode.DownloadFailed,
+  ErrorCode.ChecksumMismatch,
+  ErrorCode.ModelLoadFailed,
+  ErrorCode.InferenceFailed,
+  ErrorCode.UpstreamProviderError,
+  ErrorCode.StreamInterrupted,
+  ErrorCode.TrainingFailed,
+  ErrorCode.WeightUploadFailed,
+  ErrorCode.ControlSyncFailed,
+  ErrorCode.AppBackgrounded,
 ];
 
-const RETRYABLE_CODES: OctomilErrorCode[] = [
-  "NETWORK_UNAVAILABLE",
-  "REQUEST_TIMEOUT",
-  "SERVER_ERROR",
-  "RATE_LIMITED",
-  "DOWNLOAD_FAILED",
-  "CHECKSUM_MISMATCH",
-  "MODEL_LOAD_FAILED",
-  "INFERENCE_FAILED",
-  "STREAM_INTERRUPTED",
-  "TRAINING_FAILED",
-  "WEIGHT_UPLOAD_FAILED",
-  "CONTROL_SYNC_FAILED",
-  "APP_BACKGROUNDED",
-];
-
-const NON_RETRYABLE_CODES = ALL_CODES.filter(
-  (c) => !RETRYABLE_CODES.includes(c),
-);
+const NON_RETRYABLE_ENUM_CODES = ALL_ENUM_CODES.filter(
+  (c) => !RETRYABLE_ENUM_CODES.includes(c as ErrorCode),
+) as ErrorCode[];
 
 // ---------------------------------------------------------------------------
-// Tests
+// Construction from ErrorCode enum
 // ---------------------------------------------------------------------------
 
-describe("OctomilError", () => {
-  describe("construction with all codes", () => {
-    it.each(ALL_CODES)("accepts code %s", (code) => {
-      const err = new OctomilError(code, `test ${code}`);
-      expect(err).toBeInstanceOf(Error);
-      expect(err).toBeInstanceOf(OctomilError);
-      expect(err.code).toBe(code);
-      expect(err.name).toBe("OctomilError");
-      expect(err.message).toBe(`test ${code}`);
-    });
+describe("OctomilError — construction from ErrorCode enum", () => {
+  it.each(ALL_ENUM_CODES)("accepts ErrorCode %s", (code) => {
+    const err = new OctomilError(code, `test ${code}`);
+    expect(err).toBeInstanceOf(Error);
+    expect(err).toBeInstanceOf(OctomilError);
+    expect(err.code).toBe(code);
+    expect(err.name).toBe("OctomilError");
+    expect(err.message).toBe(`test ${code}`);
   });
 
-  describe("cause parameter", () => {
-    it("preserves cause parameter", () => {
-      const cause = new TypeError("original");
-      const err = new OctomilError("SERVER_ERROR", "wrapped", cause);
-      expect(err.cause).toBe(cause);
-    });
+  it("total enum code count is 65", () => {
+    expect(ALL_ENUM_CODES.length).toBe(65);
+    expect(new Set(ALL_ENUM_CODES).size).toBe(65);
+  });
+});
 
-    it("cause is undefined when not provided", () => {
-      const err = new OctomilError("UNKNOWN", "test");
-      expect(err.cause).toBeUndefined();
-    });
+// ---------------------------------------------------------------------------
+// Construction from legacy UPPER_SNAKE_CASE strings (backward compat)
+// ---------------------------------------------------------------------------
+
+describe("OctomilError — backward-compat legacy string codes", () => {
+  it("accepts a legacy UPPER_SNAKE_CASE string as code", () => {
+    const err = new OctomilError("INVALID_INPUT", "bad input");
+    expect(err).toBeInstanceOf(OctomilError);
+    expect(err.code).toBe("INVALID_INPUT");
   });
 
+  it("legacy string code with no enum match falls back gracefully", () => {
+    const err = new OctomilError("INVALID_INPUT", "bad input");
+    // Not a snake_case enum value — computed props return safe defaults
+    expect(err.retryable).toBe(false);
+    expect(err.category).toBe("unknown");
+    expect(err.suggestedAction).toBe("report_bug");
+    expect(err.fallbackEligible).toBe(false);
+  });
+
+  it("unknown string code also falls back gracefully", () => {
+    const err = new OctomilError("TOTALLY_MADE_UP", "something");
+    expect(err.retryable).toBe(false);
+    expect(err.category).toBe("unknown");
+    expect(err.suggestedAction).toBe("report_bug");
+  });
+
+  it("ErrorCode.Unknown falls back to report_bug", () => {
+    const err = new OctomilError(ErrorCode.Unknown, "no idea");
+    expect(err.suggestedAction).toBe("report_bug");
+    expect(err.retryable).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// options object with cause and retryAfterMs
+// ---------------------------------------------------------------------------
+
+describe("OctomilError — options object", () => {
+  it("accepts cause via options object", () => {
+    const cause = new TypeError("original");
+    const err = new OctomilError(ErrorCode.ServerError, "wrapped", { cause });
+    expect(err.cause).toBe(cause);
+  });
+
+  it("accepts retryAfterMs via options object", () => {
+    const err = new OctomilError(ErrorCode.RateLimited, "slow down", {
+      retryAfterMs: 5_000,
+    });
+    expect(err.retryAfterMs).toBe(5_000);
+  });
+
+  it("retryAfterMs round-trips exactly", () => {
+    const err = new OctomilError(ErrorCode.RateLimited, "slow down", {
+      retryAfterMs: 30_123,
+    });
+    expect(err.retryAfterMs).toBe(30_123);
+  });
+
+  it("retryAfterMs is undefined when not provided", () => {
+    const err = new OctomilError(ErrorCode.NetworkUnavailable, "offline");
+    expect(err.retryAfterMs).toBeUndefined();
+  });
+
+  it("accepts legacy positional cause (third arg, non-options-object)", () => {
+    const cause = new Error("root");
+    const err = new OctomilError(ErrorCode.InferenceFailed, "failed", cause);
+    expect(err.cause).toBe(cause);
+    expect(err.retryAfterMs).toBeUndefined();
+  });
+
+  it("cause is undefined when not provided", () => {
+    const err = new OctomilError(ErrorCode.Unknown, "test");
+    expect(err.cause).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Computed properties from ERROR_CLASSIFICATION
+// ---------------------------------------------------------------------------
+
+describe("OctomilError — computed properties via ErrorCode enum", () => {
   describe("retryable getter", () => {
-    it.each(RETRYABLE_CODES)("%s is retryable", (code) => {
-      const err = new OctomilError(code, "test");
-      expect(err.retryable).toBe(true);
+    it.each(RETRYABLE_ENUM_CODES)("%s is retryable", (code) => {
+      expect(new OctomilError(code, "test").retryable).toBe(true);
     });
 
-    it.each(NON_RETRYABLE_CODES)("%s is NOT retryable", (code) => {
-      const err = new OctomilError(code, "test");
-      expect(err.retryable).toBe(false);
+    it.each(NON_RETRYABLE_ENUM_CODES)("%s is NOT retryable", (code) => {
+      expect(new OctomilError(code, "test").retryable).toBe(false);
     });
   });
 
-  describe("fromHttpStatus", () => {
-    it("maps 400 to INVALID_INPUT", () => {
-      const err = OctomilError.fromHttpStatus(400, "Bad request");
-      expect(err.code).toBe("INVALID_INPUT");
-      expect(err.message).toBe("Bad request");
-    });
-
-    it("maps 401 to AUTHENTICATION_FAILED", () => {
-      const err = OctomilError.fromHttpStatus(401);
-      expect(err.code).toBe("AUTHENTICATION_FAILED");
-      expect(err.message).toBe("HTTP 401");
-    });
-
-    it("maps 403 to FORBIDDEN", () => {
-      const err = OctomilError.fromHttpStatus(403, "Access denied");
-      expect(err.code).toBe("FORBIDDEN");
-    });
-
-    it("maps 404 to MODEL_NOT_FOUND", () => {
-      const err = OctomilError.fromHttpStatus(404);
-      expect(err.code).toBe("MODEL_NOT_FOUND");
-    });
-
-    it("maps 429 to RATE_LIMITED", () => {
-      const err = OctomilError.fromHttpStatus(429, "Too many requests");
-      expect(err.code).toBe("RATE_LIMITED");
-      expect(err.retryable).toBe(true);
-    });
-
-    it("maps 500 to SERVER_ERROR", () => {
-      const err = OctomilError.fromHttpStatus(500);
-      expect(err.code).toBe("SERVER_ERROR");
-      expect(err.retryable).toBe(true);
-    });
-
-    it("maps 502 to SERVER_ERROR", () => {
-      const err = OctomilError.fromHttpStatus(502);
-      expect(err.code).toBe("SERVER_ERROR");
-    });
-
-    it("maps 503 to SERVER_ERROR", () => {
-      const err = OctomilError.fromHttpStatus(503);
-      expect(err.code).toBe("SERVER_ERROR");
-    });
-
-    it("maps 504 to SERVER_ERROR", () => {
-      const err = OctomilError.fromHttpStatus(504);
-      expect(err.code).toBe("SERVER_ERROR");
-    });
-
-    it("maps unknown 4xx to UNKNOWN", () => {
-      const err = OctomilError.fromHttpStatus(422, "Unprocessable");
-      expect(err.code).toBe("UNKNOWN");
-    });
-
-    it("maps unknown 5xx to SERVER_ERROR", () => {
-      const err = OctomilError.fromHttpStatus(599);
-      expect(err.code).toBe("SERVER_ERROR");
-    });
-
-    it("maps non-error statuses to UNKNOWN", () => {
-      const err = OctomilError.fromHttpStatus(200);
-      expect(err.code).toBe("UNKNOWN");
-    });
-
-    it("maps 300-range to UNKNOWN", () => {
-      const err = OctomilError.fromHttpStatus(301);
-      expect(err.code).toBe("UNKNOWN");
-    });
-
-    it("uses default message when none provided", () => {
-      const err = OctomilError.fromHttpStatus(500);
-      expect(err.message).toBe("HTTP 500");
-    });
-
-    it("returned error is instanceof OctomilError", () => {
-      const err = OctomilError.fromHttpStatus(404, "Not found");
-      expect(err).toBeInstanceOf(OctomilError);
-      expect(err).toBeInstanceOf(Error);
-    });
+  it("category is 'auth' for InvalidApiKey", () => {
+    expect(new OctomilError(ErrorCode.InvalidApiKey, "x").category).toBe("auth");
   });
 
-  describe("total code count", () => {
-    it("has 36 canonical codes", () => {
-      expect(ALL_CODES.length).toBe(36);
-      expect(new Set(ALL_CODES).size).toBe(36);
-    });
+  it("category is 'network' for ServerError", () => {
+    expect(new OctomilError(ErrorCode.ServerError, "x").category).toBe("network");
   });
 
-  describe("fromServerResponse", () => {
-    it("maps server code field to SDK error code", () => {
-      const err = OctomilError.fromServerResponse(400, {
-        code: "rate_limited",
-        message: "Too many requests",
-      });
-      expect(err.code).toBe("RATE_LIMITED");
-      expect(err.message).toBe("Too many requests");
-    });
+  it("category is 'runtime' for InferenceFailed", () => {
+    expect(new OctomilError(ErrorCode.InferenceFailed, "x").category).toBe("runtime");
+  });
 
-    it("falls back to HTTP status when code is absent", () => {
-      const err = OctomilError.fromServerResponse(404, {
-        message: "Not found",
-      });
-      expect(err.code).toBe("MODEL_NOT_FOUND");
-      expect(err.message).toBe("Not found");
-    });
+  it("suggestedAction is 'retry_after' for RateLimited", () => {
+    expect(new OctomilError(ErrorCode.RateLimited, "x").suggestedAction).toBe("retry_after");
+  });
 
-    it("falls back to HTTP status when code is unrecognized", () => {
-      const err = OctomilError.fromServerResponse(500, {
-        code: "something_unknown",
-        message: "Oops",
-      });
-      expect(err.code).toBe("SERVER_ERROR");
-      expect(err.message).toBe("Oops");
-    });
+  it("suggestedAction is 'reauthenticate' for TokenExpired", () => {
+    expect(new OctomilError(ErrorCode.TokenExpired, "x").suggestedAction).toBe("reauthenticate");
+  });
 
-    it("uses error field as fallback message", () => {
-      const err = OctomilError.fromServerResponse(403, {
-        error: "Forbidden zone",
-      });
-      expect(err.code).toBe("FORBIDDEN");
-      expect(err.message).toBe("Forbidden zone");
-    });
+  it("fallbackEligible is true for NetworkUnavailable", () => {
+    expect(new OctomilError(ErrorCode.NetworkUnavailable, "x").fallbackEligible).toBe(true);
+  });
 
-    it("uses HTTP status as message when body is null", () => {
-      const err = OctomilError.fromServerResponse(500, null);
-      expect(err.code).toBe("SERVER_ERROR");
-      expect(err.message).toBe("HTTP 500");
+  it("fallbackEligible is false for InvalidApiKey", () => {
+    expect(new OctomilError(ErrorCode.InvalidApiKey, "x").fallbackEligible).toBe(false);
+  });
+
+  it("retryClass is 'backoff_safe' for ServerError", () => {
+    expect(new OctomilError(ErrorCode.ServerError, "x").retryClass).toBe("backoff_safe");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fromErrorCode static factory
+// ---------------------------------------------------------------------------
+
+describe("OctomilError.fromErrorCode", () => {
+  it("constructs with enum code and message", () => {
+    const err = OctomilError.fromErrorCode(ErrorCode.ModelNotFound, "no model");
+    expect(err.code).toBe(ErrorCode.ModelNotFound);
+    expect(err.message).toBe("no model");
+    expect(err).toBeInstanceOf(OctomilError);
+  });
+
+  it("passes retryAfterMs through options", () => {
+    const err = OctomilError.fromErrorCode(ErrorCode.RateLimited, "slow", {
+      retryAfterMs: 1_000,
     });
+    expect(err.retryAfterMs).toBe(1_000);
+  });
+
+  it("passes cause through options", () => {
+    const cause = new Error("root");
+    const err = OctomilError.fromErrorCode(ErrorCode.InferenceFailed, "fail", { cause });
+    expect(err.cause).toBe(cause);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fromHttpStatus static factory
+// ---------------------------------------------------------------------------
+
+describe("OctomilError.fromHttpStatus", () => {
+  it("maps 400 to ErrorCode.InvalidInput", () => {
+    const err = OctomilError.fromHttpStatus(400, "Bad request");
+    expect(err.code).toBe(ErrorCode.InvalidInput);
+    expect(err.message).toBe("Bad request");
+  });
+
+  it("maps 401 to ErrorCode.AuthenticationFailed", () => {
+    const err = OctomilError.fromHttpStatus(401);
+    expect(err.code).toBe(ErrorCode.AuthenticationFailed);
+    expect(err.message).toBe("HTTP 401");
+  });
+
+  it("maps 403 to ErrorCode.Forbidden", () => {
+    expect(OctomilError.fromHttpStatus(403, "Denied").code).toBe(ErrorCode.Forbidden);
+  });
+
+  it("maps 404 to ErrorCode.ModelNotFound", () => {
+    expect(OctomilError.fromHttpStatus(404).code).toBe(ErrorCode.ModelNotFound);
+  });
+
+  it("maps 429 to ErrorCode.RateLimited (retryable)", () => {
+    const err = OctomilError.fromHttpStatus(429, "Too many requests");
+    expect(err.code).toBe(ErrorCode.RateLimited);
+    expect(err.retryable).toBe(true);
+  });
+
+  it("maps 500 to ErrorCode.ServerError (retryable)", () => {
+    const err = OctomilError.fromHttpStatus(500);
+    expect(err.code).toBe(ErrorCode.ServerError);
+    expect(err.retryable).toBe(true);
+  });
+
+  it("maps 502 to ErrorCode.ServerError", () => {
+    expect(OctomilError.fromHttpStatus(502).code).toBe(ErrorCode.ServerError);
+  });
+
+  it("maps 503 to ErrorCode.ServerError", () => {
+    expect(OctomilError.fromHttpStatus(503).code).toBe(ErrorCode.ServerError);
+  });
+
+  it("maps 504 to ErrorCode.ServerError", () => {
+    expect(OctomilError.fromHttpStatus(504).code).toBe(ErrorCode.ServerError);
+  });
+
+  it("maps unknown 5xx to ErrorCode.ServerError", () => {
+    expect(OctomilError.fromHttpStatus(599).code).toBe(ErrorCode.ServerError);
+  });
+
+  it("maps unknown 4xx to ErrorCode.Unknown", () => {
+    expect(OctomilError.fromHttpStatus(422).code).toBe(ErrorCode.Unknown);
+  });
+
+  it("maps non-error statuses to ErrorCode.Unknown", () => {
+    expect(OctomilError.fromHttpStatus(200).code).toBe(ErrorCode.Unknown);
+  });
+
+  it("maps 3xx to ErrorCode.Unknown", () => {
+    expect(OctomilError.fromHttpStatus(301).code).toBe(ErrorCode.Unknown);
+  });
+
+  it("uses default message when none provided", () => {
+    expect(OctomilError.fromHttpStatus(500).message).toBe("HTTP 500");
+  });
+
+  it("returns instanceof OctomilError", () => {
+    const err = OctomilError.fromHttpStatus(404, "Not found");
+    expect(err).toBeInstanceOf(OctomilError);
+    expect(err).toBeInstanceOf(Error);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fromServerResponse static factory
+// ---------------------------------------------------------------------------
+
+describe("OctomilError.fromServerResponse", () => {
+  it("maps server snake_case code field to ErrorCode enum", () => {
+    const err = OctomilError.fromServerResponse(400, {
+      code: "rate_limited",
+      message: "Too many requests",
+    });
+    expect(err.code).toBe(ErrorCode.RateLimited);
+    expect(err.message).toBe("Too many requests");
+  });
+
+  it("falls back to HTTP status when code is absent", () => {
+    const err = OctomilError.fromServerResponse(404, { message: "Not found" });
+    expect(err.code).toBe(ErrorCode.ModelNotFound);
+    expect(err.message).toBe("Not found");
+  });
+
+  it("falls back to HTTP status when code is unrecognized", () => {
+    const err = OctomilError.fromServerResponse(500, {
+      code: "something_unknown",
+      message: "Oops",
+    });
+    expect(err.code).toBe(ErrorCode.ServerError);
+    expect(err.message).toBe("Oops");
+  });
+
+  it("uses error field as fallback message", () => {
+    const err = OctomilError.fromServerResponse(403, { error: "Forbidden zone" });
+    expect(err.code).toBe(ErrorCode.Forbidden);
+    expect(err.message).toBe("Forbidden zone");
+  });
+
+  it("uses HTTP status as message when body is null", () => {
+    const err = OctomilError.fromServerResponse(500, null);
+    expect(err.code).toBe(ErrorCode.ServerError);
+    expect(err.message).toBe("HTTP 500");
+  });
+
+  it("maps server_error code correctly", () => {
+    const err = OctomilError.fromServerResponse(200, {
+      code: "server_error",
+      message: "Internal",
+    });
+    expect(err.code).toBe(ErrorCode.ServerError);
+    expect(err.retryable).toBe(true);
   });
 });

@@ -20,9 +20,9 @@ import {
 
 describe("Contract Conformance", () => {
   describe("ErrorCode enum", () => {
-    it("has all 39 canonical error codes", () => {
+    it("has all 65 canonical error codes", () => {
       const codes = Object.values(ErrorCode);
-      expect(codes).toHaveLength(39);
+      expect(codes).toHaveLength(65);
       expect(codes).toContain("network_unavailable");
       expect(codes).toContain("authentication_failed");
       expect(codes).toContain("model_not_found");
