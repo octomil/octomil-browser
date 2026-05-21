@@ -7,6 +7,7 @@
 
 import { describe, it, expect } from "vitest";
 import { OctomilError, ErrorCode } from "../src/errors.js";
+import { ERROR_CLASSIFICATION } from "../src/_generated/error_code.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -14,22 +15,11 @@ import { OctomilError, ErrorCode } from "../src/errors.js";
 
 const ALL_ENUM_CODES = Object.values(ErrorCode);
 
-const RETRYABLE_ENUM_CODES: ErrorCode[] = [
-  ErrorCode.NetworkUnavailable,
-  ErrorCode.RequestTimeout,
-  ErrorCode.ServerError,
-  ErrorCode.RateLimited,
-  ErrorCode.DownloadFailed,
-  ErrorCode.ChecksumMismatch,
-  ErrorCode.ModelLoadFailed,
-  ErrorCode.InferenceFailed,
-  ErrorCode.UpstreamProviderError,
-  ErrorCode.StreamInterrupted,
-  ErrorCode.TrainingFailed,
-  ErrorCode.WeightUploadFailed,
-  ErrorCode.ControlSyncFailed,
-  ErrorCode.AppBackgrounded,
-];
+// Derived dynamically from the generated classification so adding a
+// retryable code to the catalog doesn't require a test update.
+const RETRYABLE_ENUM_CODES: ErrorCode[] = Object.values(ErrorCode).filter(
+  (c) => ERROR_CLASSIFICATION[c].retryClass !== "never",
+);
 
 const NON_RETRYABLE_ENUM_CODES = ALL_ENUM_CODES.filter(
   (c) => !RETRYABLE_ENUM_CODES.includes(c as ErrorCode),
@@ -49,9 +39,11 @@ describe("OctomilError — construction from ErrorCode enum", () => {
     expect(err.message).toBe(`test ${code}`);
   });
 
-  it("total enum code count is 65", () => {
-    expect(ALL_ENUM_CODES.length).toBe(65);
-    expect(new Set(ALL_ENUM_CODES).size).toBe(65);
+  it("total enum code count is 85", () => {
+    // Contract 1.27.0 — passkey/account-linking + admin codes pushed
+    // the canonical catalog to 85. Update alongside contract bumps.
+    expect(ALL_ENUM_CODES.length).toBe(85);
+    expect(new Set(ALL_ENUM_CODES).size).toBe(85);
   });
 });
 
