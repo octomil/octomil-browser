@@ -34,6 +34,11 @@ jobs:
           # or override here. See octomil-contracts PR #181 for the
           # snapshot-pinning pattern.
           ref: ${{ vars.CONTRACTS_REF || 'main' }}
+          # Cross-repo checkout of a private repo — github.token cannot
+          # read it. CROSS_REPO_READ_TOKEN must be a PAT with
+          # `contents: read` on octomil/octomil-contracts. Composes with
+          # #134 so this branch is independently correct.
+          token: ${{ secrets.CROSS_REPO_READ_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
