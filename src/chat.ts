@@ -21,6 +21,7 @@ import type {
   ChatOptions,
   ChatResponse,
 } from "./types.js";
+import type { components } from "./generated/types.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -38,14 +39,9 @@ export interface ChatClientOptions {
   ensureReady: () => void;
 }
 
-export interface ChatThread {
-  id: string;
-  title?: string;
-  model: string;
-  createdAt: string;
-  updatedAt: string;
-  metadata?: Record<string, unknown>;
-}
+// ChatThread is derived from the contract's chat_thread schema.
+// Drift between SDK and contract is now a compile error.
+export type ChatThread = components["schemas"]["chat_thread"];
 
 export interface ChatTurnRequest {
   input: string;
@@ -58,6 +54,7 @@ export interface ChatTurnRequest {
   };
 }
 
+// TODO: bind to generated when schema is tightened (no named schema for thread message in contract).
 export type ChatThreadMessage = Record<string, unknown>;
 
 class ChatApiClient extends ServerApiClient {
