@@ -4,7 +4,9 @@ import {
   type ServerClientOptions,
 } from "./server-api.js";
 
+// TODO: bind to generated when schema is tightened (training job ops use inline anonymous types in the contract).
 export type TrainingJob = Record<string, unknown>;
+// TODO: bind to generated when schema is tightened (job status/complete ops use inline anonymous types in the contract).
 export type TrainingJobStatus = Record<string, unknown>;
 
 export interface TrainingClientOptions extends ServerClientOptions {

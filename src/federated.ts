@@ -131,6 +131,7 @@ export class FederatedClient {
     }
   }
 
+  // TODO: bind to generated when schema is tightened (federation ops use inline anonymous types in the contract).
   async offers(): Promise<Record<string, unknown>> {
     const response = await this.request(
       `/api/v1/federation/rounds/offers?deviceId=${encodeURIComponent(this.deviceId)}`,
