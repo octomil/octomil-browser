@@ -7,12 +7,11 @@ name: OpenAPI Types Fresh
 # Pairs with octomil-contracts/tools/sdkgen/generate-typescript.sh.
 
 on:
+  # Run on every PR — upstream-only drift (contracts SHA bump,
+  # CONTRACTS_REF var change) has no local footprint under src/generated/**.
+  # Mirrors Python's model. Composes with #135 so this branch is
+  # independently correct.
   pull_request:
-    paths:
-      - 'src/generated/**'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - '.github/workflows/openapi-types-fresh.yml'
   push:
     branches: [main]
 
