@@ -11,10 +11,7 @@
 import { ResponsesClient } from "./responses.js";
 import { OctomilError, ERROR_CODE_MAP } from "./types.js";
 import { ErrorCode } from "./_generated/error_code.js";
-import {
-  ServerApiClient,
-  type QueryValue,
-} from "./server-api.js";
+import { ServerApiClient, type QueryValue } from "./server-api.js";
 import type {
   ChatChunk,
   ChatMessage,
@@ -43,16 +40,20 @@ export interface ChatClientOptions {
 // Drift between SDK and contract is now a compile error.
 export type ChatThread = components["schemas"]["chat_thread"];
 
-export interface ChatTurnRequest {
-  input: string;
-  inputParts?: unknown[] | null;
-  config?: {
-    maxTokens?: number;
-    temperature?: number;
-    topP?: number;
-    stop?: string[];
-  };
-}
+// ChatTurnRequest is derived from the contract's chat_turn_request schema.
+// Drift between SDK and contract is now a compile error.
+// The generated schema requires `threadId` in the body; the ergonomic
+// `turn.create(threadId, request)` / `turn.stream(threadId, request)` methods
+// take threadId as a separate argument and fold it into the body internally,
+// so callers pass the threadId-less variant (see ChatTurnInput).
+export type ChatTurnRequest = components["schemas"]["chat_turn_request"];
+
+/**
+ * Caller-facing turn payload — the generated {@link ChatTurnRequest} with
+ * `threadId` omitted, since it is supplied as a separate method argument and
+ * folded into the wire body before sending.
+ */
+export type ChatTurnInput = Omit<ChatTurnRequest, "threadId">;
 
 // TODO: bind to generated when schema is tightened (no named schema for thread message in contract).
 export type ChatThreadMessage = Record<string, unknown>;
@@ -108,24 +109,24 @@ export class ChatTurnClient {
   constructor(
     private readonly createTurnInternal: (
       threadId: string,
-      request: ChatTurnRequest,
+      request: ChatTurnInput,
     ) => Promise<ChatThreadMessage>,
     private readonly streamTurnInternal: (
       threadId: string,
-      request: ChatTurnRequest,
+      request: ChatTurnInput,
     ) => AsyncGenerator<ChatChunk, void, undefined>,
   ) {}
 
   async create(
     threadId: string,
-    request: ChatTurnRequest,
+    request: ChatTurnInput,
   ): Promise<ChatThreadMessage> {
     return this.createTurnInternal(threadId, request);
   }
 
   async *stream(
     threadId: string,
-    request: ChatTurnRequest,
+    request: ChatTurnInput,
   ): AsyncGenerator<ChatChunk, void, undefined> {
     yield* this.streamTurnInternal(threadId, request);
   }
@@ -275,42 +276,42 @@ export class ChatClient {
 
   private async createTurn(
     threadId: string,
-    request: ChatTurnRequest,
+    request: ChatTurnInput,
   ): Promise<ChatThreadMessage> {
     this.ensureReadyFn();
     this.requireServerUrl("chat.turn.create()");
+    // Fold the separately-supplied threadId into the wire body — the
+    // generated chat_turn_request schema requires it in the payload.
+    const body: ChatTurnRequest = { ...request, threadId };
     return this.api.requestJson<ChatThreadMessage>(
       `/api/v1/chat/threads/${encodeURIComponent(threadId)}/turns`,
       {
         method: "POST",
-        body: JSON.stringify({
-          ...request,
-          threadId,
-        }),
+        body: JSON.stringify(body),
       },
     );
   }
 
   private async *streamTurn(
     threadId: string,
-    request: ChatTurnRequest,
+    request: ChatTurnInput,
   ): AsyncGenerator<ChatChunk, void, undefined> {
     this.ensureReadyFn();
     this.requireServerUrl("chat.turn.stream()");
 
+    // Fold the separately-supplied threadId into the wire body — the
+    // generated chat_turn_request schema requires it in the payload.
+    const body: ChatTurnRequest = { ...request, threadId };
     const response = await fetch(
       `${this.serverUrl}/api/v1/chat/threads/${encodeURIComponent(threadId)}/turns`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(this.apiKey
-            ? { Authorization: `Bearer ${this.apiKey}` }
-            : {}),
+          ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
         },
         body: JSON.stringify({
-          ...request,
-          threadId,
+          ...body,
           stream: true,
         }),
       },
@@ -348,7 +349,10 @@ export class ChatClient {
             delta?: string;
             content?: string;
           };
-          if (parsed.type === "text_delta" && (parsed.delta || parsed.content)) {
+          if (
+            parsed.type === "text_delta" &&
+            (parsed.delta || parsed.content)
+          ) {
             yield {
               index: chunkIndex++,
               content: parsed.delta ?? parsed.content ?? "",
