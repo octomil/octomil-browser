@@ -268,7 +268,7 @@ export class ChatClient {
   private requireServerUrl(method: string): void {
     if (!this.serverUrl) {
       throw new OctomilError(
-        ERROR_CODE_MAP[ErrorCode.InvalidInput],
+        ERROR_CODE_MAP[ErrorCode.InvalidInput]!,
         `${method} requires serverUrl to be configured.`,
       );
     }
@@ -319,7 +319,7 @@ export class ChatClient {
 
     if (!response.ok || !response.body) {
       throw new OctomilError(
-        ERROR_CODE_MAP[ErrorCode.NetworkUnavailable],
+        ERROR_CODE_MAP[ErrorCode.NetworkUnavailable]!,
         `chat.turn.stream() failed: HTTP ${response.status}`,
       );
     }

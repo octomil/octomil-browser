@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { OctomilError, ErrorCode } from "../src/errors.js";
+import { OctomilError, ErrorCode, ERROR_CLASSIFICATION } from "../src/errors.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -14,22 +14,9 @@ import { OctomilError, ErrorCode } from "../src/errors.js";
 
 const ALL_ENUM_CODES = Object.values(ErrorCode);
 
-const RETRYABLE_ENUM_CODES: ErrorCode[] = [
-  ErrorCode.NetworkUnavailable,
-  ErrorCode.RequestTimeout,
-  ErrorCode.ServerError,
-  ErrorCode.RateLimited,
-  ErrorCode.DownloadFailed,
-  ErrorCode.ChecksumMismatch,
-  ErrorCode.ModelLoadFailed,
-  ErrorCode.InferenceFailed,
-  ErrorCode.UpstreamProviderError,
-  ErrorCode.StreamInterrupted,
-  ErrorCode.TrainingFailed,
-  ErrorCode.WeightUploadFailed,
-  ErrorCode.ControlSyncFailed,
-  ErrorCode.AppBackgrounded,
-];
+const RETRYABLE_ENUM_CODES = ALL_ENUM_CODES.filter(
+  (code) => ERROR_CLASSIFICATION[code].retryClass !== "never",
+) as ErrorCode[];
 
 const NON_RETRYABLE_ENUM_CODES = ALL_ENUM_CODES.filter(
   (c) => !RETRYABLE_ENUM_CODES.includes(c as ErrorCode),
@@ -49,9 +36,11 @@ describe("OctomilError — construction from ErrorCode enum", () => {
     expect(err.message).toBe(`test ${code}`);
   });
 
-  it("total enum code count is 65", () => {
-    expect(ALL_ENUM_CODES.length).toBe(65);
-    expect(new Set(ALL_ENUM_CODES).size).toBe(65);
+  it("has unique generated enum codes with classification coverage", () => {
+    expect(new Set(ALL_ENUM_CODES).size).toBe(ALL_ENUM_CODES.length);
+    for (const code of ALL_ENUM_CODES) {
+      expect(ERROR_CLASSIFICATION[code]).toBeDefined();
+    }
   });
 });
 

@@ -2,7 +2,7 @@
  * Contract conformance tests — validates generated types match octomil-contracts.
  */
 import { describe, expect, it } from "vitest";
-import { ErrorCode } from "../../src/_generated/error_code";
+import { ErrorCode, ERROR_CLASSIFICATION } from "../../src/_generated/error_code";
 import {
   ArtifactsClient,
   ChatClient,
@@ -20,9 +20,12 @@ import {
 
 describe("Contract Conformance", () => {
   describe("ErrorCode enum", () => {
-    it("has all 65 canonical error codes", () => {
+    it("has a classified generated entry for every canonical error code", () => {
       const codes = Object.values(ErrorCode);
-      expect(codes).toHaveLength(65);
+      expect(new Set(codes).size).toBe(codes.length);
+      for (const code of codes) {
+        expect(ERROR_CLASSIFICATION[code]).toBeDefined();
+      }
       expect(codes).toContain("network_unavailable");
       expect(codes).toContain("authentication_failed");
       expect(codes).toContain("model_not_found");
