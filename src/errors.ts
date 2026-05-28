@@ -14,7 +14,7 @@ import {
   ERROR_CLASSIFICATION,
 } from "./_generated/error_code.js";
 
-export { ErrorCode } from "./_generated/error_code.js";
+export { ErrorCode, ERROR_CLASSIFICATION } from "./_generated/error_code.js";
 export type { ErrorCategory, RetryClass, SuggestedAction } from "./_generated/error_code.js";
 export type { ErrorClassification } from "./_generated/error_code.js";
 
@@ -103,10 +103,12 @@ export type OctomilErrorCode =
   | "UNKNOWN";
 
 // ---------------------------------------------------------------------------
-// Bidirectional maps between ErrorCode enum and OctomilErrorCode strings
+// Bidirectional maps between ErrorCode enum and legacy OctomilErrorCode strings.
+// New callers should use ErrorCode directly; this partial map only exists for
+// UPPER_SNAKE_CASE compatibility values that were part of the pre-enum surface.
 // ---------------------------------------------------------------------------
 
-export const ERROR_CODE_MAP: Readonly<Record<ErrorCode, OctomilErrorCode>> = {
+export const ERROR_CODE_MAP: Readonly<Partial<Record<ErrorCode, OctomilErrorCode>>> = {
   [ErrorCode.InvalidApiKey]: "INVALID_API_KEY",
   [ErrorCode.AuthenticationFailed]: "AUTHENTICATION_FAILED",
   [ErrorCode.Forbidden]: "FORBIDDEN",
