@@ -23,11 +23,18 @@
 export { OctomilClient } from "./octomil.js";
 
 // Unified facade (cloud-backed responses, no model required at construction)
-export { Octomil, OctomilNotInitializedError, FacadeEmbeddings } from "./facade.js";
+export {
+  Octomil,
+  OctomilNotInitializedError,
+  FacadeEmbeddings,
+} from "./facade.js";
 export type { OctomilFacadeOptions } from "./facade.js";
 
 // Local lifecycle status types
-export { buildBrowserLifecycleStatus, buildBrowserUnavailableStatus } from "./local-lifecycle.js";
+export {
+  buildBrowserLifecycleStatus,
+  buildBrowserUnavailableStatus,
+} from "./local-lifecycle.js";
 export type {
   BrowserLocalLifecycleStatus,
   BrowserCacheStatus,
@@ -72,6 +79,7 @@ export type {
   ChatClientOptions,
   ChatThread,
   ChatTurnRequest,
+  ChatTurnInput,
 } from "./chat.js";
 
 // Sub-modules (for advanced usage)
@@ -177,10 +185,7 @@ export {
 } from "./responses.js";
 export { ToolRunner } from "./responses-tools.js";
 export { createTransformersJsLocalResponsesRuntime } from "./transformers-local-runtime.js";
-export type {
-  ToolExecutor,
-  ToolResult,
-} from "./responses-tools.js";
+export type { ToolExecutor, ToolResult } from "./responses-tools.js";
 export type {
   LocalResponsesRuntime,
   LocalResponsesRuntimeResolver,

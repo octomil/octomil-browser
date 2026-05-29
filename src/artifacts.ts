@@ -1,4 +1,9 @@
 import { ServerApiClient, type ServerClientOptions } from "./server-api.js";
+import type { components } from "./generated/types.js";
+
+// ArtifactManifest is derived from the contract's artifact_manifest schema.
+// Drift between SDK and contract is now a compile error.
+export type ArtifactManifest = components["schemas"]["artifact_manifest"];
 
 export interface ArtifactDownloadUrlsRequest {
   files?: Array<{
@@ -8,7 +13,7 @@ export interface ArtifactDownloadUrlsRequest {
   expiresInSeconds?: number;
 }
 
-export type ArtifactManifest = Record<string, unknown>;
+// TODO: bind to generated when schema is tightened (download-urls response uses an inline type in the contract).
 export type ArtifactDownloadUrls = Record<string, unknown>;
 
 export class ArtifactsClient extends ServerApiClient {
