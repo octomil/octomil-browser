@@ -17,10 +17,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Fetch contracts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: octomil/octomil-contracts
           ref: main
