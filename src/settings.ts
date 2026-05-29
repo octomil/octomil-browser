@@ -1,11 +1,22 @@
 import { ServerApiClient, type ServerClientOptions } from "./server-api.js";
+import type { components } from "./generated/types.js";
 
-export type BillingSession = Record<string, unknown>;
+// Types derived from contract schemas — drift becomes a compile error.
+export type CheckoutSession = components["schemas"]["CheckoutResponse"];
+export type CheckoutSessionRequest = components["schemas"]["CheckoutRequest"];
+export type PortalSession = components["schemas"]["PortalResponse"];
+export type PortalSessionRequest = components["schemas"]["PortalRequest"];
+// Legacy alias kept for backwards compatibility; callers that typed against
+// BillingSession still compile because CheckoutSession and PortalSession now
+// resolve to concrete shapes.
+export type BillingSession = CheckoutSession | PortalSession;
+// TODO: bind to generated when schema is tightened (updateBilling 200 is Record<string, never>).
 export type BillingState = Record<string, unknown>;
-export type UsageLimits = Record<string, unknown>;
-export type Integration = Record<string, unknown>;
-export type IntegrationValidation = Record<string, unknown>;
-export type IntegrationPatch = Record<string, unknown>;
+export type UsageLimits = components["schemas"]["UsageLimitsResponse"];
+export type UpdateUsageLimitsRequest = components["schemas"]["UpdateUsageLimitsRequest"];
+export type Integration = components["schemas"]["IntegrationDetailResponse"];
+export type IntegrationValidation = components["schemas"]["IntegrationTestResponse"];
+export type IntegrationPatch = components["schemas"]["UpdateIntegrationRequest"];
 
 export class SettingsClient extends ServerApiClient {
   constructor(options: ServerClientOptions = {}) {
@@ -13,10 +24,10 @@ export class SettingsClient extends ServerApiClient {
   }
 
   async createCheckoutSession(
-    request: Record<string, unknown>,
+    request: CheckoutSessionRequest,
     orgId?: string,
-  ): Promise<BillingSession> {
-    return this.requestJson<BillingSession>(
+  ): Promise<CheckoutSession> {
+    return this.requestJson<CheckoutSession>(
       "/api/v1/settings/billing/checkout",
       {
         method: "POST",
@@ -27,10 +38,10 @@ export class SettingsClient extends ServerApiClient {
   }
 
   async createPortalSession(
-    request: Record<string, unknown>,
+    request: PortalSessionRequest,
     orgId?: string,
-  ): Promise<BillingSession> {
-    return this.requestJson<BillingSession>(
+  ): Promise<PortalSession> {
+    return this.requestJson<PortalSession>(
       "/api/v1/settings/billing/portal",
       {
         method: "POST",
@@ -41,7 +52,7 @@ export class SettingsClient extends ServerApiClient {
   }
 
   async updateBilling(
-    request: Record<string, unknown>,
+    request: components["schemas"]["UpdateBillingRequest"],
     orgId?: string,
   ): Promise<BillingState> {
     return this.requestJson<BillingState>(
@@ -63,7 +74,7 @@ export class SettingsClient extends ServerApiClient {
   }
 
   async updateUsageLimits(
-    request: Record<string, unknown>,
+    request: UpdateUsageLimitsRequest,
     orgId?: string,
   ): Promise<UsageLimits> {
     return this.requestJson<UsageLimits>(
