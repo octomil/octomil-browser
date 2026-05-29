@@ -25,6 +25,7 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
+// No named schema in contract (inline response type); hand-typed by necessity.
 export interface DeviceRegistration {
   id: string;
   deviceIdentifier: string;
@@ -32,6 +33,7 @@ export interface DeviceRegistration {
   status: string;
 }
 
+// No named schema in contract (inline response type); hand-typed by necessity.
 export interface HeartbeatResponse {
   status: string;
   serverTime?: string;
@@ -45,7 +47,15 @@ export interface ControlClientOptions {
   telemetry?: TelemetryReporter | null;
 }
 
-/** Per-model status in an observed state report. */
+/**
+ * Per-model status in an observed state report.
+ *
+ * The contract's `observed_state` schema models per-model status inline under
+ * `models[]`, but with different fields (no bindingKey/useCase/deploymentId/
+ * deploymentKey/modelName/modelRef/bytesDownloaded/totalBytes/errorCode that
+ * the SDK reconcile + report path depends on). No standalone schema exists for
+ * this shape; hand-typed by necessity.
+ */
 export interface ObservedModelStatus {
   modelId: string;
   status: string;
@@ -61,7 +71,16 @@ export interface ObservedModelStatus {
   errorCode?: string;
 }
 
-/** Per-model entry in server-authoritative desired state. */
+/**
+ * Per-model entry in server-authoritative desired state.
+ *
+ * A `desired_model_entry` schema exists in the contract, but it is structurally
+ * incompatible: the contract delivers artifacts via a chunked `artifact_manifest`
+ * (chunks[] with per-chunk offsets/hashes) whereas the browser SDK reconcile path
+ * consumes a single `artifactManifest.downloadUrl`, plus SDK-only fields
+ * (bindingKey/useCase/deploymentId/deploymentKey/modelName/modelRef). Binding
+ * would break sync-manager's download/activation logic. Hand-typed by necessity.
+ */
 export interface DesiredModelEntry {
   modelId: string;
   desiredVersion: string;
@@ -86,6 +105,7 @@ export interface DesiredModelEntry {
   rolloutId?: string;
 }
 
+// No named schema in contract (inline response type); hand-typed by necessity.
 export interface ServingBindingEntry {
   binding_key?: string;
   use_case?: string;
@@ -97,7 +117,16 @@ export interface ServingBindingEntry {
   model_ref?: string;
 }
 
-/** Server-authoritative desired state for this device. */
+/**
+ * Server-authoritative desired state for this device.
+ *
+ * A `desired_state` schema exists in the contract, but it is incompatible with
+ * SDK usage: the contract requires `activeBinding` and makes `models` optional,
+ * the SDK treats `models` as required and `activeBinding` as optional, and the
+ * SDK carries a `serving` field absent from the contract. Its `models[]` are
+ * the SDK-shaped {@link DesiredModelEntry} (see note there). Hand-typed by
+ * necessity.
+ */
 export interface DesiredState {
   schemaVersion: string;
   deviceId: string;
@@ -114,6 +143,7 @@ export interface DesiredState {
   gcEligibleArtifactIds?: string[];
 }
 
+// No named schema in contract (inline response type); hand-typed by necessity.
 export interface ModelInventoryEntry {
   modelId: string;
   version: string;
@@ -121,6 +151,16 @@ export interface ModelInventoryEntry {
   status?: string;
 }
 
+/**
+ * Caller-facing device sync request.
+ *
+ * A `device_sync_request` schema exists in the contract, but it is the full
+ * wire body: it requires `schemaVersion`, `deviceId`, and `requestedAt`. The
+ * SDK injects all three inside `sync()` (deviceId from the registered device),
+ * so the public method takes an all-optional partial. Binding the public input
+ * to the required schema would break the `sync(request = {})` ergonomics.
+ * Hand-typed by necessity.
+ */
 export interface DeviceSyncRequest {
   schemaVersion?: string;
   requestedAt?: string;
@@ -134,6 +174,14 @@ export interface DeviceSyncRequest {
   availableStorageBytes?: number;
 }
 
+/**
+ * Device sync response.
+ *
+ * A `device_sync_response` schema exists in the contract, but the SDK shape
+ * diverges: the contract returns a nested `desiredState?`, whereas the SDK
+ * flattens to `models`/`serving` and carries legacy `training_policy` and
+ * `round_offers` fields not present in the contract. Hand-typed by necessity.
+ */
 export interface DeviceSyncResponse {
   schemaVersion: string;
   deviceId: string;
@@ -218,7 +266,9 @@ export class ControlClient {
   /** Register a device with the Octomil server. */
   async register(deviceId?: string): Promise<DeviceRegistration> {
     const effectiveDeviceId =
-      deviceId || this.deviceContext?.installationId || (await this.generateDeviceId());
+      deviceId ||
+      this.deviceContext?.installationId ||
+      (await this.generateDeviceId());
     const battery = await getBatterySafely();
     const payload: Record<string, unknown> = {
       device_identifier: effectiveDeviceId,
@@ -358,9 +408,7 @@ export class ControlClient {
    * Typically called by {@link SyncManager} after a reconcile cycle, but can
    * also be invoked manually for custom reporting.
    */
-  async reportObservedState(
-    models: ObservedModelStatus[] = [],
-  ): Promise<void> {
+  async reportObservedState(models: ObservedModelStatus[] = []): Promise<void> {
     if (!this.serverDeviceId) {
       throw new OctomilError("INVALID_INPUT", "Device not registered");
     }
