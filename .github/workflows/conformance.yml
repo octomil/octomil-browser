@@ -45,7 +45,7 @@ jobs:
           print(f"version={version}")
           PY
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@v6.0.8
         with:
           version: 9
 
