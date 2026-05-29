@@ -34,6 +34,12 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
+// A `response_request` schema exists in the contract, but its `input` is
+// `string | ContentBlock[]` whereas the SDK's ergonomic union also accepts
+// `ResponseInputItem[]` (role/content message items); the schema's `metadata`
+// is `Record<string, unknown>` vs the SDK's `Record<string, string>`, and the
+// schema has no `stream` field. The input union is genuinely incompatible, so
+// per the migration brief this type is left hand-typed by necessity.
 export interface ResponseRequest {
   model: string;
   input: string | ContentBlock[] | ResponseInputItem[];
@@ -181,7 +187,10 @@ export class ResponsesClient {
    */
   async create(request: ResponseRequest): Promise<Response> {
     const localRuntime = this.resolveLocalRuntime(request.model);
-    const decision = await this.resolveRouteWithInference(request, localRuntime);
+    const decision = await this.resolveRouteWithInference(
+      request,
+      localRuntime,
+    );
     if (!decision.mode) {
       throw new OctomilError(
         "NETWORK_UNAVAILABLE",
@@ -192,10 +201,16 @@ export class ResponsesClient {
     }
 
     if (!decision.attemptResult.value) {
-      throw new OctomilError("NETWORK_UNAVAILABLE", "No response route succeeded");
+      throw new OctomilError(
+        "NETWORK_UNAVAILABLE",
+        "No response route succeeded",
+      );
     }
 
-    const response = this.attachRoute(decision.attemptResult.value, decision.routeMetadata);
+    const response = this.attachRoute(
+      decision.attemptResult.value,
+      decision.routeMetadata,
+    );
     this.reportRouteDecision(decision.routeMetadata, decision.routeEvent);
     this.cacheResponse(response);
     return response;
@@ -291,11 +306,18 @@ export class ResponsesClient {
     const localRuntime = this.resolveLocalRuntime(request.model);
     const decision = await this.resolveRoute(request, true, localRuntime);
     if (!decision.mode) {
-      throw new OctomilError("NETWORK_UNAVAILABLE", "No response route succeeded");
+      throw new OctomilError(
+        "NETWORK_UNAVAILABLE",
+        "No response route succeeded",
+      );
     }
 
     if (decision.locality === "cloud") {
-      yield* this.streamCloud(request, decision.routeMetadata, decision.routeEvent);
+      yield* this.streamCloud(
+        request,
+        decision.routeMetadata,
+        decision.routeEvent,
+      );
       return;
     }
 
@@ -746,7 +768,9 @@ export class ResponsesClient {
     if (!raw) return null;
     try {
       const parsed = JSON.parse(raw);
-      return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+      return parsed !== null &&
+        typeof parsed === "object" &&
+        !Array.isArray(parsed)
         ? (parsed as Record<string, unknown>)
         : null;
     } catch {
@@ -788,8 +812,12 @@ export class ResponsesClient {
       candidates.push({ locality: "cloud", priority: priority++ });
     }
 
-    const hasLocal = candidates.some((candidate) => candidate.locality === "local");
-    const hasCloud = candidates.some((candidate) => candidate.locality === "cloud");
+    const hasLocal = candidates.some(
+      (candidate) => candidate.locality === "local",
+    );
+    const hasCloud = candidates.some(
+      (candidate) => candidate.locality === "cloud",
+    );
     return {
       candidates,
       fallbackAllowed: hasLocal && hasCloud,
@@ -817,14 +845,12 @@ export class ResponsesClient {
       return null;
     }
 
-    const reasonCode =
-      streaming
-        ? firstOutputEmitted
-          ? "inference_error_after_first_output"
-          : "inference_error_before_first_output"
-        : "inference_error";
-    const message =
-      error instanceof Error ? error.message : String(error);
+    const reasonCode = streaming
+      ? firstOutputEmitted
+        ? "inference_error_after_first_output"
+        : "inference_error_before_first_output"
+      : "inference_error";
+    const message = error instanceof Error ? error.message : String(error);
     const failedAttempt: RouteAttempt = {
       ...selectedAttempt,
       status: "failed",
@@ -973,14 +999,14 @@ export class ResponsesClient {
     };
   }
 
-  private buildMessages(request: ResponseRequest): Array<Record<string, unknown>> {
+  private buildMessages(
+    request: ResponseRequest,
+  ): Array<Record<string, unknown>> {
     const input = this.normalizeInput(request.input);
     return input.map((item) => this.inputItemToMessage(item));
   }
 
-  private normalizeInput(
-    input: ResponseRequest["input"],
-  ): ResponseInputItem[] {
+  private normalizeInput(input: ResponseRequest["input"]): ResponseInputItem[] {
     if (typeof input === "string") {
       return [{ role: "user", content: input }];
     }
@@ -1026,7 +1052,9 @@ export class ResponsesClient {
     }
   }
 
-  private assistantInputToMessage(item: ResponseInputItem): Record<string, unknown> {
+  private assistantInputToMessage(
+    item: ResponseInputItem,
+  ): Record<string, unknown> {
     if (typeof item.content === "string" || item.content == null) {
       return {
         role: "assistant",
@@ -1037,9 +1065,7 @@ export class ResponsesClient {
     if (this.isResponseOutputItems(item.content)) {
       const textContent = item.content
         .filter(
-          (
-            output,
-          ): output is ResponseOutput & { type: "text"; text: string } =>
+          (output): output is ResponseOutput & { type: "text"; text: string } =>
             output.type === "text" && typeof output.text === "string",
         )
         .map((output) => output.text);
