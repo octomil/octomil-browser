@@ -14,6 +14,7 @@ import type { ModelCache } from "./cache.js";
 import { computeHash } from "./integrity.js";
 import { openIdb, runIdb } from "./idb.js";
 import { OctomilError } from "./types.js";
+import { isSecureUrl, readCapped, redactUrl } from "./secure-url.js";
 
 // Re-export for convenience
 export type { DesiredModelEntry } from "./control.js";
@@ -63,6 +64,9 @@ export interface SyncManagerOptions {
 // ---------------------------------------------------------------------------
 // IndexedDB metadata store
 // ---------------------------------------------------------------------------
+
+const DOWNLOAD_TIMEOUT_MS = 600_000;
+const MAX_ARTIFACT_BYTES = 2 * 1024 * 1024 * 1024;
 
 const IDB_META_DB = "octomil-sync-meta";
 const IDB_META_STORE = "models";
@@ -199,7 +203,9 @@ export class SyncManager {
       }
 
       // GC: remove cached artifacts no longer in desired state
-      await this.garbageCollect(desired, entries);
+      if (errors === 0 && (entries.length > 0 || (desired.gcEligibleArtifactIds ?? []).length > 0)) {
+        await this.garbageCollect(desired, entries);
+      }
 
       // Report observed state
       await this.reportState();
@@ -248,12 +254,18 @@ export class SyncManager {
     const existing = await this.meta.get(entry.modelId);
 
     // Already at desired version and active
-    if (existing && existing.modelVersion === entry.desiredVersion && existing.status === "active") {
+    const sameArtifact =
+      !!existing &&
+      existing.modelVersion === entry.desiredVersion &&
+      (!entry.artifactManifest?.sha256 ||
+        existing.sha256 === entry.artifactManifest.sha256.toLowerCase());
+
+    if (existing && sameArtifact && existing.status === "active") {
       return { downloaded: false, activated: false };
     }
 
     // Already staged at desired version — just check activation policy
-    if (existing && existing.modelVersion === entry.desiredVersion && existing.status === "staged") {
+    if (existing && sameArtifact && existing.status === "staged") {
       const shouldActivate = this.shouldActivate(entry.activationPolicy);
       if (shouldActivate) {
         existing.status = "active";
@@ -269,19 +281,24 @@ export class SyncManager {
       return { downloaded: false, activated: false };
     }
 
+    const expectedHash = entry.artifactManifest.sha256?.toLowerCase();
+    if (!expectedHash) {
+      throw new OctomilError(
+        "MODEL_LOAD_FAILED",
+        `Artifact for ${entry.modelId} has no sha256; refusing to install unverified model`,
+      );
+    }
+
     this.emit({ type: "download_start", modelId: entry.modelId });
 
     const data = await this.downloadArtifact(entry.artifactManifest.downloadUrl);
 
-    // Verify integrity if sha256 is provided
-    if (entry.artifactManifest.sha256) {
-      const hash = await computeHash(data);
-      if (hash !== entry.artifactManifest.sha256.toLowerCase()) {
-        throw new OctomilError(
-          "MODEL_LOAD_FAILED",
-          `Integrity check failed for ${entry.modelId}: expected ${entry.artifactManifest.sha256}, got ${hash}`,
-        );
-      }
+    const hash = await computeHash(data);
+    if (hash !== expectedHash) {
+      throw new OctomilError(
+        "MODEL_LOAD_FAILED",
+        `Integrity check failed for ${entry.modelId}: expected ${expectedHash}, got ${hash}`,
+      );
     }
 
     // Cache the artifact
@@ -306,7 +323,7 @@ export class SyncManager {
       modelName: entry.modelName,
       modelRef: entry.modelRef,
       artifactUrl: cacheKey,
-      sha256: entry.artifactManifest.sha256,
+      sha256: expectedHash,
       installedAt: new Date().toISOString(),
       status: shouldActivate ? "active" : "staged",
       sizeBytes: data.byteLength,
@@ -341,13 +358,20 @@ export class SyncManager {
   }
 
   private async downloadArtifact(url: string): Promise<ArrayBuffer> {
+    if (!isSecureUrl(url)) {
+      throw new OctomilError(
+        "MODEL_LOAD_FAILED",
+        `Refusing to download artifact over an insecure URL: ${redactUrl(url)}`,
+      );
+    }
+
     let response: Response;
     try {
-      response = await fetch(url);
+      response = await fetch(url, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
     } catch (err) {
       throw new OctomilError(
         "NETWORK_UNAVAILABLE",
-        `Failed to download artifact from ${url}: ${String(err)}`,
+        `Failed to download artifact from ${redactUrl(url)}`,
         err,
       );
     }
@@ -359,7 +383,15 @@ export class SyncManager {
       );
     }
 
-    return response.arrayBuffer();
+    try {
+      return await readCapped(response, MAX_ARTIFACT_BYTES);
+    } catch (err) {
+      throw new OctomilError(
+        "MODEL_LOAD_FAILED",
+        `Artifact download from ${redactUrl(url)} failed: ${(err as Error).message}`,
+        err,
+      );
+    }
   }
 
   private async garbageCollect(
@@ -374,8 +406,12 @@ export class SyncManager {
       const shouldGc =
         gcIds.has(local.modelId) || !desiredModelIds.has(local.modelId);
       if (shouldGc) {
-        await this.cache.remove(local.artifactUrl);
-        await this.meta.remove(local.modelId);
+        try {
+          await this.cache.remove(local.artifactUrl);
+          await this.meta.remove(local.modelId);
+        } catch (err) {
+          this.emit({ type: "error", error: String(err) });
+        }
       }
     }
   }
@@ -402,6 +438,10 @@ export class SyncManager {
   }
 
   private emit(event: SyncEvent): void {
-    this.onEvent?.(event);
+    try {
+      this.onEvent?.(event);
+    } catch {
+      // listener errors must not abort a sync cycle
+    }
   }
 }
