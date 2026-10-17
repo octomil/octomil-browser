@@ -359,3 +359,13 @@ export class OctomilError extends Error {
     return OctomilError.fromHttpStatus(status, message);
   }
 }
+
+/** Map an HTTP status to an auth error code for 401/403, else the given fallback. */
+export function httpErrorCode(
+  status: number,
+  fallback: OctomilErrorCode = "NETWORK_UNAVAILABLE",
+): OctomilErrorCode {
+  if (status === 401) return "AUTHENTICATION_FAILED";
+  if (status === 403) return "FORBIDDEN";
+  return fallback;
+}
