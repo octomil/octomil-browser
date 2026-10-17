@@ -1,0 +1,186 @@
+{
+  "kind": "http_status",
+  "description": "Status and transport outcome to canonical error code. 401/403 are never network errors.",
+  "cases": [
+    {
+      "name": "status:400",
+      "input": {
+        "outcome": "status:400"
+      },
+      "expect": {
+        "code": "invalid_input"
+      }
+    },
+    {
+      "name": "status:401",
+      "input": {
+        "outcome": "status:401"
+      },
+      "expect": {
+        "code": "authentication_failed"
+      }
+    },
+    {
+      "name": "status:403",
+      "input": {
+        "outcome": "status:403"
+      },
+      "expect": {
+        "code": "forbidden"
+      }
+    },
+    {
+      "name": "status:404",
+      "input": {
+        "outcome": "status:404"
+      },
+      "expect": {
+        "code": "resource_not_found"
+      }
+    },
+    {
+      "name": "status:408",
+      "input": {
+        "outcome": "status:408"
+      },
+      "expect": {
+        "code": "request_timeout"
+      }
+    },
+    {
+      "name": "status:409",
+      "input": {
+        "outcome": "status:409"
+      },
+      "expect": {
+        "code": "conflict"
+      }
+    },
+    {
+      "name": "status:413",
+      "input": {
+        "outcome": "status:413"
+      },
+      "expect": {
+        "code": "payload_too_large"
+      }
+    },
+    {
+      "name": "status:422",
+      "input": {
+        "outcome": "status:422"
+      },
+      "expect": {
+        "code": "invalid_input"
+      }
+    },
+    {
+      "name": "status:429",
+      "input": {
+        "outcome": "status:429"
+      },
+      "expect": {
+        "code": "rate_limited"
+      }
+    },
+    {
+      "name": "status:499",
+      "input": {
+        "outcome": "status:499"
+      },
+      "expect": {
+        "code": "cancelled"
+      }
+    },
+    {
+      "name": "status:500",
+      "input": {
+        "outcome": "status:500"
+      },
+      "expect": {
+        "code": "server_error"
+      }
+    },
+    {
+      "name": "status:502",
+      "input": {
+        "outcome": "status:502"
+      },
+      "expect": {
+        "code": "server_error"
+      }
+    },
+    {
+      "name": "status:503",
+      "input": {
+        "outcome": "status:503"
+      },
+      "expect": {
+        "code": "server_error"
+      }
+    },
+    {
+      "name": "status:504",
+      "input": {
+        "outcome": "status:504"
+      },
+      "expect": {
+        "code": "request_timeout"
+      }
+    },
+    {
+      "name": "status:418",
+      "input": {
+        "outcome": "status:418"
+      },
+      "expect": {
+        "code": "invalid_input"
+      }
+    },
+    {
+      "name": "status:507",
+      "input": {
+        "outcome": "status:507"
+      },
+      "expect": {
+        "code": "server_error"
+      }
+    },
+    {
+      "name": "dns_failure",
+      "input": {
+        "outcome": "dns_failure"
+      },
+      "expect": {
+        "code": "network_unavailable"
+      }
+    },
+    {
+      "name": "connect_failure",
+      "input": {
+        "outcome": "connect_failure"
+      },
+      "expect": {
+        "code": "network_unavailable"
+      }
+    },
+    {
+      "name": "tls_failure",
+      "input": {
+        "outcome": "tls_failure"
+      },
+      "expect": {
+        "code": "network_unavailable"
+      }
+    },
+    {
+      "name": "timeout_after_send",
+      "input": {
+        "outcome": "timeout_after_send"
+      },
+      "expect": {
+        "code": "request_timeout"
+      }
+    }
+  ]
+}

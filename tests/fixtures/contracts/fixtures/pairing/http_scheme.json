@@ -1,0 +1,86 @@
+{
+  "kind": "pairing_parse",
+  "description": "Plain http server origins and foreign link forms are rejected.",
+  "cases": [
+    {
+      "name": "http_origin",
+      "input": {
+        "link": "octomil://pair?token=ABC123&host=http://api.octomil.com"
+      },
+      "expect": {
+        "result": "error",
+        "code": "host_not_allowed"
+      }
+    },
+    {
+      "name": "http_origin_foreign",
+      "input": {
+        "link": "octomil://pair?token=ABC123&host=http://evil.com"
+      },
+      "expect": {
+        "result": "error",
+        "code": "host_not_allowed"
+      }
+    },
+    {
+      "name": "ftp_origin",
+      "input": {
+        "link": "octomil://pair?token=ABC123&host=ftp://api.octomil.com"
+      },
+      "expect": {
+        "result": "error",
+        "code": "host_not_allowed"
+      }
+    },
+    {
+      "name": "http_app_link",
+      "input": {
+        "link": "http://octomil.com/pair?token=ABC123"
+      },
+      "expect": {
+        "result": "error",
+        "code": "invalid_input"
+      }
+    },
+    {
+      "name": "foreign_app_link",
+      "input": {
+        "link": "https://evil.com/pair?token=ABC123"
+      },
+      "expect": {
+        "result": "error",
+        "code": "invalid_input"
+      }
+    },
+    {
+      "name": "wrong_action",
+      "input": {
+        "link": "octomil://connect?token=ABC123"
+      },
+      "expect": {
+        "result": "error",
+        "code": "invalid_input"
+      }
+    },
+    {
+      "name": "wrong_app_link_path",
+      "input": {
+        "link": "https://octomil.com/other?token=ABC123"
+      },
+      "expect": {
+        "result": "error",
+        "code": "invalid_input"
+      }
+    },
+    {
+      "name": "fragment",
+      "input": {
+        "link": "octomil://pair?token=ABC123#x"
+      },
+      "expect": {
+        "result": "error",
+        "code": "invalid_input"
+      }
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "kind": "pairing_parse",
+  "description": "Alias parameter names resolve to the canonical fields.",
+  "cases": [
+    {
+      "name": "code_alias",
+      "input": {
+        "link": "octomil://pair?code=ABC123"
+      },
+      "expect": {
+        "result": "ok",
+        "code": "ABC123",
+        "host": "https://api.octomil.com"
+      }
+    },
+    {
+      "name": "server_alias",
+      "input": {
+        "link": "octomil://pair?token=ABC123&server=eu.octomil.com"
+      },
+      "expect": {
+        "result": "ok",
+        "code": "ABC123",
+        "host": "https://eu.octomil.com"
+      }
+    },
+    {
+      "name": "both_aliases",
+      "input": {
+        "link": "octomil://pair?code=ABC123&server=https://api.octomil.com"
+      },
+      "expect": {
+        "result": "ok",
+        "code": "ABC123",
+        "host": "https://api.octomil.com"
+      }
+    },
+    {
+      "name": "same_value_twice_via_alias",
+      "input": {
+        "link": "octomil://pair?token=ABC123&code=ABC123"
+      },
+      "expect": {
+        "result": "ok",
+        "code": "ABC123",
+        "host": "https://api.octomil.com"
+      }
+    },
+    {
+      "name": "conflicting_alias",
+      "input": {
+        "link": "octomil://pair?token=ABC123&code=XYZ789"
+      },
+      "expect": {
+        "result": "error",
+        "code": "invalid_input"
+      }
+    },
+    {
+      "name": "repeated_param_conflict",
+      "input": {
+        "link": "octomil://pair?token=ABC123&token=XYZ789"
+      },
+      "expect": {
+        "result": "error",
+        "code": "invalid_input"
+      }
+    },
+    {
+      "name": "conflicting_host_alias",
+      "input": {
+        "link": "octomil://pair?token=ABC123&host=api.octomil.com&server=eu.octomil.com"
+      },
+      "expect": {
+        "result": "error",
+        "code": "invalid_input"
+      }
+    }
+  ]
+}

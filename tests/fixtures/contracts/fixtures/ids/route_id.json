@@ -1,0 +1,66 @@
+{
+  "kind": "id_check",
+  "description": "route_ + 32 lowercase hex chars (128-bit CSPRNG).",
+  "cases": [
+    {
+      "name": "valid",
+      "input": {
+        "id_kind": "route_id",
+        "value": "route_0123456789abcdef0123456789abcdef"
+      },
+      "expect": {
+        "valid": true
+      }
+    },
+    {
+      "name": "uppercase_hex",
+      "input": {
+        "id_kind": "route_id",
+        "value": "route_0123456789ABCDEF0123456789ABCDEF"
+      },
+      "expect": {
+        "valid": false
+      }
+    },
+    {
+      "name": "short",
+      "input": {
+        "id_kind": "route_id",
+        "value": "route_0123456789abcdef"
+      },
+      "expect": {
+        "valid": false
+      }
+    },
+    {
+      "name": "no_prefix",
+      "input": {
+        "id_kind": "route_id",
+        "value": "0123456789abcdef0123456789abcdef"
+      },
+      "expect": {
+        "valid": false
+      }
+    },
+    {
+      "name": "uuid_form",
+      "input": {
+        "id_kind": "route_id",
+        "value": "route_01234567-89ab-cdef-0123-456789abcdef"
+      },
+      "expect": {
+        "valid": false
+      }
+    },
+    {
+      "name": "trailing_newline",
+      "input": {
+        "id_kind": "route_id",
+        "value": "route_0123456789abcdef0123456789abcdef\n"
+      },
+      "expect": {
+        "valid": false
+      }
+    }
+  ]
+}

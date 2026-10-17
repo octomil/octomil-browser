@@ -1,0 +1,86 @@
+{
+  "kind": "pairing_parse",
+  "description": "Codes must match ^[A-Z0-9]{6}$.",
+  "cases": [
+    {
+      "name": "missing",
+      "input": {
+        "link": "octomil://pair"
+      },
+      "expect": {
+        "result": "error",
+        "code": "invalid_input"
+      }
+    },
+    {
+      "name": "empty",
+      "input": {
+        "link": "octomil://pair?token="
+      },
+      "expect": {
+        "result": "error",
+        "code": "invalid_input"
+      }
+    },
+    {
+      "name": "too_short",
+      "input": {
+        "link": "octomil://pair?token=ABC12"
+      },
+      "expect": {
+        "result": "error",
+        "code": "invalid_input"
+      }
+    },
+    {
+      "name": "too_long",
+      "input": {
+        "link": "octomil://pair?token=ABC1234"
+      },
+      "expect": {
+        "result": "error",
+        "code": "invalid_input"
+      }
+    },
+    {
+      "name": "lowercase",
+      "input": {
+        "link": "octomil://pair?token=abc123"
+      },
+      "expect": {
+        "result": "error",
+        "code": "invalid_input"
+      }
+    },
+    {
+      "name": "symbol",
+      "input": {
+        "link": "octomil://pair?token=ABC12!"
+      },
+      "expect": {
+        "result": "error",
+        "code": "invalid_input"
+      }
+    },
+    {
+      "name": "whitespace",
+      "input": {
+        "link": "octomil://pair?token=ABC%20123"
+      },
+      "expect": {
+        "result": "error",
+        "code": "invalid_input"
+      }
+    },
+    {
+      "name": "trailing_newline",
+      "input": {
+        "link": "octomil://pair?token=ABC123%0A"
+      },
+      "expect": {
+        "result": "error",
+        "code": "invalid_input"
+      }
+    }
+  ]
+}

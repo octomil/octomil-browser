@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://octomil.com/schemas/core/trust_root.json",
+  "title": "TrustRoot",
+  "description": "DSSE-style envelope carrying the trust root: release keys, revocations and serial floors. Signed by at least `threshold` of the pinned offline root keys over PAE(payloadType, JCS payload). An update is accepted only if signed by the currently pinned roots and its serial is higher than the stored one.",
+  "type": "object",
+  "required": ["payloadType", "payload", "signatures"],
+  "additionalProperties": false,
+  "properties": {
+    "payloadType": {
+      "const": "application/vnd.octomil.trust-root.v1+json"
+    },
+    "payload": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Standard base64 of the JCS-canonical TrustRootPayload."
+    },
+    "signatures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["keyid", "sig"],
+        "additionalProperties": false,
+        "properties": {
+          "keyid": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "sig": { "type": "string" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "PublicKey": {
+      "type": "object",
+      "required": ["keyid", "pubkey"],
+      "additionalProperties": false,
+      "properties": {
+        "keyid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "pubkey": {
+          "type": "string",
+          "description": "Standard base64 of the raw 32-byte Ed25519 public key."
+        }
+      }
+    },
+    "TrustRootPayload": {
+      "type": "object",
+      "required": [
+        "schema", "serial", "issued_at", "expires_at", "root_threshold",
+        "root_keys", "keys", "revoked_keyids", "revoked_digests", "min_serial"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schema": { "const": "octomil.trust_root/1" },
+        "serial": { "type": "integer", "minimum": 0 },
+        "issued_at": { "type": "string", "format": "date-time" },
+        "expires_at": { "type": "string", "format": "date-time" },
+        "root_threshold": {
+          "type": "integer",
+          "minimum": 2,
+          "description": "Number of distinct root keys that must sign the next trust root."
+        },
+        "root_keys": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/PublicKey" },
+          "description": "Roots authorised to sign the next trust root (TUF-style chaining)."
+        },
+        "keys": {
+          "type": "array",
+          "description": "Release keys that may sign manifests.",
+          "items": {
+            "type": "object",
+            "required": ["keyid", "pubkey", "not_before", "not_after", "scope"],
+            "additionalProperties": false,
+            "properties": {
+              "keyid": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "pubkey": { "type": "string" },
+              "not_before": { "type": "string", "format": "date-time" },
+              "not_after": { "type": "string", "format": "date-time" },
+              "scope": { "enum": ["model", "runtime", "both"] }
+            }
+          }
+        },
+        "revoked_keyids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "revoked_digests": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "description": "File sha256 digests that must never be accepted."
+        },
+        "min_serial": {
+          "type": "object",
+          "description": "Per manifest name serial floor; manifests below it are rollbacks.",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      }
+    }
+  }
+}

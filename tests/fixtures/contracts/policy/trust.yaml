@@ -1,0 +1,62 @@
+# Artifact trust policy. Spec: schemas/core/signed_manifest.json, schemas/core/trust_root.json.
+# Executable spec: fixtures/trust/vectors/*.json run by ci/verify_trust_vectors.py.
+name: TrustPolicy
+since: "1.32.0"
+validator: ci/verify_trust_vectors.py
+fixtures: fixtures/trust
+
+signature:
+  algorithm: ed25519
+  signed_bytes: "DSSEv1 <len(payloadType)> <payloadType> <len(payload)> <payload>"
+  payload_encoding: rfc8785_jcs
+  root_threshold_min: 2
+
+# Order is normative: the first failing step decides the error code.
+verification_steps:
+  - {step: trust_root, fail: manifest_signature_invalid, note: "threshold of pinned root keys; serial below stored max is rollback_detected; past expires_at is manifest_expired unless inside max_offline_age"}
+  - {step: envelope, fail: manifest_signature_invalid, note: "payloadType, non-empty signatures, payload bytes equal JCS(payload)"}
+  - {step: signature, fail: manifest_signature_invalid, note: "key in trust root, valid at manifest issued_at; signature by a revoked keyid is key_revoked"}
+  - {step: expiry, fail: manifest_expired}
+  - {step: applicability, fail: manifest_incompatible, note: "kind, key scope, platform, min_sdk, abi"}
+  - {step: tenant, fail: forbidden, note: "model manifests need org_id equal to the caller org; runtime manifests may use null"}
+  - {step: serial, fail: rollback_detected, note: "serial >= max(stored max_serial, trust_root.min_serial[name])"}
+  - {step: revoked_digest, fail: key_revoked}
+  - {step: digest_format, fail: artifact_digest_mismatch, note: "empty or malformed sha256 is a hard failure"}
+  - {step: hosts, fail: host_not_allowed, note: "https only, no userinfo, host in manifest source_hosts AND sdk allowlist"}
+  - {step: files, fail: artifact_digest_mismatch, note: "size and sha256 for every file"}
+
+# Verification re-runs on every cache read against the current trust root, so revocation is retroactive.
+cache_reverify: always
+
+hosts:
+  sdk_allowlist_default: ["*.octomil.com"]
+  require_https: true
+  credentials_only_to: octomil_api_origin
+  strip_headers_on_cross_origin_redirect: true
+
+resume:
+  journal_must_bind: manifest_sha256
+  on_manifest_change: restart
+  on_chunk_mismatch: discard_partial
+
+offline:
+  max_offline_age_seconds: 2592000
+  # Expired trust_root stays usable as last-known-good while now - last_refresh <= max_offline_age, then fail closed.
+  expired_trust_root_beyond_max_offline: manifest_expired
+
+# Phase-1 rollout. A present-but-invalid manifest fails in every mode; mode only governs an absent manifest.
+unsigned_policy:
+  server_default: warn
+  sdk_mode:
+    python: warn
+    node: warn
+    android: warn
+    ios: warn
+    browser: warn
+    runtime: warn
+  sdk_may_be_stricter_than_server: true
+  retirement:
+    condition: "Flip a platform to enforce once telemetry artifact.verify coverage (signed manifests / all artifact loads) is >= min_coverage_pct for min_days consecutive days."
+    metric: artifact.verify
+    min_coverage_pct: 99
+    min_days: 14

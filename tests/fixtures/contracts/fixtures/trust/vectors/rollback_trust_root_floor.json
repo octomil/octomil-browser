@@ -1,0 +1,84 @@
+{
+  "description": "Manifest serial is below trust_root.min_serial.",
+  "operation": "verify_manifest",
+  "now": "2026-10-17T00:00:00Z",
+  "pinned_root": {
+    "threshold": 2,
+    "root_keys": [
+      {
+        "keyid": "root-a",
+        "pubkey": "D+tgcji2veQ2Oyobrv5P1CFnxSAkNrSisOiLtFeiH1c="
+      },
+      {
+        "keyid": "root-b",
+        "pubkey": "xrraPC0RsI/UlVW04jcwj6ooolXmsZFvaISJc8R8+S4="
+      },
+      {
+        "keyid": "root-c",
+        "pubkey": "fGZCdbaZe5P5Nx9xjsjyCOGTLddEBa/PoBp2mXnpxV0="
+      }
+    ]
+  },
+  "trust_root": {
+    "payloadType": "application/vnd.octomil.trust-root.v1+json",
+    "payload": "eyJleHBpcmVzX2F0IjoiMjAyNy0wMy0wMVQwMDowMDowMFoiLCJpc3N1ZWRfYXQiOiIyMDI2LTA5LTAxVDAwOjAwOjAwWiIsImtleXMiOlt7ImtleWlkIjoicmVsZWFzZS0yMDI2LWEiLCJub3RfYWZ0ZXIiOiIyMDI3LTAxLTAxVDAwOjAwOjAwWiIsIm5vdF9iZWZvcmUiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsInB1YmtleSI6Ik9rUktLYmFjK1RKdHNCMjUwc2QvMWFwS3drazJDRU9JOHFTbU52TUp0bm89Iiwic2NvcGUiOiJib3RoIn0seyJrZXlpZCI6InJlbGVhc2UtbW9kZWwtb25seSIsIm5vdF9hZnRlciI6IjIwMjctMDEtMDFUMDA6MDA6MDBaIiwibm90X2JlZm9yZSI6IjIwMjYtMDEtMDFUMDA6MDA6MDBaIiwicHVia2V5IjoiUzhyRjlSYmF4cmtKYVlqdjZaaFA0WTFHUHRUblNQbkNyUElvRTNjd01XMD0iLCJzY29wZSI6Im1vZGVsIn0seyJrZXlpZCI6InJlbGVhc2UtcnVudGltZS1vbmx5Iiwibm90X2FmdGVyIjoiMjAyNy0wMS0wMVQwMDowMDowMFoiLCJub3RfYmVmb3JlIjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJwdWJrZXkiOiI5OHNsYnNYdWtjSUdZQ2J5d1grNTIrb0h0Yk1JN2doZGhxNjh3SEdnUGZFPSIsInNjb3BlIjoicnVudGltZSJ9LHsia2V5aWQiOiJyZWxlYXNlLXJldm9rZWQiLCJub3RfYWZ0ZXIiOiIyMDI3LTAxLTAxVDAwOjAwOjAwWiIsIm5vdF9iZWZvcmUiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsInB1YmtleSI6InVLSzhmbEpSSk96YVYvblJ3KzRhRVRIeC9zaWwzK2x1L3BINThiQ0tYdkE9Iiwic2NvcGUiOiJib3RoIn0seyJrZXlpZCI6InJlbGVhc2Utb2xkIiwibm90X2FmdGVyIjoiMjAyNi0wNi0zMFQwMDowMDowMFoiLCJub3RfYmVmb3JlIjoiMjAyNS0wMS0wMVQwMDowMDowMFoiLCJwdWJrZXkiOiJlVklENzJSVXFLb0pQQklKZ0w2Z2dmYjAreUw0TkRxNHp3Mk1GdGlmR1VJPSIsInNjb3BlIjoiYm90aCJ9XSwibWluX3NlcmlhbCI6eyJvY3RvbWlsLWNoYXQtMWIiOjUwfSwicmV2b2tlZF9kaWdlc3RzIjpbXSwicmV2b2tlZF9rZXlpZHMiOlsicmVsZWFzZS1yZXZva2VkIl0sInJvb3Rfa2V5cyI6W3sia2V5aWQiOiJyb290LWEiLCJwdWJrZXkiOiJEK3RnY2ppMnZlUTJPeW9icnY1UDFDRm54U0FrTnJTaXNPaUx0RmVpSDFjPSJ9LHsia2V5aWQiOiJyb290LWIiLCJwdWJrZXkiOiJ4cnJhUEMwUnNJL1VsVlcwNGpjd2o2b29vbFhtc1pGdmFJU0pjOFI4K1M0PSJ9LHsia2V5aWQiOiJyb290LWMiLCJwdWJrZXkiOiJmR1pDZGJhWmU1UDVOeDl4anNqeUNPR1RMZGRFQmEvUG9CcDJtWG5weFYwPSJ9XSwicm9vdF90aHJlc2hvbGQiOjIsInNjaGVtYSI6Im9jdG9taWwudHJ1c3Rfcm9vdC8xIiwic2VyaWFsIjozfQ==",
+    "signatures": [
+      {
+        "keyid": "root-a",
+        "sig": "PNhB7AapC08xinEJLFbf3FA8w25SnjOgOagQfxISUxbpNnKPqBNZhrANo+uJ4DElPXVVJ9a8V5OL5nN8SK7uAA=="
+      },
+      {
+        "keyid": "root-b",
+        "sig": "APpbCUGWwcHdD0JvldZSvezQGBxzHL/dA+4vUmJTszDhpkg6KJCZws2QHu36ueqUsVTUNkXAdkzDZB2mhYg3Bw=="
+      }
+    ]
+  },
+  "state": {},
+  "context": {
+    "kind": "model",
+    "org_id": "org_acme",
+    "platform": {
+      "os": "darwin",
+      "arch": "arm64",
+      "flavor": "chat"
+    },
+    "sdk": {
+      "name": "python",
+      "version": "1.5.0"
+    },
+    "abi": {
+      "major": 0,
+      "minor": 12
+    },
+    "sdk_allowlist": [
+      "*.octomil.com"
+    ],
+    "downloads": [
+      {
+        "path": "model.gguf",
+        "url": "https://models.octomil.com/org_acme/model.gguf"
+      }
+    ],
+    "observed": [
+      {
+        "path": "model.gguf",
+        "size": 34,
+        "sha256": "22e39fe3380310e3417b78ac31f20e7438ec3f4d6df26a1148a7cb518b9ff26b"
+      }
+    ]
+  },
+  "manifest": {
+    "payloadType": "application/vnd.octomil.manifest.v1+json",
+    "payload": "eyJhYmkiOnsibWFqb3IiOjAsIm1pbl9taW5vciI6MTJ9LCJidW5kbGVfZGlnZXN0IjoiMzIwNzY5OTA2Y2Y1OWM1MmVmNTI0ZGRkOGUzMDk0YTc2NWMyMjQ3OWMzNjQ5MTBmMDc0MzNmYWRmN2Q4ZDU1OCIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTAxVDAwOjAwOjAwWiIsImZpbGVzIjpbeyJjaHVua3MiOlt7InNoYTI1NiI6IjljMmI3NTg0NTk2Y2E5NDE3ZDAzNWUyNzY2NmVhYTNkYTU0NWExMTlmNDI2MjFjMGIwNTBiOWViOWExMDMwY2YiLCJzaXplIjoxN30seyJzaGEyNTYiOiI0NjZkNDVkM2NjZTY2ZmRiZWY2YjliMDg0YzVlZmEzN2EwNWVkMDgwNGYwYTYxNWExZDEwYzNiYWI2NmM1NTcwIiwic2l6ZSI6MTd9XSwicGF0aCI6Im1vZGVsLmdndWYiLCJzaGEyNTYiOiIyMmUzOWZlMzM4MDMxMGUzNDE3Yjc4YWMzMWYyMGU3NDM4ZWMzZjRkNmRmMjZhMTE0OGE3Y2I1MThiOWZmMjZiIiwic2l6ZSI6MzR9XSwiaXNzdWVkX2F0IjoiMjAyNi0xMC0wMVQwMDowMDowMFoiLCJraW5kIjoibW9kZWwiLCJtaW5fc2RrIjp7InB5dGhvbiI6IjEuMC4wIn0sIm5hbWUiOiJvY3RvbWlsLWNoYXQtMWIiLCJvcmdfaWQiOiJvcmdfYWNtZSIsInBsYXRmb3JtIjp7ImFyY2giOiJhcm02NCIsImZsYXZvciI6ImNoYXQiLCJvcyI6ImRhcndpbiJ9LCJzY2hlbWEiOiJvY3RvbWlsLm1hbmlmZXN0LzEiLCJzZXJpYWwiOjQxLCJzb3VyY2VfaG9zdHMiOlsibW9kZWxzLm9jdG9taWwuY29tIiwiY2RuLm9jdG9taWwuY29tIl0sInZlcnNpb24iOiIxLjAuMCJ9",
+    "signatures": [
+      {
+        "keyid": "release-2026-a",
+        "sig": "6VkwWPvxWNADMYQYkCs//gBZ4EWinoYtWW075OWKnKWn8Z5nsj6FNzUEz3Fue8oTKazwuoKipyM+dKMfbn/wAQ=="
+      }
+    ]
+  },
+  "expect": {
+    "result": "error",
+    "code": "rollback_detected"
+  }
+}

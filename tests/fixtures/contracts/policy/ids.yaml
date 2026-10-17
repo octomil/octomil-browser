@@ -1,0 +1,24 @@
+# Route and request identifiers. Executable spec: fixtures/ids/*.json run by ci/verify_policy_vectors.py.
+name: IdPolicy
+since: "1.32.0"
+validator: ci/verify_policy_vectors.py
+fixtures: fixtures/ids
+
+route_id:
+  prefix: "route_"
+  entropy_bits: 128
+  source: csprng
+  body_regex: "^[a-f0-9]{32}$"
+  regex: "^route_[a-f0-9]{32}$"
+
+request_id:
+  # Client-generated. Accepts a UUIDv7 or a ULID; SDKs MUST emit UUIDv7.
+  emit: uuid7
+  accept:
+    - {format: uuid7, regex: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"}
+    - {format: ulid, regex: "^[0-9A-HJKMNP-TV-Z]{26}$"}
+
+correlation:
+  # The server echoes an accepted client request_id; an invalid one is replaced, never rejected.
+  header: X-Request-Id
+  on_invalid: replace

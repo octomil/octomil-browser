@@ -1,0 +1,116 @@
+{
+  "kind": "pairing_parse",
+  "description": "Hosts outside the allowlist, or crafted to look inside it, are rejected.",
+  "cases": [
+    {
+      "name": "foreign_host",
+      "input": {
+        "link": "octomil://pair?token=ABC123&host=evil.com"
+      },
+      "expect": {
+        "result": "error",
+        "code": "host_not_allowed"
+      }
+    },
+    {
+      "name": "suffix_trick",
+      "input": {
+        "link": "octomil://pair?token=ABC123&host=api.octomil.com.evil.com"
+      },
+      "expect": {
+        "result": "error",
+        "code": "host_not_allowed"
+      }
+    },
+    {
+      "name": "prefix_trick",
+      "input": {
+        "link": "octomil://pair?token=ABC123&host=evilocto.com"
+      },
+      "expect": {
+        "result": "error",
+        "code": "host_not_allowed"
+      }
+    },
+    {
+      "name": "userinfo_trick",
+      "input": {
+        "link": "octomil://pair?token=ABC123&host=https://api.octomil.com@evil.com"
+      },
+      "expect": {
+        "result": "error",
+        "code": "host_not_allowed"
+      }
+    },
+    {
+      "name": "userinfo_on_allowed_host",
+      "input": {
+        "link": "octomil://pair?token=ABC123&host=https://user:pw@api.octomil.com"
+      },
+      "expect": {
+        "result": "error",
+        "code": "host_not_allowed"
+      }
+    },
+    {
+      "name": "apex_not_matched_by_wildcard",
+      "input": {
+        "link": "octomil://pair?token=ABC123&host=octomil.com"
+      },
+      "expect": {
+        "result": "error",
+        "code": "host_not_allowed"
+      }
+    },
+    {
+      "name": "odd_port",
+      "input": {
+        "link": "octomil://pair?token=ABC123&host=https://api.octomil.com:8443"
+      },
+      "expect": {
+        "result": "error",
+        "code": "host_not_allowed"
+      }
+    },
+    {
+      "name": "percent_encoded_dot",
+      "input": {
+        "link": "octomil://pair?token=ABC123&host=api.octomil.com%2eevil.com"
+      },
+      "expect": {
+        "result": "error",
+        "code": "host_not_allowed"
+      }
+    },
+    {
+      "name": "path_smuggling",
+      "input": {
+        "link": "octomil://pair?token=ABC123&host=https://api.octomil.com/x"
+      },
+      "expect": {
+        "result": "error",
+        "code": "invalid_input"
+      }
+    },
+    {
+      "name": "ip_literal",
+      "input": {
+        "link": "octomil://pair?token=ABC123&host=https://127.0.0.1"
+      },
+      "expect": {
+        "result": "error",
+        "code": "host_not_allowed"
+      }
+    },
+    {
+      "name": "localhost",
+      "input": {
+        "link": "octomil://pair?token=ABC123&host=localhost"
+      },
+      "expect": {
+        "result": "error",
+        "code": "host_not_allowed"
+      }
+    }
+  ]
+}

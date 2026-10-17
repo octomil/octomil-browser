@@ -1,0 +1,30 @@
+# Pairing deep-link grammar. Executable spec: fixtures/pairing/*.json run by ci/verify_policy_vectors.py.
+# Intended generator interface: parse(url) -> {code, host} | error, build(code, host) -> url.
+name: PairingPolicy
+since: "1.32.0"
+validator: ci/verify_policy_vectors.py
+fixtures: fixtures/pairing
+
+forms:
+  - {scheme: "octomil", authority: "pair", path: ""}
+  - {scheme: "https", authority: "octomil.com", path: "/pair"}
+
+# Regexes must be applied as full-string matches (no trailing-newline slack).
+params:
+  code: {canonical: token, aliases: [code], regex: "^[A-Z0-9]{6}$", required: true}
+  host: {canonical: host, aliases: [server], required: false, default: "https://api.octomil.com"}
+
+# Repeated or aliased params with differing values make the link invalid; identical repeats collapse.
+duplicate_params: reject_conflicting
+ttl_seconds: 600
+
+server:
+  require_https: true
+  allow_userinfo: false
+  allowed_ports: [443]
+  # `host` may be a bare hostname or an https origin with no path, query or fragment.
+  allowed_host_patterns: ["api.octomil.com", "*.octomil.com"]
+
+errors:
+  invalid_link: invalid_input
+  disallowed_host: host_not_allowed

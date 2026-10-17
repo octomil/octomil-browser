@@ -1,0 +1,40 @@
+{
+  "description": "A newer manifest was published while paused: restart, do not splice.",
+  "operation": "resume_download",
+  "journal": {
+    "manifest_sha256": "88c7275ef3ef13f6eb8bf6a201c972557ab952d4d6ebe115ca80d40a1c9b64c3",
+    "file": "model.gguf",
+    "completed": [
+      {
+        "index": 0
+      }
+    ]
+  },
+  "current_manifest_sha256": "e02a8112e5979f47860ade9df4bfd634c9ae8f29039baa2e4077a968f93a3d4b",
+  "manifest_chunks": [
+    {
+      "sha256": "9c2b7584596ca9417d035e27666eaa3da545a119f42621c0b050b9eb9a1030cf",
+      "size": 17
+    },
+    {
+      "sha256": "466d45d3cce66fdbef6b9b084c5efa37a05ed0804f0a615a1d10c3bab66c5570",
+      "size": 17
+    }
+  ],
+  "disk": [
+    {
+      "index": 0,
+      "sha256": "9c2b7584596ca9417d035e27666eaa3da545a119f42621c0b050b9eb9a1030cf"
+    }
+  ],
+  "remote": [
+    {
+      "index": 1,
+      "sha256": "466d45d3cce66fdbef6b9b084c5efa37a05ed0804f0a615a1d10c3bab66c5570"
+    }
+  ],
+  "expect": {
+    "result": "restart",
+    "discard_partial": true
+  }
+}
