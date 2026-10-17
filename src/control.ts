@@ -597,6 +597,11 @@ export class ControlClient {
       .join("");
   }
 
+  /** Origin, org and auth headers for callers that must gate credentials to this server. */
+  trustContext(): { serverUrl: string; orgId: string | undefined; authHeaders: () => Record<string, string> } {
+    return { serverUrl: this.serverUrl, orgId: this.orgId, authHeaders: () => this.resolveAuthHeaders() };
+  }
+
   private resolveAuthHeaders(): Record<string, string> {
     return this.deviceContext?.authHeaders() ?? this.resolveApiKeyHeaders();
   }

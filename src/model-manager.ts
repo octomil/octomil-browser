@@ -70,7 +70,7 @@ export class ModelManager {
       new TrustManager({
         serverUrl: options.serverUrl,
         orgId: options.auth?.type === "org_api_key" ? options.auth.orgId : getDeviceContext()?.orgId,
-        authHeaders: () => (options.apiKey ? { Authorization: `Bearer ${options.apiKey}` } : {}),
+        authHeaders: (): Record<string, string> => (options.apiKey ? { Authorization: `Bearer ${options.apiKey}` } : {}),
         unsignedPolicy: options.unsignedPolicy,
         allowedHosts: options.allowedHosts,
       });

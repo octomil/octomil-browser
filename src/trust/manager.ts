@@ -45,7 +45,7 @@ export interface VerifyParams {
   urls?: string[];
   observed?: { path: string; size: number; sha256: string }[];
   source: VerifySource;
-  /** Skip the artifact.verify event for follow-up checks of the same load. */
+  /** Suppress the success event for follow-up checks of the same load; failures still report. */
   quiet?: boolean;
   /** Identifies the artifact in telemetry when no manifest is available. */
   subject?: string;
@@ -204,30 +204,39 @@ export class TrustManager {
 
   /**
    * Re-runs full manifest verification against the current trust root so revocation is retroactive.
-   * Size and hash come from the write-time record unless `rehash` is set.
+   * Hash comes from the write-time record unless `rehash` is set; with `{ size }` instead of bytes
+   * (size undefined = unknown) the record's own values are used.
    */
   async reverifyCached(
     key: string,
-    data: ArrayBuffer,
+    data: ArrayBuffer | { size?: number },
     opts: { rehash?: boolean; quiet?: boolean } = {},
   ): Promise<CacheCheck> {
     const rec = await this.store.getArtifact(key);
     if (!rec) return { status: "no_record" };
     const file = rec.files[0];
     if (!file || rec.files.length !== 1) return { status: "rejected", code: "manifest_incompatible" };
-    const sha256 = opts.rehash || data.byteLength !== file.size ? await sha256Hex(data) : file.sha256;
+    const bytes = data instanceof ArrayBuffer ? data : null;
+    const size = bytes ? bytes.byteLength : (data as { size?: number }).size ?? file.size;
+    const sha256 = bytes && (opts.rehash || size !== file.size) ? await sha256Hex(bytes) : file.sha256;
     try {
       const v = await this.verify({
         manifest: rec.manifest,
         kind: rec.kind,
         source: "cache",
         quiet: opts.quiet,
-        observed: [{ path: file.path, size: data.byteLength, sha256 }],
+        observed: [{ path: file.path, size, sha256 }],
       });
       return v.status === "verified" ? { status: "ok", manifest: v.manifest } : { status: "no_record" };
     } catch (e) {
       return { status: "rejected", code: String((e as OctomilError).code) };
     }
+  }
+
+  /** Auth headers, only for the configured serverUrl origin. */
+  headersFor(url: string): Record<string, string> {
+    const server = this.cfg.serverUrl;
+    return server && this.cfg.authHeaders && sameOrigin(url, server) ? this.cfg.authHeaders() : {};
   }
 
   /** Fetches a signed manifest envelope; credentials go only to the configured serverUrl origin. */
@@ -238,8 +247,7 @@ export class TrustManager {
     if (!target || !(sameAsServer || hostAllowed(target.hostname, this.allowlist))) {
       throw new OctomilError("host_not_allowed", `Manifest URL not allowed: ${redactUrl(url)}`);
     }
-    const headers: Record<string, string> = { Accept: "application/json" };
-    if (sameAsServer && this.cfg.authHeaders) Object.assign(headers, this.cfg.authHeaders());
+    const headers: Record<string, string> = { Accept: "application/json", ...this.headersFor(url) };
 
     const res = await fetchWithPolicy(
       "planner",
@@ -280,7 +288,7 @@ export class TrustManager {
   }
 
   private telemetry(attrs: Record<string, string | number | boolean>, p: VerifyParams, m?: ManifestPayload): void {
-    if (p.quiet) return;
+    if (p.quiet && attrs.result === "ok") return;
     const event: TelemetryEvent = {
       name: "artifact.verify",
       timestamp: this.now().toISOString(),
