@@ -111,11 +111,13 @@ describe("createModelCache", () => {
 // ---------------------------------------------------------------------------
 
 describe("CacheApiModelCache", () => {
+  let lastMocks: ReturnType<typeof createMockCacheStorage>;
   let cache: ModelCache;
   let mockCaches: ReturnType<typeof createMockCacheStorage>["mockCaches"];
 
   beforeEach(() => {
     const mocks = createMockCacheStorage();
+    lastMocks = mocks;
     mockCaches = mocks.mockCaches;
     (globalThis as Record<string, unknown>).caches = mockCaches;
     cache = createModelCache("cache-api");
@@ -133,6 +135,17 @@ describe("CacheApiModelCache", () => {
     const retrieved = await cache.get("https://models.octomil.com/test.onnx");
     expect(retrieved).toBeInstanceOf(ArrayBuffer);
     expect(new Uint8Array(retrieved!)).toEqual(new Uint8Array([1, 2, 3, 4]));
+  });
+
+  it("returns null and evicts when the stored bytes no longer match their hash", async () => {
+    const url = "https://models.octomil.com/tamper.onnx";
+    await cache.put(url, new Uint8Array([1, 2, 3, 4]).buffer);
+    const { store } = lastMocks;
+    const original = store.get(url)!;
+    store.set(url, new Response(new Uint8Array([9, 9, 9, 9]), { headers: original.headers }));
+
+    expect(await cache.get(url)).toBeNull();
+    expect(store.has(url)).toBe(false);
   });
 
   it("reports has() correctly", async () => {

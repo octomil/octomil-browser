@@ -15,6 +15,17 @@ describe("SecureAggregation", () => {
     expect(publicKey.kty).toBe("EC");
   });
 
+  it("creates a deterministic, finite, bounded, non-repeating mask", async () => {
+    const secagg = new SecureAggregation();
+    const secret = new Uint8Array(32).fill(7).buffer;
+    const a = await secagg.createMask(secret, 1000);
+    const b = await secagg.createMask(secret, 1000);
+
+    expect(Array.from(a)).toEqual(Array.from(b));
+    expect(a.every((v) => Number.isFinite(v) && Math.abs(v) <= 128)).toBe(true);
+    expect(Array.from(a.slice(0, 255))).not.toEqual(Array.from(a.slice(255, 510)));
+  });
+
   it("derives shared secret between two parties", async () => {
     const alice = new SecureAggregation();
     const bob = new SecureAggregation();

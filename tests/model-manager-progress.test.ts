@@ -126,4 +126,30 @@ describe("ModelManager — download with progress", () => {
     expect(progressEvents).toHaveLength(1);
     expect(progressEvents[0]!.percent).toBeNaN();
   });
+
+  it("discards partial data when a resumed request returns 200 instead of 206", async () => {
+    const full = new Uint8Array([0x08, 1, 2, 3]);
+    let call = 0;
+    globalThis.fetch = vi.fn(async () => {
+      call++;
+      if (call === 1) {
+        const stream = new ReadableStream<Uint8Array>({
+          start(c) {
+            c.enqueue(new Uint8Array([0x08, 1]));
+            c.error(new Error("drop"));
+          },
+        });
+        return { ok: true, status: 200, headers: new Headers(), body: stream };
+      }
+      return { ok: true, status: 200, headers: new Headers(), body: chunkedStream([full]) };
+    }) as unknown as typeof fetch;
+
+    const loader = new ModelManager({ model: "https://models.octomil.com/t.onnx" }, cache);
+    vi.useFakeTimers();
+    const p = loader.load();
+    await vi.runAllTimersAsync();
+    const result = await p;
+    vi.useRealTimers();
+    expect(new Uint8Array(result)).toEqual(full);
+  });
 });

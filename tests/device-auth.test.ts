@@ -98,6 +98,33 @@ describe("DeviceAuth", () => {
     expect(manager.isAuthenticated).toBe(false);
   });
 
+  it("refreshToken keeps the token on a 5xx failure", async () => {
+    mockFetch();
+    await manager.bootstrap("org-1");
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+      new Response("oops", { status: 503 }),
+    );
+
+    await expect(manager.refreshToken()).rejects.toThrow("refresh failed");
+    expect(manager.isAuthenticated).toBe(true);
+  });
+
+  it("concurrent refreshToken calls share one request", async () => {
+    const fetchSpy = mockFetch();
+    await manager.bootstrap("org-1");
+
+    fetchSpy.mockImplementation(async () =>
+      new Response(
+        JSON.stringify({ token: "tok_new", expires_at: FUTURE, refresh_token: "ref_new" }),
+        { status: 200 },
+      ),
+    );
+
+    await Promise.all([manager.refreshToken(), manager.refreshToken()]);
+    expect(fetchSpy).toHaveBeenCalledTimes(2); // bootstrap + one refresh
+  });
+
   it("revokeToken calls revoke endpoint and clears state", async () => {
     const fetchSpy = mockFetch();
     await manager.bootstrap("org-1");

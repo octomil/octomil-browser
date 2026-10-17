@@ -21,6 +21,8 @@ import { stripForbiddenKeys } from "./route-event.js";
 
 const DEFAULT_FLUSH_INTERVAL_MS = 30_000; // 30 seconds
 const DEFAULT_MAX_BATCH_SIZE = 50;
+const MAX_QUEUE_SIZE = 1_000;
+const SEND_TIMEOUT_MS = 10_000;
 const DEFAULT_TELEMETRY_URL = "https://api.octomil.com/api/v2/telemetry/events";
 const SDK_NAME = "browser";
 export const DEFAULT_SDK_VERSION = "1.0.0";
@@ -182,7 +184,12 @@ export class TelemetryReporter {
     if (this.queue.length === 0) return;
 
     const batch = this.queue.splice(0, this.maxBatchSize);
-    await this.send(batch);
+    if (!(await this.send(batch)) && !this.disposed) {
+      this.queue.unshift(...batch);
+      if (this.queue.length > MAX_QUEUE_SIZE) {
+        this.queue.splice(0, this.queue.length - MAX_QUEUE_SIZE);
+      }
+    }
   }
 
   async batch(events: TelemetryEvent[]): Promise<void> {
@@ -206,7 +213,7 @@ export class TelemetryReporter {
     if (this.queue.length > 0) {
       const remaining = this.queue.splice(0);
       const envelope = this.buildEnvelope(remaining);
-      if (!this.sendBeaconPayload(envelope)) {
+      if (this.hasCredentials() || !this.sendBeaconPayload(envelope)) {
         void this.send(remaining);
       }
     }
@@ -533,16 +540,20 @@ export class TelemetryReporter {
     return { doubleValue: val as number };
   }
 
-  private async send(events: TelemetryEvent[]): Promise<void> {
+  private hasCredentials(): boolean {
+    return !!this.apiKey || !!this.authHeadersProvider?.();
+  }
+
+  /** Resolves false when the events should be retried. */
+  private async send(events: TelemetryEvent[]): Promise<boolean> {
     const envelope = this.buildEnvelope(events);
     const body = JSON.stringify(envelope);
     const authHeaders = this.authHeadersProvider?.() ?? null;
 
     try {
-      // Try sendBeacon first — it survives page unload.
-      if (!authHeaders && this.sendBeaconPayload(envelope)) return;
+      // sendBeacon cannot carry credentials, so only use it for anonymous reporters.
+      if (!authHeaders && !this.apiKey && this.sendBeaconPayload(envelope)) return true;
 
-      // Fallback to fetch with keepalive.
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
@@ -552,14 +563,16 @@ export class TelemetryReporter {
         headers["Authorization"] = `Bearer ${this.apiKey}`;
       }
 
-      await fetch(this.url, {
+      const res = await fetch(this.url, {
         method: "POST",
         headers,
         body,
         keepalive: true,
+        signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
       });
+      return !(res && !res.ok && (res.status >= 500 || res.status === 429));
     } catch {
-      // Telemetry is best-effort. Swallow all errors.
+      return false;
     }
   }
 

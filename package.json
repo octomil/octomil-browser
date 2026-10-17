@@ -5,7 +5,6 @@
   "type": "module",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
-  "browser": "dist/octomil.min.js",
   "unpkg": "dist/octomil.min.js",
   "jsdelivr": "dist/octomil.min.js",
   "types": "dist/index.d.ts",
@@ -16,6 +15,7 @@
       "require": "./dist/index.cjs"
     }
   },
+  "sideEffects": false,
   "files": [
     "dist"
   ],

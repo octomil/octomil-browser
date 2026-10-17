@@ -7,7 +7,7 @@ await build({
   format: 'cjs',
   platform: 'browser',
   outfile: 'dist/index.cjs',
-  external: ['onnxruntime-web'],
+  external: ['onnxruntime-web', '@huggingface/transformers', 'openapi-fetch'],
   sourcemap: true,
   target: 'es2022',
 });
@@ -22,7 +22,11 @@ const ortCdnGlobal = {
       namespace: 'ort-cdn',
     }));
     b.onLoad({ filter: /.*/, namespace: 'ort-cdn' }, () => ({
-      contents: 'module.exports = globalThis.ort;',
+      contents: `module.exports = globalThis.ort ?? new Proxy({}, {
+        get(_t, p) {
+          throw new Error('Octomil: global "ort" not found (accessed ' + String(p) + '); load onnxruntime-web ort.min.js before octomil.min.js');
+        },
+      });`,
       loader: 'js',
     }));
   },

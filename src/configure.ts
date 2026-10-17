@@ -25,6 +25,12 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
+function stripTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url.charCodeAt(end - 1) === 47) end--;
+  return url.slice(0, end);
+}
+
 export interface ConfigureOptions {
   auth?: SilentAuthConfig;
   monitoring?: MonitoringConfig;
@@ -34,6 +40,8 @@ export interface ConfigureOptions {
 // ---------------------------------------------------------------------------
 // Module state
 // ---------------------------------------------------------------------------
+
+const FETCH_TIMEOUT_MS = 15_000;
 
 let _deviceContext: DeviceContext | null = null;
 
@@ -55,9 +63,11 @@ export async function configure(
 
   const installationId = DeviceContext.getOrCreateInstallationId();
   const authAppId =
-    options.auth?.type === "anonymous" ? options.auth.appId : options.auth?.appId;
+    options.auth?.type === "anonymous"
+      ? options.auth.appId
+      : options.auth?.appId;
   const authOrgId =
-    options.auth?.type === "anonymous" ? null : options.auth?.orgId ?? null;
+    options.auth?.type === "anonymous" ? null : (options.auth?.orgId ?? null);
 
   const context = new DeviceContext({
     installationId,
@@ -92,7 +102,7 @@ async function silentRegister(
   const maxAttempts = 10;
   const maxDelayMs = 300_000; // 5 minutes
   const authOrgId =
-    options.auth?.type === "anonymous" ? null : options.auth?.orgId ?? null;
+    options.auth?.type === "anonymous" ? null : (options.auth?.orgId ?? null);
 
   try {
     const baseUrl = options.baseUrl || "https://api.octomil.com";
@@ -109,7 +119,9 @@ async function silentRegister(
       headers["X-App-Id"] = context.appId;
     }
 
-    const registerUrl = new URL(`${baseUrl.replace(/\/+$/, "")}/api/v1/devices/register`);
+    const registerUrl = new URL(
+      `${stripTrailingSlashes(baseUrl)}/api/v1/devices/register`,
+    );
     if (authOrgId) {
       registerUrl.searchParams.set("org_id", authOrgId);
     }
@@ -132,12 +144,17 @@ async function silentRegister(
           battery?.level != null ? Math.round(battery.level * 100) : undefined,
         charging: battery?.charging,
       }),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
 
     if (!response.ok) {
-      if (response.status === 403) {
+      if (
+        response.status >= 400 &&
+        response.status < 500 &&
+        response.status !== 429
+      ) {
         // Non-retryable
-        console.warn("[Octomil] Registration failed: invalid credentials");
+        console.warn(`[Octomil] Registration failed: HTTP ${response.status}`);
         context._markFailed();
         return;
       }
@@ -154,7 +171,11 @@ async function silentRegister(
     if (!serverDeviceId || !data.access_token || !data.expires_at) {
       throw new Error("Registration response missing device token fields");
     }
-    context._updateRegistered(serverDeviceId, data.access_token, new Date(data.expires_at));
+    context._updateRegistered(
+      serverDeviceId,
+      data.access_token,
+      new Date(data.expires_at),
+    );
 
     // Start heartbeat if monitoring enabled
     if (options.monitoring?.enabled) {
@@ -183,13 +204,16 @@ async function silentRegister(
 // Heartbeat
 // ---------------------------------------------------------------------------
 
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
 function startHeartbeat(
   context: DeviceContext,
   options: ConfigureOptions,
 ): void {
   const intervalMs = options.monitoring?.heartbeatIntervalMs ?? 300_000;
 
-  setInterval(async () => {
+  if (heartbeatTimer !== null) clearInterval(heartbeatTimer);
+  heartbeatTimer = setInterval(async () => {
     const headers = context.authHeaders();
     if (!headers) return;
 
@@ -197,13 +221,14 @@ function startHeartbeat(
       const baseUrl = options.baseUrl || "https://api.octomil.com";
       if (!context.serverDeviceId) return;
       await fetch(
-        `${baseUrl.replace(/\/+$/, "")}/api/v1/devices/${context.serverDeviceId}/heartbeat`,
+        `${stripTrailingSlashes(baseUrl)}/api/v1/devices/${encodeURIComponent(context.serverDeviceId)}/heartbeat`,
         {
           method: "PUT",
           headers: { ...headers, "Content-Type": "application/json" },
           body: JSON.stringify({
             device_identifier: context.installationId,
           }),
+          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         },
       );
     } catch {

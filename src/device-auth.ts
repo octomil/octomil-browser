@@ -6,6 +6,7 @@
  */
 
 import { OctomilError } from "./types.js";
+import { httpErrorCode } from "./errors.js";
 import type {
   DeviceAuthConfig,
   DeviceAuthToken,
@@ -25,6 +26,8 @@ import {
 // ---------------------------------------------------------------------------
 
 const REFRESH_BUFFER_MS = 30_000; // refresh 30s before expiry
+const MAX_TIMEOUT_MS = 2_147_483_647; // setTimeout overflows (fires immediately) above 2^31-1
+const REQUEST_TIMEOUT_MS = 15_000;
 
 // ---------------------------------------------------------------------------
 // DeviceAuth
@@ -37,6 +40,7 @@ export class DeviceAuth {
   private deviceId: string | null = null;
   private refreshTimer: ReturnType<typeof setTimeout> | null = null;
   private disposed = false;
+  private refreshInFlight: Promise<void> | null = null;
 
   constructor(config: DeviceAuthConfig) {
     this.serverUrl = config.serverUrl;
@@ -73,7 +77,7 @@ export class DeviceAuth {
 
     if (!response.ok) {
       throw new OctomilError(
-        "NETWORK_UNAVAILABLE",
+        httpErrorCode(response.status),
         `Device registration failed: HTTP ${response.status}`,
       );
     }
@@ -115,6 +119,14 @@ export class DeviceAuth {
   async refreshToken(): Promise<void> {
     this.ensureNotDisposed();
 
+    // Refresh tokens are typically single-use; concurrent callers must share one request.
+    this.refreshInFlight ??= this.doRefresh().finally(() => {
+      this.refreshInFlight = null;
+    });
+    return this.refreshInFlight;
+  }
+
+  private async doRefresh(): Promise<void> {
     if (!this.token) {
       throw new OctomilError(
         "NETWORK_UNAVAILABLE",
@@ -131,10 +143,12 @@ export class DeviceAuth {
     });
 
     if (!response.ok) {
-      // Token expired beyond repair — clear state
-      this.token = null;
+      // Only a rejected credential is terminal; 5xx/429 leave the token for a retry.
+      if (response.status === 401 || response.status === 403) {
+        this.clearState();
+      }
       throw new OctomilError(
-        "NETWORK_UNAVAILABLE",
+        httpErrorCode(response.status),
         `Token refresh failed: HTTP ${response.status}`,
       );
     }
@@ -201,6 +215,7 @@ export class DeviceAuth {
     };
 
     return fetch(`${this.serverUrl}${path}`, {
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       ...init,
       headers: { ...headers, ...(init.headers as Record<string, string>) },
     });
@@ -219,8 +234,11 @@ export class DeviceAuth {
   private scheduleRefresh(): void {
     this.clearRefreshTimer();
 
-    if (!this.token) return;
-    const delay = Math.max(0, this.token.expiresAt - Date.now() - REFRESH_BUFFER_MS);
+    if (!this.token || this.disposed) return;
+    const delay = Math.min(
+      MAX_TIMEOUT_MS,
+      Math.max(0, this.token.expiresAt - Date.now() - REFRESH_BUFFER_MS),
+    );
 
     this.refreshTimer = setTimeout(() => {
       void this.refreshToken().catch(() => {
