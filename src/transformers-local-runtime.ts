@@ -9,6 +9,8 @@ import {
 import type { LocalResponsesRuntime } from "./responses-runtime.js";
 
 const DEFAULT_QWEN_MODEL = "Qwen/Qwen3-0.6B";
+// Unpinned by SRI (wasmPaths can't carry integrity); must match the ORT version bundled by
+// @huggingface/transformers. Production apps should self-host and set ortWasmBaseUrl.
 const DEFAULT_ORT_WASM_BASE_URL =
   "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.2/dist/";
 export interface TransformersLocalResponsesRuntimeOptions {
@@ -221,6 +223,9 @@ async function getGenerator(
       });
     })();
     pipelineCache.set(key, pending);
+    pending.catch(() => {
+      if (pipelineCache.get(key) === pending) pipelineCache.delete(key);
+    });
   }
 
   return pending;
