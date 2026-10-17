@@ -167,15 +167,23 @@ export class StreamingInferenceEngine {
   }
 
   private combineSignals(...signals: AbortSignal[]): AbortSignal {
+    // AbortSignal.any holds no listeners on long-lived input signals.
+    if (typeof AbortSignal.any === "function") return AbortSignal.any(signals);
+
     const controller = new AbortController();
+    const cleanups: Array<() => void> = [];
+    const cleanup = () => cleanups.forEach((fn) => fn());
     for (const signal of signals) {
       if (signal.aborted) {
         controller.abort(signal.reason);
         return controller.signal;
       }
-      signal.addEventListener("abort", () => controller.abort(signal.reason), {
-        once: true,
-      });
+      const onAbort = () => {
+        controller.abort(signal.reason);
+        cleanup();
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+      cleanups.push(() => signal.removeEventListener("abort", onAbort));
     }
     return controller.signal;
   }

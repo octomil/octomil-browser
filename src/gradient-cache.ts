@@ -7,6 +7,7 @@
  */
 
 import type { GradientCacheEntry } from "./types.js";
+import { openIdb } from "./idb.js";
 
 const DB_NAME = "octomil-gradients";
 const STORE_NAME = "gradients";
@@ -16,23 +17,24 @@ export class GradientCache {
   private dbPromise: Promise<IDBDatabase> | null = null;
 
   private openDb(): Promise<IDBDatabase> {
-    if (this.dbPromise) return this.dbPromise;
-
-    this.dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-      request.onupgradeneeded = () => {
-        const db = request.result;
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          const store = db.createObjectStore(STORE_NAME, { keyPath: "roundId" });
-          store.createIndex("submitted", "submitted", { unique: false });
-        }
-      };
-
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-
+    if (!this.dbPromise) {
+      this.dbPromise = openIdb(
+        DB_NAME,
+        DB_VERSION,
+        (db) => {
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            const store = db.createObjectStore(STORE_NAME, { keyPath: "roundId" });
+            store.createIndex("submitted", "submitted", { unique: false });
+          }
+        },
+        () => {
+          this.dbPromise = null;
+        },
+      ).catch((err) => {
+        this.dbPromise = null;
+        throw err;
+      });
+    }
     return this.dbPromise;
   }
 
@@ -44,6 +46,7 @@ export class GradientCache {
       tx.objectStore(STORE_NAME).put(entry);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
     });
   }
 

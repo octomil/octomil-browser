@@ -1,0 +1,56 @@
+{
+  "kind": "http_operation",
+  "description": "Per-operation timeout and attempt budget.",
+  "cases": [
+    {
+      "name": "planner",
+      "input": {
+        "operation": "planner"
+      },
+      "expect": {
+        "timeout_ms": 10000,
+        "max_attempts": 3
+      }
+    },
+    {
+      "name": "register",
+      "input": {
+        "operation": "register"
+      },
+      "expect": {
+        "timeout_ms": 15000,
+        "max_attempts": 3
+      }
+    },
+    {
+      "name": "heartbeat",
+      "input": {
+        "operation": "heartbeat"
+      },
+      "expect": {
+        "timeout_ms": 10000,
+        "max_attempts": 2
+      }
+    },
+    {
+      "name": "telemetry",
+      "input": {
+        "operation": "telemetry"
+      },
+      "expect": {
+        "timeout_ms": 10000,
+        "max_attempts": 3
+      }
+    },
+    {
+      "name": "download",
+      "input": {
+        "operation": "download"
+      },
+      "expect": {
+        "timeout_ms": 300000,
+        "max_attempts": 5
+      }
+    }
+  ]
+}

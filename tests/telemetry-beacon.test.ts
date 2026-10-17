@@ -181,4 +181,39 @@ describe("TelemetryReporter — sendBeacon path", () => {
     await expect(reporter.flush()).resolves.toBeUndefined();
     reporter.close();
   });
+
+  it("skips sendBeacon and sends the API key via fetch when credentials are set", async () => {
+    const sendBeaconSpy = vi.fn(() => true);
+    Object.defineProperty(globalThis, "navigator", {
+      value: { sendBeacon: sendBeaconSpy },
+      writable: true,
+      configurable: true,
+    });
+    const fetchSpy = vi.fn(async () => ({ ok: true, status: 200 }));
+    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+    const reporter = new TelemetryReporter({ flushIntervalMs: 60_000, apiKey: "k" }); // pragma: allowlist secret
+    reporter.track(makeEvent());
+    await reporter.flush();
+
+    expect(sendBeaconSpy).not.toHaveBeenCalled();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    reporter.close();
+  });
+
+  it("requeues a batch when the send fails", async () => {
+    const fetchSpy = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue({ ok: true, status: 200 });
+    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+    const reporter = new TelemetryReporter({ flushIntervalMs: 60_000, apiKey: "k" }); // pragma: allowlist secret
+    reporter.track(makeEvent());
+    await reporter.flush();
+    await reporter.flush();
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    reporter.close();
+  });
 });

@@ -1,0 +1,70 @@
+{
+  "kind": "http_decide",
+  "description": "Full-jitter backoff upper bounds: min(30000, 500 * 2^attempt). Lower bound is always 0.",
+  "cases": [
+    {
+      "name": "attempt_0",
+      "input": {
+        "method": "GET",
+        "outcome": "status:503",
+        "attempt": 0,
+        "operation": "download"
+      },
+      "expect": {
+        "retry": true,
+        "delay_max_ms": 500
+      }
+    },
+    {
+      "name": "attempt_1",
+      "input": {
+        "method": "GET",
+        "outcome": "status:503",
+        "attempt": 1,
+        "operation": "download"
+      },
+      "expect": {
+        "retry": true,
+        "delay_max_ms": 1000
+      }
+    },
+    {
+      "name": "attempt_2",
+      "input": {
+        "method": "GET",
+        "outcome": "status:503",
+        "attempt": 2,
+        "operation": "download"
+      },
+      "expect": {
+        "retry": true,
+        "delay_max_ms": 2000
+      }
+    },
+    {
+      "name": "attempt_3",
+      "input": {
+        "method": "GET",
+        "outcome": "status:503",
+        "attempt": 3,
+        "operation": "download"
+      },
+      "expect": {
+        "retry": true,
+        "delay_max_ms": 4000
+      }
+    },
+    {
+      "name": "attempt_4",
+      "input": {
+        "method": "GET",
+        "outcome": "status:503",
+        "attempt": 4,
+        "operation": "download"
+      },
+      "expect": {
+        "retry": false
+      }
+    }
+  ]
+}

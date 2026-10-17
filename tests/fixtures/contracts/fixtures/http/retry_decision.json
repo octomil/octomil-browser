@@ -1,0 +1,257 @@
+{
+  "kind": "http_decide",
+  "description": "Retry decisions. Ambiguous outcomes retry only on idempotent methods; auth errors never retry.",
+  "cases": [
+    {
+      "name": "get_503_retries",
+      "input": {
+        "method": "GET",
+        "outcome": "status:503",
+        "attempt": 0,
+        "operation": "planner"
+      },
+      "expect": {
+        "retry": true,
+        "code": "server_error",
+        "delay_max_ms": 500
+      }
+    },
+    {
+      "name": "post_503_no_retry",
+      "input": {
+        "method": "POST",
+        "outcome": "status:503",
+        "attempt": 0,
+        "operation": "planner"
+      },
+      "expect": {
+        "retry": false,
+        "code": "server_error"
+      }
+    },
+    {
+      "name": "get_timeout_after_send_retries",
+      "input": {
+        "method": "GET",
+        "outcome": "timeout_after_send",
+        "attempt": 0,
+        "operation": "planner"
+      },
+      "expect": {
+        "retry": true,
+        "code": "request_timeout"
+      }
+    },
+    {
+      "name": "put_timeout_after_send_retries",
+      "input": {
+        "method": "PUT",
+        "outcome": "timeout_after_send",
+        "attempt": 0,
+        "operation": "planner"
+      },
+      "expect": {
+        "retry": true
+      }
+    },
+    {
+      "name": "post_timeout_after_send_no_retry",
+      "input": {
+        "method": "POST",
+        "outcome": "timeout_after_send",
+        "attempt": 0,
+        "operation": "planner"
+      },
+      "expect": {
+        "retry": false,
+        "code": "request_timeout"
+      }
+    },
+    {
+      "name": "patch_reset_after_send_no_retry",
+      "input": {
+        "method": "PATCH",
+        "outcome": "connection_reset_after_send",
+        "attempt": 0,
+        "operation": "planner"
+      },
+      "expect": {
+        "retry": false
+      }
+    },
+    {
+      "name": "delete_reset_after_send_retries",
+      "input": {
+        "method": "DELETE",
+        "outcome": "connection_reset_after_send",
+        "attempt": 0,
+        "operation": "planner"
+      },
+      "expect": {
+        "retry": true
+      }
+    },
+    {
+      "name": "post_connect_failure_retries",
+      "input": {
+        "method": "POST",
+        "outcome": "connect_failure",
+        "attempt": 0,
+        "operation": "planner"
+      },
+      "expect": {
+        "retry": true,
+        "code": "network_unavailable"
+      }
+    },
+    {
+      "name": "post_dns_failure_retries",
+      "input": {
+        "method": "POST",
+        "outcome": "dns_failure",
+        "attempt": 0,
+        "operation": "planner"
+      },
+      "expect": {
+        "retry": true
+      }
+    },
+    {
+      "name": "post_timeout_before_send_retries",
+      "input": {
+        "method": "POST",
+        "outcome": "timeout_before_send",
+        "attempt": 0,
+        "operation": "planner"
+      },
+      "expect": {
+        "retry": true
+      }
+    },
+    {
+      "name": "post_429_retries",
+      "input": {
+        "method": "POST",
+        "outcome": "status:429",
+        "attempt": 0,
+        "operation": "planner"
+      },
+      "expect": {
+        "retry": true,
+        "code": "rate_limited"
+      }
+    },
+    {
+      "name": "get_401_never",
+      "input": {
+        "method": "GET",
+        "outcome": "status:401",
+        "attempt": 0,
+        "operation": "planner"
+      },
+      "expect": {
+        "retry": false,
+        "code": "authentication_failed"
+      }
+    },
+    {
+      "name": "get_403_never",
+      "input": {
+        "method": "GET",
+        "outcome": "status:403",
+        "attempt": 0,
+        "operation": "planner"
+      },
+      "expect": {
+        "retry": false,
+        "code": "forbidden"
+      }
+    },
+    {
+      "name": "get_404_never",
+      "input": {
+        "method": "GET",
+        "outcome": "status:404",
+        "attempt": 0,
+        "operation": "planner"
+      },
+      "expect": {
+        "retry": false
+      }
+    },
+    {
+      "name": "get_tls_failure_never",
+      "input": {
+        "method": "GET",
+        "outcome": "tls_failure",
+        "attempt": 0,
+        "operation": "planner"
+      },
+      "expect": {
+        "retry": false
+      }
+    },
+    {
+      "name": "get_unmapped_5xx_retries",
+      "input": {
+        "method": "GET",
+        "outcome": "status:599",
+        "attempt": 0,
+        "operation": "planner"
+      },
+      "expect": {
+        "retry": true,
+        "code": "server_error"
+      }
+    },
+    {
+      "name": "lowercase_method_normalised",
+      "input": {
+        "method": "get",
+        "outcome": "status:503",
+        "attempt": 0,
+        "operation": "planner"
+      },
+      "expect": {
+        "retry": true
+      }
+    },
+    {
+      "name": "attempts_exhausted_planner",
+      "input": {
+        "method": "GET",
+        "outcome": "status:503",
+        "attempt": 2,
+        "operation": "planner"
+      },
+      "expect": {
+        "retry": false
+      }
+    },
+    {
+      "name": "attempts_exhausted_heartbeat",
+      "input": {
+        "method": "GET",
+        "outcome": "status:503",
+        "attempt": 1,
+        "operation": "heartbeat"
+      },
+      "expect": {
+        "retry": false
+      }
+    },
+    {
+      "name": "download_retries_up_to_5",
+      "input": {
+        "method": "GET",
+        "outcome": "status:503",
+        "attempt": 3,
+        "operation": "download"
+      },
+      "expect": {
+        "retry": true,
+        "delay_max_ms": 4000
+      }
+    }
+  ]
+}

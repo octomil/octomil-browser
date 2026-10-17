@@ -1,0 +1,145 @@
+{
+  "kind": "http_decide",
+  "description": "Retry-After parsing and the 30s cap.",
+  "cases": [
+    {
+      "name": "seconds",
+      "input": {
+        "method": "GET",
+        "outcome": "status:429",
+        "attempt": 0,
+        "operation": "planner",
+        "retry_after": "5"
+      },
+      "expect": {
+        "retry": true,
+        "delay_ms": 5000
+      }
+    },
+    {
+      "name": "zero",
+      "input": {
+        "method": "GET",
+        "outcome": "status:429",
+        "attempt": 0,
+        "operation": "planner",
+        "retry_after": "0"
+      },
+      "expect": {
+        "retry": true,
+        "delay_ms": 0
+      }
+    },
+    {
+      "name": "capped",
+      "input": {
+        "method": "GET",
+        "outcome": "status:429",
+        "attempt": 0,
+        "operation": "planner",
+        "retry_after": "3600"
+      },
+      "expect": {
+        "retry": true,
+        "delay_ms": 30000
+      }
+    },
+    {
+      "name": "exactly_cap",
+      "input": {
+        "method": "GET",
+        "outcome": "status:429",
+        "attempt": 0,
+        "operation": "planner",
+        "retry_after": "30"
+      },
+      "expect": {
+        "retry": true,
+        "delay_ms": 30000
+      }
+    },
+    {
+      "name": "http_date",
+      "input": {
+        "method": "GET",
+        "outcome": "status:429",
+        "attempt": 0,
+        "operation": "planner",
+        "retry_after": "Sat, 17 Oct 2026 00:00:10 GMT"
+      },
+      "expect": {
+        "retry": true,
+        "delay_ms": 10000
+      }
+    },
+    {
+      "name": "http_date_in_past_ignored",
+      "input": {
+        "method": "GET",
+        "outcome": "status:429",
+        "attempt": 0,
+        "operation": "planner",
+        "retry_after": "Fri, 16 Oct 2026 00:00:00 GMT"
+      },
+      "expect": {
+        "retry": true,
+        "delay_max_ms": 500
+      }
+    },
+    {
+      "name": "garbage_ignored",
+      "input": {
+        "method": "GET",
+        "outcome": "status:429",
+        "attempt": 0,
+        "operation": "planner",
+        "retry_after": "soon"
+      },
+      "expect": {
+        "retry": true,
+        "delay_max_ms": 500
+      }
+    },
+    {
+      "name": "negative_ignored",
+      "input": {
+        "method": "GET",
+        "outcome": "status:429",
+        "attempt": 0,
+        "operation": "planner",
+        "retry_after": "-5"
+      },
+      "expect": {
+        "retry": true,
+        "delay_max_ms": 500
+      }
+    },
+    {
+      "name": "applies_to_post_429",
+      "input": {
+        "method": "POST",
+        "outcome": "status:429",
+        "attempt": 0,
+        "operation": "planner",
+        "retry_after": "2"
+      },
+      "expect": {
+        "retry": true,
+        "delay_ms": 2000
+      }
+    },
+    {
+      "name": "ignored_when_not_retrying",
+      "input": {
+        "method": "POST",
+        "outcome": "status:503",
+        "attempt": 0,
+        "operation": "planner",
+        "retry_after": "2"
+      },
+      "expect": {
+        "retry": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://octomil.com/schemas/core/signed_manifest.json",
+  "title": "SignedManifest",
+  "description": "DSSE-style envelope carrying a signed artifact manifest. Signatures cover PAE(payloadType, base64-decoded payload) where payload is the RFC 8785 (JCS) canonical JSON of #/$defs/ManifestPayload. See fixtures/trust/README.md for the exact byte construction.",
+  "type": "object",
+  "required": ["payloadType", "payload", "signatures"],
+  "additionalProperties": false,
+  "properties": {
+    "payloadType": {
+      "const": "application/vnd.octomil.manifest.v1+json"
+    },
+    "payload": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Standard base64 (RFC 4648 section 4, padded) of the JCS-canonical ManifestPayload."
+    },
+    "signatures": {
+      "type": "array",
+      "description": "An empty array means unsigned and MUST be rejected. Verification succeeds if at least one signature verifies under a trusted key.",
+      "items": { "$ref": "#/$defs/Signature" }
+    }
+  },
+  "$defs": {
+    "Signature": {
+      "type": "object",
+      "required": ["keyid", "sig"],
+      "additionalProperties": false,
+      "properties": {
+        "keyid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "sig": {
+          "type": "string",
+          "description": "Standard base64 of the 64-byte Ed25519 signature."
+        }
+      }
+    },
+    "Sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Lowercase hex SHA-256. Empty or missing is a verification failure, never a skip."
+    },
+    "ManifestPayload": {
+      "type": "object",
+      "required": [
+        "schema", "kind", "org_id", "name", "version", "serial",
+        "issued_at", "expires_at", "platform", "files", "source_hosts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schema": { "const": "octomil.manifest/1" },
+        "kind": { "enum": ["model", "runtime"] },
+        "org_id": {
+          "type": ["string", "null"],
+          "description": "Owning org. Null for public runtime manifests."
+        },
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "serial": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Monotonic per name. Clients persist the highest accepted value and reject lower ones."
+        },
+        "issued_at": { "type": "string", "format": "date-time" },
+        "expires_at": { "type": "string", "format": "date-time" },
+        "platform": {
+          "type": "object",
+          "required": ["os", "arch"],
+          "additionalProperties": false,
+          "properties": {
+            "os": { "type": "string", "minLength": 1 },
+            "arch": { "type": "string", "minLength": 1 },
+            "flavor": { "enum": ["chat", "stt", "tts"] }
+          }
+        },
+        "min_sdk": {
+          "type": "object",
+          "description": "Minimum dotted-numeric SDK version per language. A missing key means no constraint for that SDK.",
+          "additionalProperties": false,
+          "properties": {
+            "python": { "type": "string" },
+            "node": { "type": "string" },
+            "android": { "type": "string" },
+            "ios": { "type": "string" },
+            "browser": { "type": "string" }
+          }
+        },
+        "abi": {
+          "type": "object",
+          "required": ["major", "min_minor"],
+          "additionalProperties": false,
+          "properties": {
+            "major": { "type": "integer", "minimum": 0 },
+            "min_minor": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["path", "size", "sha256"],
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "size": { "type": "integer", "minimum": 0 },
+              "sha256": { "$ref": "#/$defs/Sha256" },
+              "chunks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["sha256", "size"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "sha256": { "$ref": "#/$defs/Sha256" },
+                    "size": { "type": "integer", "minimum": 1 }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "bundle_digest": {
+          "type": ["string", "null"],
+          "maxLength": 64,
+          "description": "Same definition as catalog/artifact_package.json bundle_digest."
+        },
+        "source_hosts": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Exact hostnames or *.suffix patterns the files may be fetched from. Intersected with the SDK-compiled allowlist."
+        }
+      }
+    }
+  }
+}

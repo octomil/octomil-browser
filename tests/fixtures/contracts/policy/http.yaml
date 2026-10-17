@@ -1,0 +1,61 @@
+# HTTP outcome policy shared by every SDK client. Executable spec: fixtures/http/*.json run by ci/verify_policy_vectors.py.
+# Intended generator interface: emit a table keyed by `statuses`/`transport` and a pure
+# decide(method, outcome, attempt, headers) function; clients must route every call through it.
+name: HttpPolicy
+since: "1.32.0"
+validator: ci/verify_policy_vectors.py
+fixtures: fixtures/http
+
+# status -> canonical error_code (enums/error_code.yaml). 401/403 are auth failures, never network.
+statuses:
+  400: {code: invalid_input, retry: never}
+  401: {code: authentication_failed, retry: never}
+  403: {code: forbidden, retry: never}
+  404: {code: resource_not_found, retry: never}
+  408: {code: request_timeout, retry: safe}
+  409: {code: conflict, retry: never}
+  413: {code: payload_too_large, retry: never}
+  422: {code: invalid_input, retry: never}
+  429: {code: rate_limited, retry: safe}
+  499: {code: cancelled, retry: never}
+  500: {code: server_error, retry: ambiguous}
+  502: {code: server_error, retry: ambiguous}
+  503: {code: server_error, retry: ambiguous}
+  504: {code: request_timeout, retry: ambiguous}
+
+# Non-HTTP outcomes. Pre-send failures cannot have been applied by the server.
+transport:
+  dns_failure: {code: network_unavailable, retry: safe}
+  connect_failure: {code: network_unavailable, retry: safe}
+  tls_failure: {code: network_unavailable, retry: never}
+  timeout_before_send: {code: request_timeout, retry: safe}
+  timeout_after_send: {code: request_timeout, retry: ambiguous}
+  connection_reset_after_send: {code: network_unavailable, retry: ambiguous}
+
+# 5xx/ambiguous outcomes may have been applied. Only idempotent methods retry them.
+# `safe` outcomes retry for any method.
+idempotent_methods: [GET, HEAD, PUT, DELETE, OPTIONS]
+unmapped_status:
+  4xx: {code: invalid_input, retry: never}
+  5xx: {code: server_error, retry: ambiguous}
+
+retry_after:
+  header: Retry-After
+  formats: [delta_seconds, http_date]
+  cap_ms: 30000
+  # A valid Retry-After replaces the computed backoff (still capped); unparsable or negative values are ignored.
+  overrides_backoff: true
+
+backoff:
+  base_ms: 500
+  multiplier: 2
+  max_ms: 30000
+  jitter: full
+  # delay is uniform in [0, min(max_ms, base_ms * multiplier^attempt)] where attempt starts at 0
+
+operations:
+  planner:   {timeout_ms: 10000,  max_attempts: 3}
+  register:  {timeout_ms: 15000,  max_attempts: 3}
+  heartbeat: {timeout_ms: 10000,  max_attempts: 2}
+  telemetry: {timeout_ms: 10000,  max_attempts: 3}
+  download:  {timeout_ms: 300000, max_attempts: 5}

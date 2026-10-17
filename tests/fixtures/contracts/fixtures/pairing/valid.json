@@ -1,0 +1,83 @@
+{
+  "kind": "pairing_parse",
+  "description": "Well-formed pairing links.",
+  "cases": [
+    {
+      "name": "custom_scheme_default_host",
+      "input": {
+        "link": "octomil://pair?token=ABC123"
+      },
+      "expect": {
+        "result": "ok",
+        "code": "ABC123",
+        "host": "https://api.octomil.com"
+      }
+    },
+    {
+      "name": "custom_scheme_url_host",
+      "input": {
+        "link": "octomil://pair?token=ABC123&host=https://api.octomil.com"
+      },
+      "expect": {
+        "result": "ok",
+        "code": "ABC123",
+        "host": "https://api.octomil.com"
+      }
+    },
+    {
+      "name": "custom_scheme_bare_host",
+      "input": {
+        "link": "octomil://pair?token=A1B2C3&host=api.octomil.com"
+      },
+      "expect": {
+        "result": "ok",
+        "code": "A1B2C3",
+        "host": "https://api.octomil.com"
+      }
+    },
+    {
+      "name": "app_link",
+      "input": {
+        "link": "https://octomil.com/pair?token=ZZ99ZZ"
+      },
+      "expect": {
+        "result": "ok",
+        "code": "ZZ99ZZ",
+        "host": "https://api.octomil.com"
+      }
+    },
+    {
+      "name": "tenant_subdomain",
+      "input": {
+        "link": "octomil://pair?token=ABC123&host=eu.octomil.com"
+      },
+      "expect": {
+        "result": "ok",
+        "code": "ABC123",
+        "host": "https://eu.octomil.com"
+      }
+    },
+    {
+      "name": "explicit_443",
+      "input": {
+        "link": "octomil://pair?token=ABC123&host=https://api.octomil.com:443"
+      },
+      "expect": {
+        "result": "ok",
+        "code": "ABC123",
+        "host": "https://api.octomil.com"
+      }
+    },
+    {
+      "name": "host_case_insensitive",
+      "input": {
+        "link": "octomil://pair?token=ABC123&host=API.Octomil.com"
+      },
+      "expect": {
+        "result": "ok",
+        "code": "ABC123",
+        "host": "https://api.octomil.com"
+      }
+    }
+  ]
+}

@@ -453,3 +453,8 @@ import type { BenchmarkResult } from "./types.js";
 export function benchmarkResultOk(result: BenchmarkResult): boolean {
   return result.error == null;
 }
+
+export { TrustManager } from "./trust/index.js";
+export type { TrustManagerConfig, UnsignedPolicy } from "./trust/index.js";
+export { parsePairing, buildPairing } from "./policy/pairing.js";
+export { generateRouteId, generateRequestId } from "./policy/ids.js";

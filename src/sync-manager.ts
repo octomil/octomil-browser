@@ -12,7 +12,14 @@
 import type { ControlClient, DesiredState, DesiredModelEntry, ObservedModelStatus } from "./control.js";
 import type { ModelCache } from "./cache.js";
 import { computeHash } from "./integrity.js";
+import { openIdb, runIdb } from "./idb.js";
 import { OctomilError } from "./types.js";
+import { httpErrorCode } from "./errors.js";
+import { isSecureUrl, readCapped, redactUrl } from "./secure-url.js";
+import { fetchWithPolicy } from "./policy/fetch.js";
+import { hostAllowed } from "./trust/hosts.js";
+import { TrustManager, sha256Hex } from "./trust/manager.js";
+import type { ManifestPayload } from "./trust/types.js";
 
 // Re-export for convenience
 export type { DesiredModelEntry } from "./control.js";
@@ -36,6 +43,8 @@ export interface LocalModelMeta {
   installedAt: string;
   status: "staged" | "active";
   sizeBytes?: number;
+  /** True when installed from a verified signed manifest. */
+  signed?: boolean;
 }
 
 /** Events emitted during sync. */
@@ -57,11 +66,19 @@ export interface SyncManagerOptions {
   intervalMs?: number;
   /** Event listener for sync lifecycle events. */
   onEvent?: SyncEventListener;
+  /** Behaviour for artifacts without a signed manifest. Default `warn`. */
+  unsignedPolicy?: "warn" | "enforce";
+  /** Extra artifact hosts allowed in addition to `*.octomil.com`. */
+  allowedHosts?: string[];
+  /** Override the trust manager (tests, shared state). */
+  trust?: TrustManager;
 }
 
 // ---------------------------------------------------------------------------
 // IndexedDB metadata store
 // ---------------------------------------------------------------------------
+
+const MAX_ARTIFACT_BYTES = 2 * 1024 * 1024 * 1024;
 
 const IDB_META_DB = "octomil-sync-meta";
 const IDB_META_STORE = "models";
@@ -71,64 +88,48 @@ class MetadataStore {
   private dbPromise: Promise<IDBDatabase> | null = null;
 
   private openDB(): Promise<IDBDatabase> {
-    if (this.dbPromise) return this.dbPromise;
-
-    this.dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open(IDB_META_DB, IDB_META_VERSION);
-
-      request.onupgradeneeded = () => {
-        const db = request.result;
-        if (!db.objectStoreNames.contains(IDB_META_STORE)) {
-          db.createObjectStore(IDB_META_STORE, { keyPath: "modelId" });
-        }
-      };
-
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-
+    if (!this.dbPromise) {
+      this.dbPromise = openIdb(
+        IDB_META_DB,
+        IDB_META_VERSION,
+        (db) => {
+          if (!db.objectStoreNames.contains(IDB_META_STORE)) {
+            db.createObjectStore(IDB_META_STORE, { keyPath: "modelId" });
+          }
+        },
+        () => {
+          this.dbPromise = null;
+        },
+      ).catch((err) => {
+        this.dbPromise = null;
+        throw err;
+      });
+    }
     return this.dbPromise;
   }
 
-  private async tx(mode: IDBTransactionMode): Promise<IDBObjectStore> {
-    const db = await this.openDB();
-    return db.transaction(IDB_META_STORE, mode).objectStore(IDB_META_STORE);
+  private async run<T>(
+    mode: IDBTransactionMode,
+    fn: (s: IDBObjectStore) => IDBRequest<T>,
+  ): Promise<T> {
+    return runIdb(await this.openDB(), IDB_META_STORE, mode, fn);
   }
 
   async get(modelId: string): Promise<LocalModelMeta | null> {
-    const store = await this.tx("readonly");
-    return new Promise((resolve, reject) => {
-      const req = store.get(modelId);
-      req.onsuccess = () => resolve((req.result as LocalModelMeta | undefined) ?? null);
-      req.onerror = () => reject(req.error);
-    });
+    const r = await this.run("readonly", (s) => s.get(modelId) as IDBRequest<LocalModelMeta | undefined>);
+    return r ?? null;
   }
 
   async put(meta: LocalModelMeta): Promise<void> {
-    const store = await this.tx("readwrite");
-    return new Promise((resolve, reject) => {
-      const req = store.put(meta);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
+    await this.run("readwrite", (s) => s.put(meta));
   }
 
   async getAll(): Promise<LocalModelMeta[]> {
-    const store = await this.tx("readonly");
-    return new Promise((resolve, reject) => {
-      const req = store.getAll();
-      req.onsuccess = () => resolve(req.result as LocalModelMeta[]);
-      req.onerror = () => reject(req.error);
-    });
+    return this.run("readonly", (s) => s.getAll() as IDBRequest<LocalModelMeta[]>);
   }
 
   async remove(modelId: string): Promise<void> {
-    const store = await this.tx("readwrite");
-    return new Promise((resolve, reject) => {
-      const req = store.delete(modelId);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
+    await this.run("readwrite", (s) => s.delete(modelId));
   }
 }
 
@@ -142,6 +143,7 @@ export class SyncManager {
   private readonly intervalMs: number;
   private readonly onEvent: SyncEventListener | undefined;
   private readonly meta: MetadataStore;
+  private readonly trust: TrustManager;
   private timer: ReturnType<typeof setInterval> | null = null;
   private syncing = false;
 
@@ -151,6 +153,16 @@ export class SyncManager {
     this.intervalMs = options.intervalMs ?? 300_000;
     this.onEvent = options.onEvent;
     this.meta = new MetadataStore();
+    const ctx = (options.control as Partial<ControlClient>).trustContext?.();
+    this.trust =
+      options.trust ??
+      new TrustManager({
+        serverUrl: ctx?.serverUrl,
+        orgId: ctx?.orgId,
+        authHeaders: ctx?.authHeaders,
+        unsignedPolicy: options.unsignedPolicy,
+        allowedHosts: options.allowedHosts,
+      });
   }
 
   /**
@@ -214,7 +226,9 @@ export class SyncManager {
       }
 
       // GC: remove cached artifacts no longer in desired state
-      await this.garbageCollect(desired, entries);
+      if (errors === 0 && (entries.length > 0 || (desired.gcEligibleArtifactIds ?? []).length > 0)) {
+        await this.garbageCollect(desired, entries);
+      }
 
       // Report observed state
       await this.reportState();
@@ -260,15 +274,25 @@ export class SyncManager {
   private async reconcileEntry(
     entry: DesiredModelEntry,
   ): Promise<{ downloaded: boolean; activated: boolean }> {
-    const existing = await this.meta.get(entry.modelId);
+    let existing = await this.meta.get(entry.modelId);
+    if (existing && !(await this.cacheStillTrusted(existing))) {
+      await this.evict(existing);
+      existing = null;
+    }
 
     // Already at desired version and active
-    if (existing && existing.modelVersion === entry.desiredVersion && existing.status === "active") {
+    const sameArtifact =
+      !!existing &&
+      existing.modelVersion === entry.desiredVersion &&
+      (!entry.artifactManifest?.sha256 ||
+        existing.sha256 === entry.artifactManifest.sha256.toLowerCase());
+
+    if (existing && sameArtifact && existing.status === "active") {
       return { downloaded: false, activated: false };
     }
 
     // Already staged at desired version — just check activation policy
-    if (existing && existing.modelVersion === entry.desiredVersion && existing.status === "staged") {
+    if (existing && sameArtifact && existing.status === "staged") {
       const shouldActivate = this.shouldActivate(entry.activationPolicy);
       if (shouldActivate) {
         existing.status = "active";
@@ -284,24 +308,57 @@ export class SyncManager {
       return { downloaded: false, activated: false };
     }
 
-    this.emit({ type: "download_start", modelId: entry.modelId });
-
-    const data = await this.downloadArtifact(entry.artifactManifest.downloadUrl);
-
-    // Verify integrity if sha256 is provided
-    if (entry.artifactManifest.sha256) {
-      const hash = await computeHash(data);
-      if (hash !== entry.artifactManifest.sha256.toLowerCase()) {
-        throw new OctomilError(
-          "MODEL_LOAD_FAILED",
-          `Integrity check failed for ${entry.modelId}: expected ${entry.artifactManifest.sha256}, got ${hash}`,
-        );
+    const am = entry.artifactManifest;
+    const { verification, envelope, manifestSha256 } = await this.trust.fetchAndVerify(
+      { manifestUrl: am.manifestUrl, manifestSha256: am.manifestSha256 },
+      { source: "sync", urls: [am.downloadUrl], subject: entry.modelId },
+    );
+    let manifest: ManifestPayload | null = null;
+    let expectedHash = am.sha256?.toLowerCase();
+    if (verification.status === "verified") {
+      manifest = verification.manifest;
+      if (manifest.files.length !== 1) {
+        throw new OctomilError("manifest_incompatible", `Manifest for ${entry.modelId} lists multiple files`);
       }
+      const signedHash = manifest.files[0]!.sha256;
+      if (expectedHash && expectedHash !== signedHash) {
+        throw new OctomilError("artifact_digest_mismatch", `Server sha256 for ${entry.modelId} does not match the signed manifest`);
+      }
+      expectedHash = signedHash;
+    }
+    if (!expectedHash) {
+      throw new OctomilError(
+        "MODEL_LOAD_FAILED",
+        `Artifact for ${entry.modelId} has no sha256; refusing to install unverified model`,
+      );
     }
 
-    // Cache the artifact
-    const cacheKey = entry.artifactManifest.downloadUrl;
+    this.emit({ type: "download_start", modelId: entry.modelId });
+
+    const data = await this.downloadArtifact(am.downloadUrl, manifest);
+
+    const hash = await computeHash(data);
+    if (hash !== expectedHash) {
+      throw new OctomilError(
+        "MODEL_LOAD_FAILED",
+        `Integrity check failed for ${entry.modelId}: expected ${expectedHash}, got ${hash}`,
+      );
+    }
+
+    const cacheKey = am.downloadUrl;
+    if (manifest && envelope && manifestSha256) {
+      await this.trust.verify({
+        manifest: envelope,
+        source: "sync",
+        quiet: true,
+        urls: [am.downloadUrl],
+        observed: [{ path: manifest.files[0]!.path, size: data.byteLength, sha256: await sha256Hex(data) }],
+      });
+    }
     await this.cache.put(cacheKey, data);
+    if (manifest && envelope && manifestSha256) {
+      await this.trust.recordVerified(cacheKey, envelope, manifestSha256, manifest);
+    }
 
     this.emit({
       type: "download_complete",
@@ -321,10 +378,11 @@ export class SyncManager {
       modelName: entry.modelName,
       modelRef: entry.modelRef,
       artifactUrl: cacheKey,
-      sha256: entry.artifactManifest.sha256,
+      sha256: expectedHash,
       installedAt: new Date().toISOString(),
       status: shouldActivate ? "active" : "staged",
       sizeBytes: data.byteLength,
+      signed: manifest !== null,
     };
 
     await this.meta.put(meta);
@@ -355,26 +413,62 @@ export class SyncManager {
     }
   }
 
-  private async downloadArtifact(url: string): Promise<ArrayBuffer> {
-    let response: Response;
-    try {
-      response = await fetch(url);
-    } catch (err) {
+  /** Re-verifies a signed install against the current trust root; false means evict and re-fetch. */
+  private async cacheStillTrusted(meta: LocalModelMeta): Promise<boolean> {
+    const info = await this.cache.info(meta.artifactUrl);
+    const check = await this.trust.reverifyCached(
+      meta.artifactUrl,
+      { size: info.cached ? info.sizeBytes : undefined },
+      { quiet: true },
+    );
+    if (check.status === "rejected") return false;
+    return !(check.status === "no_record" && this.trust.unsignedPolicy === "enforce");
+  }
+
+  private async evict(meta: LocalModelMeta): Promise<void> {
+    await this.cache.remove(meta.artifactUrl);
+    await this.trust.forget(meta.artifactUrl);
+    await this.meta.remove(meta.modelId);
+  }
+
+  private async downloadArtifact(url: string, manifest: ManifestPayload | null): Promise<ArrayBuffer> {
+    if (!isSecureUrl(url)) {
       throw new OctomilError(
-        "NETWORK_UNAVAILABLE",
-        `Failed to download artifact from ${url}: ${String(err)}`,
-        err,
+        "MODEL_LOAD_FAILED",
+        `Refusing to download artifact over an insecure URL: ${redactUrl(url)}`,
       );
     }
 
+    const response = await fetchWithPolicy(
+      "download",
+      url,
+      { headers: this.trust.headersFor(url), credentials: "omit" },
+      `Failed to download artifact from ${redactUrl(url)}`,
+    );
+
     if (!response.ok) {
       throw new OctomilError(
-        "MODEL_LOAD_FAILED",
+        httpErrorCode(response.status, "MODEL_LOAD_FAILED"),
         `Artifact download failed: HTTP ${response.status}`,
       );
     }
 
-    return response.arrayBuffer();
+    if (manifest && response.url) {
+      const host = new URL(response.url).hostname;
+      if (!hostAllowed(host, manifest.source_hosts) || !hostAllowed(host, this.trust.allowlist)) {
+        throw new OctomilError("host_not_allowed", `Download redirected to a disallowed host: ${host}`);
+      }
+    }
+
+    try {
+      return await readCapped(response, MAX_ARTIFACT_BYTES);
+    } catch (err) {
+      throw new OctomilError(
+        "MODEL_LOAD_FAILED",
+        `Artifact download from ${redactUrl(url)} failed: ${(err as Error).message}`,
+        err,
+      );
+    }
   }
 
   private async garbageCollect(
@@ -389,8 +483,12 @@ export class SyncManager {
       const shouldGc =
         gcIds.has(local.modelId) || !desiredModelIds.has(local.modelId);
       if (shouldGc) {
-        await this.cache.remove(local.artifactUrl);
-        await this.meta.remove(local.modelId);
+        try {
+          await this.cache.remove(local.artifactUrl);
+          await this.meta.remove(local.modelId);
+        } catch (err) {
+          this.emit({ type: "error", error: String(err) });
+        }
       }
     }
   }
@@ -417,6 +515,10 @@ export class SyncManager {
   }
 
   private emit(event: SyncEvent): void {
-    this.onEvent?.(event);
+    try {
+      this.onEvent?.(event);
+    } catch {
+      // listener errors must not abort a sync cycle
+    }
   }
 }

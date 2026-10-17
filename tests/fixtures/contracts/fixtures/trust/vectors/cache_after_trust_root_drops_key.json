@@ -1,0 +1,81 @@
+{
+  "description": "Cached manifest whose signing key is absent from the updated trust root.",
+  "operation": "verify_manifest",
+  "now": "2026-10-17T00:00:00Z",
+  "pinned_root": {
+    "threshold": 2,
+    "root_keys": [
+      {
+        "keyid": "root-a",
+        "pubkey": "D+tgcji2veQ2Oyobrv5P1CFnxSAkNrSisOiLtFeiH1c="
+      },
+      {
+        "keyid": "root-b",
+        "pubkey": "xrraPC0RsI/UlVW04jcwj6ooolXmsZFvaISJc8R8+S4="
+      },
+      {
+        "keyid": "root-c",
+        "pubkey": "fGZCdbaZe5P5Nx9xjsjyCOGTLddEBa/PoBp2mXnpxV0="
+      }
+    ]
+  },
+  "trust_root": {
+    "payloadType": "application/vnd.octomil.trust-root.v1+json",
+    "payload": "eyJleHBpcmVzX2F0IjoiMjAyNy0wMy0wMVQwMDowMDowMFoiLCJpc3N1ZWRfYXQiOiIyMDI2LTA5LTAxVDAwOjAwOjAwWiIsImtleXMiOlt7ImtleWlkIjoicmVsZWFzZS1tb2RlbC1vbmx5Iiwibm90X2FmdGVyIjoiMjAyNy0wMS0wMVQwMDowMDowMFoiLCJub3RfYmVmb3JlIjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJwdWJrZXkiOiJTOHJGOVJiYXhya0phWWp2NlpoUDRZMUdQdFRuU1BuQ3JQSW9FM2N3TVcwPSIsInNjb3BlIjoibW9kZWwifV0sIm1pbl9zZXJpYWwiOnt9LCJyZXZva2VkX2RpZ2VzdHMiOltdLCJyZXZva2VkX2tleWlkcyI6WyJyZWxlYXNlLXJldm9rZWQiXSwicm9vdF9rZXlzIjpbeyJrZXlpZCI6InJvb3QtYSIsInB1YmtleSI6IkQrdGdjamkydmVRMk95b2JydjVQMUNGbnhTQWtOclNpc09pTHRGZWlIMWM9In0seyJrZXlpZCI6InJvb3QtYiIsInB1YmtleSI6InhycmFQQzBSc0kvVWxWVzA0amN3ajZvb29sWG1zWkZ2YUlTSmM4UjgrUzQ9In0seyJrZXlpZCI6InJvb3QtYyIsInB1YmtleSI6ImZHWkNkYmFaZTVQNU54OXhqc2p5Q09HVExkZEVCYS9Qb0JwMm1YbnB4VjA9In1dLCJyb290X3RocmVzaG9sZCI6Miwic2NoZW1hIjoib2N0b21pbC50cnVzdF9yb290LzEiLCJzZXJpYWwiOjR9",
+    "signatures": [
+      {
+        "keyid": "root-a",
+        "sig": "Zy4Ws/EUSQG9qcGk4NDqnuieNla6aNzBpEItiXwFdyY2isfgyn1zG8gWxz90T7rMIpDdEt1vAMOsfbYChXF6DQ=="
+      },
+      {
+        "keyid": "root-b",
+        "sig": "3aH0TR9tIBWz4kcRHOr2XXapfV8aazoku6Aib5EXaU9nGL7mrq/yW7yW6ca+EC6YQauILSQssal+8M84YtF6Aw=="
+      }
+    ]
+  },
+  "state": {
+    "max_trust_root_serial": 3
+  },
+  "context": {
+    "kind": "model",
+    "org_id": "org_acme",
+    "platform": {
+      "os": "darwin",
+      "arch": "arm64",
+      "flavor": "chat"
+    },
+    "sdk": {
+      "name": "python",
+      "version": "1.5.0"
+    },
+    "abi": {
+      "major": 0,
+      "minor": 12
+    },
+    "sdk_allowlist": [
+      "*.octomil.com"
+    ],
+    "downloads": [],
+    "observed": [
+      {
+        "path": "model.gguf",
+        "size": 34,
+        "sha256": "22e39fe3380310e3417b78ac31f20e7438ec3f4d6df26a1148a7cb518b9ff26b"
+      }
+    ]
+  },
+  "manifest": {
+    "payloadType": "application/vnd.octomil.manifest.v1+json",
+    "payload": "eyJhYmkiOnsibWFqb3IiOjAsIm1pbl9taW5vciI6MTJ9LCJidW5kbGVfZGlnZXN0IjoiMzIwNzY5OTA2Y2Y1OWM1MmVmNTI0ZGRkOGUzMDk0YTc2NWMyMjQ3OWMzNjQ5MTBmMDc0MzNmYWRmN2Q4ZDU1OCIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTAxVDAwOjAwOjAwWiIsImZpbGVzIjpbeyJjaHVua3MiOlt7InNoYTI1NiI6IjljMmI3NTg0NTk2Y2E5NDE3ZDAzNWUyNzY2NmVhYTNkYTU0NWExMTlmNDI2MjFjMGIwNTBiOWViOWExMDMwY2YiLCJzaXplIjoxN30seyJzaGEyNTYiOiI0NjZkNDVkM2NjZTY2ZmRiZWY2YjliMDg0YzVlZmEzN2EwNWVkMDgwNGYwYTYxNWExZDEwYzNiYWI2NmM1NTcwIiwic2l6ZSI6MTd9XSwicGF0aCI6Im1vZGVsLmdndWYiLCJzaGEyNTYiOiIyMmUzOWZlMzM4MDMxMGUzNDE3Yjc4YWMzMWYyMGU3NDM4ZWMzZjRkNmRmMjZhMTE0OGE3Y2I1MThiOWZmMjZiIiwic2l6ZSI6MzR9XSwiaXNzdWVkX2F0IjoiMjAyNi0xMC0wMVQwMDowMDowMFoiLCJraW5kIjoibW9kZWwiLCJtaW5fc2RrIjp7InB5dGhvbiI6IjEuMC4wIn0sIm5hbWUiOiJvY3RvbWlsLWNoYXQtMWIiLCJvcmdfaWQiOiJvcmdfYWNtZSIsInBsYXRmb3JtIjp7ImFyY2giOiJhcm02NCIsImZsYXZvciI6ImNoYXQiLCJvcyI6ImRhcndpbiJ9LCJzY2hlbWEiOiJvY3RvbWlsLm1hbmlmZXN0LzEiLCJzZXJpYWwiOjQxLCJzb3VyY2VfaG9zdHMiOlsibW9kZWxzLm9jdG9taWwuY29tIiwiY2RuLm9jdG9taWwuY29tIl0sInZlcnNpb24iOiIxLjAuMCJ9",
+    "signatures": [
+      {
+        "keyid": "release-2026-a",
+        "sig": "6VkwWPvxWNADMYQYkCs//gBZ4EWinoYtWW075OWKnKWn8Z5nsj6FNzUEz3Fue8oTKazwuoKipyM+dKMfbn/wAQ=="
+      }
+    ]
+  },
+  "expect": {
+    "result": "error",
+    "code": "manifest_signature_invalid"
+  }
+}

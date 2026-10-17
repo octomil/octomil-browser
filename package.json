@@ -5,7 +5,6 @@
   "type": "module",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
-  "browser": "dist/octomil.min.js",
   "unpkg": "dist/octomil.min.js",
   "jsdelivr": "dist/octomil.min.js",
   "types": "dist/index.d.ts",
@@ -16,6 +15,7 @@
       "require": "./dist/index.cjs"
     }
   },
+  "sideEffects": false,
   "files": [
     "dist"
   ],
@@ -24,10 +24,11 @@
     "provenance": true
   },
   "scripts": {
-    "build": "tsc && node build.mjs",
+    "build": "node scripts/inject-trust-root.mjs && tsc && node build.mjs",
     "build:types": "tsc",
     "build:bundle": "node build.mjs",
     "test": "vitest run",
+    "vendor:contracts": "node scripts/vendor-contracts.mjs ../octomil-contracts",
     "pack:check": "npm pack --dry-run --json",
     "exports:check": "node -e 'import(\"./dist/index.js\").then((m)=>{for (const name of [\"Octomil\",\"OctomilClient\",\"ResponsesClient\"]) if (typeof m[name] !== \"function\") throw new Error(`${name} export missing`)})'",
     "test:watch": "vitest",
@@ -35,7 +36,7 @@
     "typecheck": "tsc --noEmit",
     "openapi:generate": "OCTOMIL_BROWSER_PATH=$PWD OCTOMIL_NODE=0 ../octomil-contracts/tools/sdkgen/generate-typescript.sh",
     "openapi:check": "node scripts/check_openapi_banner.mjs",
-    "prepublishOnly": "pnpm run typecheck && pnpm test && pnpm run build && pnpm run exports:check && pnpm run pack:check"
+    "prepublishOnly": "export OCTOMIL_BUILD_ENV=production && pnpm run typecheck && pnpm test && pnpm run build && pnpm run exports:check && pnpm run pack:check"
   },
   "dependencies": {
     "@huggingface/transformers": "4.0.0",

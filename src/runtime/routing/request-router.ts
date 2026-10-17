@@ -41,6 +41,7 @@ import type {
   RouteMetadata,
   RouteEvent,
 } from "../../_generated/runtime_planner_types.js";
+import { generateRequestId, generateRouteId } from "../../policy/ids.js";
 
 export type { RouteMetadata } from "../../_generated/runtime_planner_types.js";
 
@@ -249,7 +250,7 @@ export class BrowserRequestRouter {
     );
 
     const routeId = generateRouteId();
-    const requestId = generateRouteId();
+    const requestId = generateRequestId();
 
     if (!selected) {
       // No route available
@@ -498,25 +499,4 @@ export class BrowserRequestRouter {
 
     return event;
   }
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function generateRouteId(): string {
-  const hex = (n: number): string => {
-    const bytes = new Uint8Array(n);
-    if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-      crypto.getRandomValues(bytes);
-    } else {
-      for (let i = 0; i < n; i++) {
-        bytes[i] = Math.floor(Math.random() * 256);
-      }
-    }
-    return Array.from(bytes)
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-  };
-  return `rt_${hex(8)}`;
 }

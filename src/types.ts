@@ -112,6 +112,16 @@ export interface OctomilOptions {
   telemetryUrl?: string;
 
   /**
+   * Behaviour when an artifact has no signed manifest. `"warn"` proceeds and flags it unverified;
+   * `"enforce"` refuses. A present-but-invalid manifest always fails.
+   * @default "warn"
+   */
+  unsignedPolicy?: "warn" | "enforce";
+
+  /** Extra artifact hosts allowed in addition to `*.octomil.com`. */
+  allowedHosts?: string[];
+
+  /**
    * Model caching strategy.
    * @default "cache-api"
    */
@@ -264,6 +274,9 @@ export interface ModelMetadata {
   url?: string;
   download_url?: string;
   checksum?: string;
+  sha256?: string;
+  manifest_url?: string;
+  manifest_sha256?: string;
 }
 
 // ---------------------------------------------------------------------------

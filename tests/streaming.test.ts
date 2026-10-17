@@ -39,6 +39,18 @@ describe("StreamingInferenceEngine", () => {
     });
   });
 
+  it("combines signals so any input aborts the result", () => {
+    const a = new AbortController();
+    const b = new AbortController();
+    const combined = (
+      engine as unknown as { combineSignals(...s: AbortSignal[]): AbortSignal }
+    ).combineSignals(a.signal, b.signal);
+
+    expect(combined.aborted).toBe(false);
+    b.abort("stop");
+    expect(combined.aborted).toBe(true);
+  });
+
   it("yields parsed SSE chunks", async () => {
     const chunks = [
       { index: 0, data: "Hello", modality: "text", done: false },

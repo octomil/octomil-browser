@@ -101,6 +101,8 @@ export interface DesiredModelEntry {
     downloadUrl: string;
     sizeBytes?: number;
     sha256?: string;
+    manifestUrl?: string;
+    manifestSha256?: string;
   };
   rolloutId?: string;
 }
@@ -593,6 +595,11 @@ export class ControlClient {
     return Array.from(new Uint8Array(buf))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
+  }
+
+  /** Origin, org and auth headers for callers that must gate credentials to this server. */
+  trustContext(): { serverUrl: string; orgId: string | undefined; authHeaders: () => Record<string, string> } {
+    return { serverUrl: this.serverUrl, orgId: this.orgId, authHeaders: () => this.resolveAuthHeaders() };
   }
 
   private resolveAuthHeaders(): Record<string, string> {

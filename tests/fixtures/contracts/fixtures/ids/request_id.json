@@ -1,0 +1,86 @@
+{
+  "kind": "id_check",
+  "description": "request_id is a UUIDv7 or ULID.",
+  "cases": [
+    {
+      "name": "uuid7",
+      "input": {
+        "id_kind": "request_id",
+        "value": "0192f3a4-7b6c-7d3e-8a1f-1234567890ab"
+      },
+      "expect": {
+        "valid": true
+      }
+    },
+    {
+      "name": "uuid4_rejected",
+      "input": {
+        "id_kind": "request_id",
+        "value": "0192f3a4-7b6c-4d3e-8a1f-1234567890ab"
+      },
+      "expect": {
+        "valid": false
+      }
+    },
+    {
+      "name": "uuid7_bad_variant",
+      "input": {
+        "id_kind": "request_id",
+        "value": "0192f3a4-7b6c-7d3e-ca1f-1234567890ab"
+      },
+      "expect": {
+        "valid": false
+      }
+    },
+    {
+      "name": "ulid",
+      "input": {
+        "id_kind": "request_id",
+        "value": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+      },
+      "expect": {
+        "valid": true
+      }
+    },
+    {
+      "name": "ulid_lowercase",
+      "input": {
+        "id_kind": "request_id",
+        "value": "01arz3ndektsv4rrffq69g5fav"
+      },
+      "expect": {
+        "valid": false
+      }
+    },
+    {
+      "name": "ulid_excluded_letter",
+      "input": {
+        "id_kind": "request_id",
+        "value": "01ARZ3NDEKTSV4RRFFQ69G5FAU"
+      },
+      "expect": {
+        "valid": false
+      }
+    },
+    {
+      "name": "route_id_is_not_request_id",
+      "input": {
+        "id_kind": "request_id",
+        "value": "route_0123456789abcdef0123456789abcdef"
+      },
+      "expect": {
+        "valid": false
+      }
+    },
+    {
+      "name": "empty",
+      "input": {
+        "id_kind": "request_id",
+        "value": ""
+      },
+      "expect": {
+        "valid": false
+      }
+    }
+  ]
+}

@@ -222,6 +222,20 @@ describe("configure", () => {
     expect(ctx.isRegistered).toBe(false);
   });
 
+  it("does not retry non-429 4xx responses", async () => {
+    const fetchSpy = mockFetch({ error: "bad request" }, 400);
+
+    const ctx = await configure({
+      auth: { type: "publishable_key", key: "oct_pub_test_bad" },
+      monitoring: { enabled: true },
+    });
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(ctx.registrationState).toBe("failed");
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
   it("local usage is not blocked when registration fails", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
       throw new Error("network down");

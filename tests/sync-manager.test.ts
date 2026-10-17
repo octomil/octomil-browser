@@ -73,7 +73,12 @@ class FakeIDBObjectStore {
 }
 
 class FakeIDBTransaction {
-  constructor(private store: FakeIDBObjectStore) {}
+  oncomplete: (() => void) | null = null;
+  onabort: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  constructor(private store: FakeIDBObjectStore) {
+    setTimeout(() => this.oncomplete?.(), 0);
+  }
   objectStore(_name: string) { return this.store; }
 }
 
@@ -160,6 +165,9 @@ function makeArtifactBytes(size = 64): ArrayBuffer {
   return new ArrayBuffer(size);
 }
 
+const ZERO_64_SHA = "f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b";
+const ZERO_128_SHA = "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca";
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -224,6 +232,7 @@ describe("SyncManager", () => {
               activationPolicy: "immediate",
               artifactManifest: {
                 downloadUrl: "https://cdn.test/phi-4-mini.onnx",
+                sha256: ZERO_128_SHA,
                 sizeBytes: 128,
               },
             },
@@ -243,7 +252,7 @@ describe("SyncManager", () => {
       await mgr.sync();
 
       // Verify download occurred
-      expect(globalThis.fetch).toHaveBeenCalledWith("https://cdn.test/phi-4-mini.onnx");
+      expect(globalThis.fetch).toHaveBeenCalledWith("https://cdn.test/phi-4-mini.onnx", expect.anything());
 
       // Verify cache was populated
       expect(cache.put).toHaveBeenCalledOnce();
@@ -283,6 +292,7 @@ describe("SyncManager", () => {
               activationPolicy: "manual",
               artifactManifest: {
                 downloadUrl: "https://cdn.test/phi-4-mini-v2.onnx",
+                sha256: ZERO_64_SHA,
                 sizeBytes: 64,
               },
             },
@@ -329,6 +339,7 @@ describe("SyncManager", () => {
               activationPolicy: "next_launch",
               artifactManifest: {
                 downloadUrl: "https://cdn.test/llama-7b-v3.onnx",
+              sha256: ZERO_64_SHA,
               },
             },
           ]),
@@ -358,6 +369,7 @@ describe("SyncManager", () => {
               activationPolicy: "immediate",
               artifactManifest: {
                 downloadUrl: "https://cdn.test/phi.onnx",
+              sha256: ZERO_64_SHA,
               },
             },
           ]),
@@ -388,6 +400,7 @@ describe("SyncManager", () => {
               desiredVersion: "1.0",
               artifactManifest: {
                 downloadUrl: "https://cdn.test/bad.onnx",
+              sha256: ZERO_64_SHA,
               },
             },
           ]),
@@ -456,6 +469,26 @@ describe("SyncManager", () => {
       const meta = await mgr.getModelMeta("no-manifest");
       expect(meta).toBeNull();
     });
+
+    it.each([
+      ["missing sha256", { downloadUrl: "https://cdn.test/x.onnx" }],
+      ["http url", { downloadUrl: "http://cdn.test/x.onnx", sha256: ZERO_64_SHA }],
+    ])("fails closed on %s", async (_name, artifactManifest) => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+      const control = createMockControl({
+        fetchDesiredState: vi.fn<[], Promise<DesiredState>>().mockResolvedValue(
+          makeDesiredState([{ modelId: "x", desiredVersion: "1.0", artifactManifest }]),
+        ),
+      });
+      const cache = createMockCache();
+      const mgr = new SyncManager({ control, cache });
+
+      await mgr.sync();
+
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(cache.put).not.toHaveBeenCalled();
+      expect(await mgr.getModelMeta("x")).toBeNull();
+    });
   });
 
   describe("garbage collection", () => {
@@ -472,6 +505,7 @@ describe("SyncManager", () => {
           activationPolicy: "immediate",
           artifactManifest: {
             downloadUrl: "https://cdn.test/old.onnx",
+          sha256: ZERO_64_SHA,
           },
         },
       ]);
@@ -593,6 +627,7 @@ describe("SyncManager", () => {
               activationPolicy: "manual",
               artifactManifest: {
                 downloadUrl: "https://cdn.test/phi.onnx",
+              sha256: ZERO_64_SHA,
               },
             },
           ]),
@@ -644,6 +679,7 @@ describe("SyncManager", () => {
               activationPolicy: "immediate",
               artifactManifest: {
                 downloadUrl: "https://cdn.test/phi.onnx",
+              sha256: ZERO_64_SHA,
               },
             },
           ]),
@@ -687,13 +723,13 @@ describe("SyncManager", () => {
               modelId: "model-a",
               desiredVersion: "1.0",
               activationPolicy: "immediate",
-              artifactManifest: { downloadUrl: "https://cdn.test/a.onnx" },
+              artifactManifest: { downloadUrl: "https://cdn.test/a.onnx", sha256: ZERO_64_SHA },
             },
             {
               modelId: "model-b",
               desiredVersion: "2.0",
               activationPolicy: "manual",
-              artifactManifest: { downloadUrl: "https://cdn.test/b.onnx" },
+              artifactManifest: { downloadUrl: "https://cdn.test/b.onnx", sha256: ZERO_64_SHA },
             },
           ]),
         ),
