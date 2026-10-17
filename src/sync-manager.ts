@@ -12,6 +12,7 @@
 import type { ControlClient, DesiredState, DesiredModelEntry, ObservedModelStatus } from "./control.js";
 import type { ModelCache } from "./cache.js";
 import { computeHash } from "./integrity.js";
+import { openIdb, runIdb } from "./idb.js";
 import { OctomilError } from "./types.js";
 
 // Re-export for convenience
@@ -71,64 +72,48 @@ class MetadataStore {
   private dbPromise: Promise<IDBDatabase> | null = null;
 
   private openDB(): Promise<IDBDatabase> {
-    if (this.dbPromise) return this.dbPromise;
-
-    this.dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open(IDB_META_DB, IDB_META_VERSION);
-
-      request.onupgradeneeded = () => {
-        const db = request.result;
-        if (!db.objectStoreNames.contains(IDB_META_STORE)) {
-          db.createObjectStore(IDB_META_STORE, { keyPath: "modelId" });
-        }
-      };
-
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-
+    if (!this.dbPromise) {
+      this.dbPromise = openIdb(
+        IDB_META_DB,
+        IDB_META_VERSION,
+        (db) => {
+          if (!db.objectStoreNames.contains(IDB_META_STORE)) {
+            db.createObjectStore(IDB_META_STORE, { keyPath: "modelId" });
+          }
+        },
+        () => {
+          this.dbPromise = null;
+        },
+      ).catch((err) => {
+        this.dbPromise = null;
+        throw err;
+      });
+    }
     return this.dbPromise;
   }
 
-  private async tx(mode: IDBTransactionMode): Promise<IDBObjectStore> {
-    const db = await this.openDB();
-    return db.transaction(IDB_META_STORE, mode).objectStore(IDB_META_STORE);
+  private async run<T>(
+    mode: IDBTransactionMode,
+    fn: (s: IDBObjectStore) => IDBRequest<T>,
+  ): Promise<T> {
+    return runIdb(await this.openDB(), IDB_META_STORE, mode, fn);
   }
 
   async get(modelId: string): Promise<LocalModelMeta | null> {
-    const store = await this.tx("readonly");
-    return new Promise((resolve, reject) => {
-      const req = store.get(modelId);
-      req.onsuccess = () => resolve((req.result as LocalModelMeta | undefined) ?? null);
-      req.onerror = () => reject(req.error);
-    });
+    const r = await this.run("readonly", (s) => s.get(modelId) as IDBRequest<LocalModelMeta | undefined>);
+    return r ?? null;
   }
 
   async put(meta: LocalModelMeta): Promise<void> {
-    const store = await this.tx("readwrite");
-    return new Promise((resolve, reject) => {
-      const req = store.put(meta);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
+    await this.run("readwrite", (s) => s.put(meta));
   }
 
   async getAll(): Promise<LocalModelMeta[]> {
-    const store = await this.tx("readonly");
-    return new Promise((resolve, reject) => {
-      const req = store.getAll();
-      req.onsuccess = () => resolve(req.result as LocalModelMeta[]);
-      req.onerror = () => reject(req.error);
-    });
+    return this.run("readonly", (s) => s.getAll() as IDBRequest<LocalModelMeta[]>);
   }
 
   async remove(modelId: string): Promise<void> {
-    const store = await this.tx("readwrite");
-    return new Promise((resolve, reject) => {
-      const req = store.delete(modelId);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
+    await this.run("readwrite", (s) => s.delete(modelId));
   }
 }
 

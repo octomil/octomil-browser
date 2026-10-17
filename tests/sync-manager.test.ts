@@ -73,7 +73,12 @@ class FakeIDBObjectStore {
 }
 
 class FakeIDBTransaction {
-  constructor(private store: FakeIDBObjectStore) {}
+  oncomplete: (() => void) | null = null;
+  onabort: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  constructor(private store: FakeIDBObjectStore) {
+    setTimeout(() => this.oncomplete?.(), 0);
+  }
   objectStore(_name: string) { return this.store; }
 }
 

@@ -8,6 +8,8 @@
 
 import type { CacheInfo, CacheStrategy } from "./types.js";
 import { OctomilError } from "./types.js";
+import { computeHash } from "./integrity.js";
+import { openIdb, runIdb } from "./idb.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -43,7 +45,13 @@ class CacheApiModelCache implements ModelCache {
     const cache = await this.open();
     const response = await cache.match(key);
     if (!response) return null;
-    return response.arrayBuffer();
+    const data = await response.arrayBuffer();
+    const expected = response.headers.get("x-octomil-sha256");
+    if (!expected || (await computeHash(data)) !== expected) {
+      await cache.delete(key);
+      return null;
+    }
+    return data;
   }
 
   async put(key: string, data: ArrayBuffer): Promise<void> {
@@ -52,6 +60,7 @@ class CacheApiModelCache implements ModelCache {
       headers: {
         "x-octomil-cached-at": new Date().toISOString(),
         "x-octomil-size": String(data.byteLength),
+        "x-octomil-sha256": await computeHash(data),
       },
     });
     await cache.put(key, response);
@@ -93,102 +102,73 @@ interface IDBModelEntry {
   data: ArrayBuffer;
   sizeBytes: number;
   cachedAt: string;
+  sha256?: string;
 }
 
 class IndexedDBModelCache implements ModelCache {
   private dbPromise: Promise<IDBDatabase> | null = null;
 
   private openDB(): Promise<IDBDatabase> {
-    if (this.dbPromise) return this.dbPromise;
-
-    this.dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open(IDB_DB_NAME, IDB_VERSION);
-
-      request.onupgradeneeded = () => {
-        const db = request.result;
-        if (!db.objectStoreNames.contains(IDB_STORE_NAME)) {
-          db.createObjectStore(IDB_STORE_NAME, { keyPath: "key" });
-        }
-      };
-
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-
+    if (!this.dbPromise) {
+      this.dbPromise = openIdb(
+        IDB_DB_NAME,
+        IDB_VERSION,
+        (db) => {
+          if (!db.objectStoreNames.contains(IDB_STORE_NAME)) {
+            db.createObjectStore(IDB_STORE_NAME, { keyPath: "key" });
+          }
+        },
+        () => {
+          this.dbPromise = null;
+        },
+      ).catch((err) => {
+        this.dbPromise = null;
+        throw err;
+      });
+    }
     return this.dbPromise;
   }
 
-  private async tx(
+  private async run<T>(
     mode: IDBTransactionMode,
-  ): Promise<IDBObjectStore> {
-    const db = await this.openDB();
-    const transaction = db.transaction(IDB_STORE_NAME, mode);
-    return transaction.objectStore(IDB_STORE_NAME);
+    fn: (s: IDBObjectStore) => IDBRequest<T>,
+  ): Promise<T> {
+    return runIdb(await this.openDB(), IDB_STORE_NAME, mode, fn);
   }
 
   async get(key: string): Promise<ArrayBuffer | null> {
-    const store = await this.tx("readonly");
-    return new Promise((resolve, reject) => {
-      const request = store.get(key);
-      request.onsuccess = () => {
-        const entry = request.result as IDBModelEntry | undefined;
-        resolve(entry?.data ?? null);
-      };
-      request.onerror = () => reject(request.error);
-    });
+    const entry = await this.run("readonly", (s) => s.get(key) as IDBRequest<IDBModelEntry | undefined>);
+    if (!entry) return null;
+    if (!entry.sha256 || (await computeHash(entry.data)) !== entry.sha256) {
+      await this.remove(key);
+      return null;
+    }
+    return entry.data;
   }
 
   async put(key: string, data: ArrayBuffer): Promise<void> {
-    const store = await this.tx("readwrite");
     const entry: IDBModelEntry = {
       key,
       data,
       sizeBytes: data.byteLength,
       cachedAt: new Date().toISOString(),
+      sha256: await computeHash(data),
     };
-    return new Promise((resolve, reject) => {
-      const request = store.put(entry);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
+    await this.run("readwrite", (s) => s.put(entry));
   }
 
   async has(key: string): Promise<boolean> {
-    const store = await this.tx("readonly");
-    return new Promise((resolve, reject) => {
-      const request = store.count(key);
-      request.onsuccess = () => resolve(request.result > 0);
-      request.onerror = () => reject(request.error);
-    });
+    return (await this.run("readonly", (s) => s.count(key))) > 0;
   }
 
   async remove(key: string): Promise<void> {
-    const store = await this.tx("readwrite");
-    return new Promise((resolve, reject) => {
-      const request = store.delete(key);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
+    await this.run("readwrite", (s) => s.delete(key));
   }
 
   async info(key: string): Promise<CacheInfo> {
-    const store = await this.tx("readonly");
-    return new Promise((resolve, reject) => {
-      const request = store.get(key);
-      request.onsuccess = () => {
-        const entry = request.result as IDBModelEntry | undefined;
-        if (!entry) {
-          resolve({ cached: false, sizeBytes: 0 });
-        } else {
-          resolve({
-            cached: true,
-            sizeBytes: entry.sizeBytes,
-            cachedAt: entry.cachedAt,
-          });
-        }
-      };
-      request.onerror = () => reject(request.error);
-    });
+    const entry = await this.run("readonly", (s) => s.get(key) as IDBRequest<IDBModelEntry | undefined>);
+    if (!entry) return { cached: false, sizeBytes: 0 };
+    return { cached: true, sizeBytes: entry.sizeBytes, cachedAt: entry.cachedAt };
   }
 }
 
