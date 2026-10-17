@@ -27,7 +27,11 @@ function createMockCache(
     info: vi.fn(async (key: string) => {
       const data = stored.get(key);
       return data
-        ? { cached: true, sizeBytes: data.byteLength, cachedAt: new Date().toISOString() }
+        ? {
+            cached: true,
+            sizeBytes: data.byteLength,
+            cachedAt: new Date().toISOString(),
+          }
         : { cached: false, sizeBytes: 0 };
     }),
   };
@@ -110,7 +114,7 @@ describe("ModelManager", () => {
       const opts: OctomilOptions = {
         model: "sentiment-v1",
         serverUrl: "https://api.octomil.com",
-        apiKey: "test-key",  // pragma: allowlist secret
+        apiKey: "test-key", // pragma: allowlist secret
       };
       const loader = new ModelManager(opts, cache);
       const url = await loader.resolveModelUrl();
@@ -225,18 +229,22 @@ describe("ModelManager", () => {
       await expect(loader.load()).rejects.toThrow("integrity");
       expect(cache.put).not.toHaveBeenCalled();
       // API key must not leak to the CDN origin.
-      const dl = calls.find((c) => (c as string[])[0].includes("cdn.octomil.com")) as [
-        string,
-        RequestInit,
-      ];
-      expect((dl[1].headers as Record<string, string>)["Authorization"]).toBeUndefined();
+      const dl = calls.find((c) =>
+        (c as string[])[0].startsWith("https://cdn.octomil.com/"),
+      ) as [string, RequestInit];
+      expect(
+        (dl[1].headers as Record<string, string>)["Authorization"],
+      ).toBeUndefined();
     });
 
     it("rejects a resolver response without sha256 or with an http download url", async () => {
       globalThis.fetch = vi.fn(async () => ({
         ok: true,
         status: 200,
-        json: async () => ({ download_url: "http://evil.example/m.onnx", sha256: "0".repeat(64) }),
+        json: async () => ({
+          download_url: "http://evil.example/m.onnx",
+          sha256: "0".repeat(64),
+        }),
       })) as unknown as typeof fetch;
       const loader = new ModelManager(
         { model: "m", serverUrl: "https://api.octomil.com" },
@@ -245,18 +253,22 @@ describe("ModelManager", () => {
       await expect(loader.load()).rejects.toThrow("insecure");
     });
 
-    it("throws NETWORK_UNAVAILABLE when fetch fails", { timeout: 15_000 }, async () => {
-      globalThis.fetch = vi.fn(async () => {
-        throw new TypeError("Failed to fetch");
-      }) as unknown as typeof fetch;
+    it(
+      "throws NETWORK_UNAVAILABLE when fetch fails",
+      { timeout: 15_000 },
+      async () => {
+        globalThis.fetch = vi.fn(async () => {
+          throw new TypeError("Failed to fetch");
+        }) as unknown as typeof fetch;
 
-      const opts: OctomilOptions = {
-        model: "https://models.octomil.com/test.onnx",
-      };
-      const loader = new ModelManager(opts, cache);
+        const opts: OctomilOptions = {
+          model: "https://models.octomil.com/test.onnx",
+        };
+        const loader = new ModelManager(opts, cache);
 
-      await expect(loader.load()).rejects.toThrow(OctomilError);
-    });
+        await expect(loader.load()).rejects.toThrow(OctomilError);
+      },
+    );
 
     it("throws MODEL_LOAD_FAILED on HTTP error", async () => {
       mockFetchResponse(new ArrayBuffer(0), 500);
