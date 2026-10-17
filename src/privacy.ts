@@ -78,12 +78,11 @@ export function addGaussianNoise(
 
 /** Box-Muller transform for generating Gaussian random numbers. */
 function gaussianRandom(): number {
-  let u1: number;
-  let u2: number;
-  do {
-    u1 = Math.random();
-    u2 = Math.random();
-  } while (u1 === 0);
+  const r = new Uint32Array(2);
+  crypto.getRandomValues(r);
+  // Map to (0, 1] so log() never sees 0.
+  const u1 = (r[0]! + 1) / 4294967296;
+  const u2 = (r[1]! + 1) / 4294967296;
   return Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
 }
 

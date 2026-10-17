@@ -9,6 +9,11 @@
 import type { WeightMap } from "./types.js";
 import { OctomilError } from "./types.js";
 
+// 20-bit fixed point at 2^-12 resolution: exactly representable in float32.
+const MASK_STEPS = 1 << 20;
+const MASK_SCALE = 1 << 12;
+const MASK_BLOCK_WORDS = 256;
+
 // ---------------------------------------------------------------------------
 // SecureAggregation (basic pairwise masking)
 // ---------------------------------------------------------------------------
@@ -50,11 +55,10 @@ export class SecureAggregation {
   }
 
   /**
-   * Generate a deterministic PRG mask from a shared secret.
-   * Uses the secret as a seed to produce `length` float values.
+   * Generate a deterministic mask from a shared secret: a counter-mode HKDF
+   * stream mapped to bounded fixed-point values in [-MASK_RANGE, MASK_RANGE).
    */
   async createMask(secret: ArrayBuffer, length: number): Promise<Float32Array> {
-    // Expand seed via HKDF-SHA256, then interpret as float offsets
     const keyMaterial = await crypto.subtle.importKey(
       "raw",
       secret,
@@ -62,24 +66,24 @@ export class SecureAggregation {
       false,
       ["deriveBits"],
     );
-    const bitsNeeded = length * 4 * 8; // Float32 = 4 bytes
-    const bits = await crypto.subtle.deriveBits(
-      {
-        name: "HKDF",
-        hash: "SHA-256",
-        salt: new Uint8Array(32),
-        info: new TextEncoder().encode("octomil-secagg-mask"),
-      },
-      keyMaterial,
-      Math.min(bitsNeeded, 8160), // deriveBits max
-    );
-
-    // If we need more bits than one deriveBits call can give,
-    // tile the output.
+    const prefix = new TextEncoder().encode("octomil-secagg-mask");
     const mask = new Float32Array(length);
-    const source = new Float32Array(bits);
-    for (let i = 0; i < length; i++) {
-      mask[i] = source[i % source.length]!;
+    let filled = 0;
+    for (let counter = 0; filled < length; counter++) {
+      const info = new Uint8Array(prefix.length + 4);
+      info.set(prefix);
+      new DataView(info.buffer).setUint32(prefix.length, counter);
+      const block = new Uint32Array(
+        await crypto.subtle.deriveBits(
+          { name: "HKDF", hash: "SHA-256", salt: new Uint8Array(32), info },
+          keyMaterial,
+          MASK_BLOCK_WORDS * 32,
+        ),
+      );
+      for (let i = 0; i < block.length && filled < length; i++) {
+        mask[filled++] =
+          ((block[i]! & (MASK_STEPS - 1)) - MASK_STEPS / 2) / MASK_SCALE;
+      }
     }
     return mask;
   }
