@@ -25,6 +25,12 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
+function stripTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url.charCodeAt(end - 1) === 47) end--;
+  return url.slice(0, end);
+}
+
 export interface ConfigureOptions {
   auth?: SilentAuthConfig;
   monitoring?: MonitoringConfig;
@@ -57,9 +63,11 @@ export async function configure(
 
   const installationId = DeviceContext.getOrCreateInstallationId();
   const authAppId =
-    options.auth?.type === "anonymous" ? options.auth.appId : options.auth?.appId;
+    options.auth?.type === "anonymous"
+      ? options.auth.appId
+      : options.auth?.appId;
   const authOrgId =
-    options.auth?.type === "anonymous" ? null : options.auth?.orgId ?? null;
+    options.auth?.type === "anonymous" ? null : (options.auth?.orgId ?? null);
 
   const context = new DeviceContext({
     installationId,
@@ -94,7 +102,7 @@ async function silentRegister(
   const maxAttempts = 10;
   const maxDelayMs = 300_000; // 5 minutes
   const authOrgId =
-    options.auth?.type === "anonymous" ? null : options.auth?.orgId ?? null;
+    options.auth?.type === "anonymous" ? null : (options.auth?.orgId ?? null);
 
   try {
     const baseUrl = options.baseUrl || "https://api.octomil.com";
@@ -111,7 +119,9 @@ async function silentRegister(
       headers["X-App-Id"] = context.appId;
     }
 
-    const registerUrl = new URL(`${baseUrl.replace(/\/+$/, "")}/api/v1/devices/register`);
+    const registerUrl = new URL(
+      `${stripTrailingSlashes(baseUrl)}/api/v1/devices/register`,
+    );
     if (authOrgId) {
       registerUrl.searchParams.set("org_id", authOrgId);
     }
@@ -138,7 +148,11 @@ async function silentRegister(
     });
 
     if (!response.ok) {
-      if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+      if (
+        response.status >= 400 &&
+        response.status < 500 &&
+        response.status !== 429
+      ) {
         // Non-retryable
         console.warn(`[Octomil] Registration failed: HTTP ${response.status}`);
         context._markFailed();
@@ -157,7 +171,11 @@ async function silentRegister(
     if (!serverDeviceId || !data.access_token || !data.expires_at) {
       throw new Error("Registration response missing device token fields");
     }
-    context._updateRegistered(serverDeviceId, data.access_token, new Date(data.expires_at));
+    context._updateRegistered(
+      serverDeviceId,
+      data.access_token,
+      new Date(data.expires_at),
+    );
 
     // Start heartbeat if monitoring enabled
     if (options.monitoring?.enabled) {
@@ -203,7 +221,7 @@ function startHeartbeat(
       const baseUrl = options.baseUrl || "https://api.octomil.com";
       if (!context.serverDeviceId) return;
       await fetch(
-        `${baseUrl.replace(/\/+$/, "")}/api/v1/devices/${encodeURIComponent(context.serverDeviceId)}/heartbeat`,
+        `${stripTrailingSlashes(baseUrl)}/api/v1/devices/${encodeURIComponent(context.serverDeviceId)}/heartbeat`,
         {
           method: "PUT",
           headers: { ...headers, "Content-Type": "application/json" },
