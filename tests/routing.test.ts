@@ -221,6 +221,19 @@ describe("RoutingClient", () => {
       expect(client2.lastRouteWasOffline).toBe(true);
     });
 
+    it("ignores malformed or expired persisted entries", async () => {
+      localStorageData["octomil_routing_cache"] = JSON.stringify({
+        "model-bad": { id: 1, target: "cloud" },
+        "model-old": { decision: CLOUD_DECISION, storedAt: Date.now() - 2 * 86_400_000 },
+      });
+      fetchSpy.mockRejectedValue(new Error("Network down"));
+
+      for (const id of ["model-bad", "model-old"]) {
+        const result = await client.route(id, 500, 2.0, DEVICE_CAPS);
+        expect(result.offline).toBe(true);
+      }
+    });
+
     it("returns synthetic device decision when no cache and network fails", async () => {
       fetchSpy.mockRejectedValueOnce(new Error("Network down"));
 

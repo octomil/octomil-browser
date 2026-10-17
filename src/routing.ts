@@ -27,6 +27,24 @@ import { getDeviceMemoryMb, getUserAgent } from "./browser-env.js";
 
 const DEFAULT_CACHE_TTL_MS = 300_000; // 5 minutes
 const PERSISTENT_CACHE_KEY = "octomil_routing_cache";
+const PERSISTENT_CACHE_MAX_AGE_MS = 86_400_000; // 24 hours
+const FETCH_TIMEOUT_MS = 15_000;
+
+interface PersistedEntry {
+  decision: RoutingDecision;
+  storedAt: number;
+}
+
+function isRoutingDecision(v: unknown): v is RoutingDecision {
+  if (typeof v !== "object" || v === null) return false;
+  const d = v as Record<string, unknown>;
+  return (
+    typeof d["id"] === "string" &&
+    (d["target"] === "device" || d["target"] === "cloud") &&
+    typeof d["format"] === "string" &&
+    typeof d["engine"] === "string"
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Cache entry
@@ -99,6 +117,7 @@ export class RoutingClient {
           Authorization: `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
     } catch {
       return this.offlineFallback(modelId);
@@ -109,6 +128,9 @@ export class RoutingClient {
     }
 
     const decision = (await response.json()) as RoutingDecision;
+    if (!isRoutingDecision(decision)) {
+      return this.offlineFallback(modelId);
+    }
 
     this.cache.set(modelId, {
       decision,
@@ -194,7 +216,7 @@ export class RoutingClient {
     const entries = this.loadPersistentCache();
     const persisted = entries[modelId];
     if (persisted) {
-      return { ...persisted, cached: true, offline: false };
+      return { ...persisted.decision, cached: true, offline: false };
     }
 
     // No cache — synthetic device decision.
@@ -215,21 +237,36 @@ export class RoutingClient {
 
   private persistToStorage(modelId: string, decision: RoutingDecision): void {
     const entries = this.loadPersistentCache();
-    entries[modelId] = decision;
+    entries[modelId] = { decision, storedAt: Date.now() };
     this.savePersistentCache(entries);
   }
 
-  private loadPersistentCache(): Record<string, RoutingDecision> {
+  private loadPersistentCache(): Record<string, PersistedEntry> {
     try {
       const raw = localStorage.getItem(PERSISTENT_CACHE_KEY);
       if (!raw) return {};
-      return JSON.parse(raw) as Record<string, RoutingDecision>;
+      const parsed: unknown = JSON.parse(raw);
+      if (typeof parsed !== "object" || parsed === null) return {};
+      const now = Date.now();
+      const out: Record<string, PersistedEntry> = {};
+      for (const [id, e] of Object.entries(parsed)) {
+        const entry = e as Partial<PersistedEntry> | null;
+        if (
+          entry &&
+          typeof entry.storedAt === "number" &&
+          now - entry.storedAt <= PERSISTENT_CACHE_MAX_AGE_MS &&
+          isRoutingDecision(entry.decision)
+        ) {
+          out[id] = entry as PersistedEntry;
+        }
+      }
+      return out;
     } catch {
       return {};
     }
   }
 
-  private savePersistentCache(entries: Record<string, RoutingDecision>): void {
+  private savePersistentCache(entries: Record<string, PersistedEntry>): void {
     try {
       localStorage.setItem(PERSISTENT_CACHE_KEY, JSON.stringify(entries));
     } catch {
