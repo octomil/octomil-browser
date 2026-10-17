@@ -120,7 +120,7 @@ async function silentRegister(
     }
 
     const registerUrl = new URL(
-      `${baseUrl.replace(/\/+$/, "")}/api/v1/devices/register`,
+      `${stripTrailingSlashes(baseUrl)}/api/v1/devices/register`,
     );
     if (authOrgId) {
       registerUrl.searchParams.set("org_id", authOrgId);
