@@ -226,6 +226,8 @@ export interface RuntimeArtifactPlan {
   digest?: string;
   size_bytes?: number;
   min_ram_bytes?: number;
+  manifest_url?: string;
+  manifest_sha256?: string;
 }
 
 /**

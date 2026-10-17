@@ -101,6 +101,8 @@ export interface DesiredModelEntry {
     downloadUrl: string;
     sizeBytes?: number;
     sha256?: string;
+    manifestUrl?: string;
+    manifestSha256?: string;
   };
   rolloutId?: string;
 }

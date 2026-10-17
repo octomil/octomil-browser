@@ -16,9 +16,12 @@ import {
   type AcceptRootResult,
   type Envelope,
   type ManifestPayload,
+  type PinnedRoot,
   type ReleaseKey,
   type RootKey,
+  type TrustErrorCode,
   type TrustRootPayload,
+  type TrustState,
   type VerifyInput,
   type VerifyResult,
 } from "./types.js";
@@ -85,12 +88,16 @@ async function thresholdOk(env: Envelope, signed: Uint8Array, rootKeys: RootKey[
   return good.size >= threshold;
 }
 
-async function checkTrustRoot(i: VerifyInput, nowMs: number): Promise<TrustRootPayload> {
-  const { payload, signed } = await openEnvelope<TrustRootPayload>(i.trust_root, TRUST_ROOT_TYPE);
-  if (!(await thresholdOk(i.trust_root, signed, i.pinned_root.root_keys, i.pinned_root.threshold))) {
+async function checkTrustRoot(
+  env: Envelope,
+  pinned: PinnedRoot,
+  state: TrustState,
+  nowMs: number,
+): Promise<TrustRootPayload> {
+  const { payload, signed } = await openEnvelope<TrustRootPayload>(env, TRUST_ROOT_TYPE);
+  if (!(await thresholdOk(env, signed, pinned.root_keys, pinned.threshold))) {
     throw new TrustFail("manifest_signature_invalid");
   }
-  const state = i.state ?? {};
   if (payload.serial < (state.max_trust_root_serial ?? 0)) throw new TrustFail("rollback_detected");
   if (nowMs > ts(payload.expires_at)) {
     const refreshed = state.trust_root_last_refresh_at;
@@ -123,12 +130,26 @@ async function verifySignature(
   throw new TrustFail(revokedHit ? "key_revoked" : "manifest_signature_invalid");
 }
 
+/** Trust-root step of verifyManifest, exposed so callers can read the current root without a manifest. */
+export async function verifyTrustRoot(
+  env: Envelope,
+  pinned: PinnedRoot,
+  state: TrustState,
+  now: string | Date,
+): Promise<{ result: "ok"; root: TrustRootPayload } | { result: "error"; code: TrustErrorCode }> {
+  try {
+    return { result: "ok", root: await checkTrustRoot(env, pinned, state, toMs(now)) };
+  } catch (e) {
+    return { result: "error", code: e instanceof TrustFail ? e.code : "manifest_signature_invalid" };
+  }
+}
+
 export async function verifyManifest(input: VerifyInput): Promise<VerifyResult> {
   try {
     const nowMs = toMs(input.now);
     const ctx = input.context;
     const state = input.state ?? {};
-    const root = await checkTrustRoot(input, nowMs);
+    const root = await checkTrustRoot(input.trust_root, input.pinned_root, state, nowMs);
 
     if (input.manifest == null) {
       if ((ctx.unsigned_policy ?? "enforce") === "warn") return { result: "warn_unverified" };
