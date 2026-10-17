@@ -35,6 +35,8 @@ export interface ConfigureOptions {
 // Module state
 // ---------------------------------------------------------------------------
 
+const FETCH_TIMEOUT_MS = 15_000;
+
 let _deviceContext: DeviceContext | null = null;
 
 export function getDeviceContext(): DeviceContext | null {
@@ -132,12 +134,13 @@ async function silentRegister(
           battery?.level != null ? Math.round(battery.level * 100) : undefined,
         charging: battery?.charging,
       }),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
 
     if (!response.ok) {
-      if (response.status === 403) {
+      if (response.status >= 400 && response.status < 500 && response.status !== 429) {
         // Non-retryable
-        console.warn("[Octomil] Registration failed: invalid credentials");
+        console.warn(`[Octomil] Registration failed: HTTP ${response.status}`);
         context._markFailed();
         return;
       }
@@ -183,13 +186,16 @@ async function silentRegister(
 // Heartbeat
 // ---------------------------------------------------------------------------
 
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
 function startHeartbeat(
   context: DeviceContext,
   options: ConfigureOptions,
 ): void {
   const intervalMs = options.monitoring?.heartbeatIntervalMs ?? 300_000;
 
-  setInterval(async () => {
+  if (heartbeatTimer !== null) clearInterval(heartbeatTimer);
+  heartbeatTimer = setInterval(async () => {
     const headers = context.authHeaders();
     if (!headers) return;
 
@@ -197,13 +203,14 @@ function startHeartbeat(
       const baseUrl = options.baseUrl || "https://api.octomil.com";
       if (!context.serverDeviceId) return;
       await fetch(
-        `${baseUrl.replace(/\/+$/, "")}/api/v1/devices/${context.serverDeviceId}/heartbeat`,
+        `${baseUrl.replace(/\/+$/, "")}/api/v1/devices/${encodeURIComponent(context.serverDeviceId)}/heartbeat`,
         {
           method: "PUT",
           headers: { ...headers, "Content-Type": "application/json" },
           body: JSON.stringify({
             device_identifier: context.installationId,
           }),
+          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         },
       );
     } catch {
