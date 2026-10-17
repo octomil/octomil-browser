@@ -35,6 +35,9 @@ jobs:
       - run: pnpm test
 
       - run: pnpm run build
+        env:
+          OCTOMIL_BUILD_ENV: production
+          OCTOMIL_TRUST_ROOT_JSON: ${{ secrets.OCTOMIL_TRUST_ROOT_JSON }}
 
       - run: pnpm run exports:check
 
