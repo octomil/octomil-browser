@@ -628,5 +628,5 @@ function stripThinking(text: string): string {
 }
 
 function generateToolCallId(): string {
-  return `call_${Math.random().toString(36).slice(2, 10)}`;
+  return `call_${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
 }

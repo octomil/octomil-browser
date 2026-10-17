@@ -14,6 +14,7 @@ import type { ModelCache } from "./cache.js";
 import { computeHash } from "./integrity.js";
 import { openIdb, runIdb } from "./idb.js";
 import { OctomilError } from "./types.js";
+import { httpErrorCode } from "./errors.js";
 import { isSecureUrl, readCapped, redactUrl } from "./secure-url.js";
 
 // Re-export for convenience
@@ -378,7 +379,7 @@ export class SyncManager {
 
     if (!response.ok) {
       throw new OctomilError(
-        "MODEL_LOAD_FAILED",
+        httpErrorCode(response.status, "MODEL_LOAD_FAILED"),
         `Artifact download failed: HTTP ${response.status}`,
       );
     }

@@ -14,6 +14,7 @@ import type {
 } from "./types.js";
 import { OctomilError } from "./types.js";
 import { assertModelIntegrity } from "./integrity.js";
+import { httpErrorCode } from "./errors.js";
 import { isSecureUrl, redactUrl, sameOrigin } from "./secure-url.js";
 
 // ---------------------------------------------------------------------------
@@ -180,7 +181,7 @@ export class ModelManager {
         );
       }
       throw new OctomilError(
-        "NETWORK_UNAVAILABLE",
+        httpErrorCode(response.status),
         `Model resolver returned HTTP ${response.status}: ${response.statusText}`,
       );
     }
@@ -278,7 +279,7 @@ export class ModelManager {
 
       if (!response.ok && response.status !== 206) {
         throw new OctomilError(
-          "MODEL_LOAD_FAILED",
+          httpErrorCode(response.status, "MODEL_LOAD_FAILED"),
           `Model download failed: HTTP ${response.status} ${response.statusText}`,
         );
       }

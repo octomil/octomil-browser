@@ -1254,5 +1254,5 @@ export class ResponsesClient {
 // ---------------------------------------------------------------------------
 
 export function generateId(): string {
-  return `resp_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+  return `resp_${Date.now().toString(36)}${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
 }

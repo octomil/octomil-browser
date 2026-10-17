@@ -325,3 +325,13 @@ describe("OctomilError.fromServerResponse", () => {
     expect(err.retryable).toBe(true);
   });
 });
+
+describe("httpErrorCode", () => {
+  it("maps 401/403 to auth codes and others to the fallback", async () => {
+    const { httpErrorCode } = await import("../src/errors.js");
+    expect(httpErrorCode(401)).toBe("AUTHENTICATION_FAILED");
+    expect(httpErrorCode(403)).toBe("FORBIDDEN");
+    expect(httpErrorCode(500)).toBe("NETWORK_UNAVAILABLE");
+    expect(httpErrorCode(404, "MODEL_LOAD_FAILED")).toBe("MODEL_LOAD_FAILED");
+  });
+});
