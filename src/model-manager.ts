@@ -13,6 +13,8 @@ import type {
   ModelMetadata,
 } from "./types.js";
 import { OctomilError } from "./types.js";
+import { assertModelIntegrity } from "./integrity.js";
+import { isSecureUrl, redactUrl, sameOrigin } from "./secure-url.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -20,6 +22,15 @@ import { OctomilError } from "./types.js";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1_000;
+const RESOLVE_TIMEOUT_MS = 30_000;
+const DOWNLOAD_TIMEOUT_MS = 600_000;
+const MAX_MODEL_BYTES = 2 * 1024 * 1024 * 1024;
+
+interface ResolvedModel {
+  url: string;
+  sha256?: string;
+  cacheKey: string;
+}
 
 // ---------------------------------------------------------------------------
 // ModelManager
@@ -49,42 +60,50 @@ export class ModelManager {
    * and return the ONNX model bytes.
    */
   async load(): Promise<ArrayBuffer> {
-    const url = await this.resolveModelUrl();
+    const { url, sha256, cacheKey } = await this.resolveModel();
 
     // Check cache first.
-    const cached = await this.cache.get(url);
+    const cached = await this.cache.get(cacheKey);
     if (cached) {
-      return cached;
+      if (!sha256) return cached;
+      try {
+        await assertModelIntegrity(cached, sha256);
+        return cached;
+      } catch {
+        await this.cache.remove(cacheKey);
+      }
     }
 
     // Download the model.
     const data = await this.download(url);
 
-    // Validate — a minimal check that the buffer is non-empty.
     this.validate(data);
+    if (sha256) {
+      await assertModelIntegrity(data, sha256);
+    }
 
     // Cache for next time.
-    await this.cache.put(url, data);
+    await this.cache.put(cacheKey, data);
 
     return data;
   }
 
   /** Check whether the model is already cached. */
   async isCached(): Promise<boolean> {
-    const url = await this.resolveModelUrl();
-    return this.cache.has(url);
+    const { cacheKey } = await this.resolveModel();
+    return this.cache.has(cacheKey);
   }
 
   /** Remove the cached model. */
   async clearCache(): Promise<void> {
-    const url = await this.resolveModelUrl();
-    await this.cache.remove(url);
+    const { cacheKey } = await this.resolveModel();
+    await this.cache.remove(cacheKey);
   }
 
   /** Get cache info for the model. */
   async getCacheInfo() {
-    const url = await this.resolveModelUrl();
-    return this.cache.info(url);
+    const { cacheKey } = await this.resolveModel();
+    return this.cache.info(cacheKey);
   }
 
   // -----------------------------------------------------------------------
@@ -97,11 +116,16 @@ export class ModelManager {
    * the Octomil server.
    */
   async resolveModelUrl(): Promise<string> {
+    return (await this.resolveModel()).url;
+  }
+
+  private async resolveModel(): Promise<ResolvedModel> {
     if (
       this.modelId.startsWith("http://") ||
       this.modelId.startsWith("https://")
     ) {
-      return this.modelId;
+      this.assertSecure(this.modelId);
+      return { url: this.modelId, cacheKey: this.modelId };
     }
 
     if (!this.serverUrl) {
@@ -114,7 +138,17 @@ export class ModelManager {
     return this.fetchResolverUrl(this.modelId);
   }
 
-  private async fetchResolverUrl(reference: string): Promise<string> {
+  private assertSecure(url: string): void {
+    if (!isSecureUrl(url)) {
+      throw new OctomilError(
+        "MODEL_LOAD_FAILED",
+        `Refusing to download model over an insecure URL: ${redactUrl(url)}`,
+      );
+    }
+  }
+
+  private async fetchResolverUrl(reference: string): Promise<ResolvedModel> {
+    if (this.apiKey && this.serverUrl) this.assertSecure(this.serverUrl);
     const resolverUrl = `${this.serverUrl}/api/v1/registry/resolve/${encodeURIComponent(reference)}`;
 
     const headers: Record<string, string> = {
@@ -126,7 +160,10 @@ export class ModelManager {
 
     let response: Response;
     try {
-      response = await fetch(resolverUrl, { headers });
+      response = await fetch(resolverUrl, {
+        headers,
+        signal: AbortSignal.timeout(RESOLVE_TIMEOUT_MS),
+      });
     } catch (err) {
       throw new OctomilError(
         "NETWORK_UNAVAILABLE",
@@ -156,19 +193,36 @@ export class ModelManager {
         `Model resolver response for "${reference}" did not include a download URL`,
       );
     }
-    return resolvedUrl;
+    this.assertSecure(resolvedUrl);
+    const raw = metadata.sha256 ?? metadata.checksum;
+    const sha256 = raw?.replace(/^sha256:/i, "").trim().toLowerCase();
+    if (!sha256 || !/^[0-9a-f]{64}$/.test(sha256)) {
+      throw new OctomilError(
+        "MODEL_LOAD_FAILED",
+        `Model resolver response for "${reference}" did not include a valid sha256`,
+      );
+    }
+    return { url: resolvedUrl, sha256, cacheKey: `${reference}@${sha256}` };
   }
 
   // -----------------------------------------------------------------------
   // Internal — download
   // -----------------------------------------------------------------------
 
-  private buildHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  private buildHeaders(
+    url: string,
+    extra: Record<string, string> = {},
+  ): Record<string, string> {
     const headers: Record<string, string> = {
       "Accept-Encoding": "gzip, deflate, br",
       ...extra,
     };
-    if (this.apiKey) {
+    if (
+      this.apiKey &&
+      this.serverUrl &&
+      isSecureUrl(url) &&
+      sameOrigin(url, this.serverUrl)
+    ) {
       headers["Authorization"] = `Bearer ${this.apiKey}`;
     }
     return headers;
@@ -182,18 +236,22 @@ export class ModelManager {
 
     while (attempt <= MAX_RETRIES) {
       const headers = this.buildHeaders(
+        url,
         loaded > 0 ? { Range: `bytes=${loaded}-` } : {},
       );
 
       let response: Response;
       try {
-        response = await fetch(url, { headers });
+        response = await fetch(url, {
+          headers,
+          signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
+        });
       } catch (err) {
         attempt++;
         if (attempt > MAX_RETRIES) {
           throw new OctomilError(
             "NETWORK_UNAVAILABLE",
-            `Failed to download model from ${url} after ${MAX_RETRIES} retries`,
+            `Failed to download model from ${redactUrl(url)} after ${MAX_RETRIES} retries`,
             err,
           );
         }
@@ -206,6 +264,7 @@ export class ModelManager {
       if (response.status === 416) {
         chunks.length = 0;
         loaded = 0;
+        totalSize = 0;
         attempt++;
         if (attempt > MAX_RETRIES) {
           throw new OctomilError(
@@ -224,6 +283,25 @@ export class ModelManager {
         );
       }
 
+      if (loaded > 0) {
+        if (response.status !== 206) {
+          // Server ignored the Range header and sent the whole body.
+          chunks.length = 0;
+          loaded = 0;
+          totalSize = 0;
+        } else {
+          const range = response.headers
+            .get("Content-Range")
+            ?.match(/^bytes (\d+)-\d+\/(\d+|\*)$/);
+          if (!range || parseInt(range[1]!, 10) !== loaded) {
+            throw new OctomilError(
+              "MODEL_LOAD_FAILED",
+              "Model download failed: invalid Content-Range on resumed response",
+            );
+          }
+        }
+      }
+
       // Determine total size from Content-Length or Content-Range.
       if (totalSize === 0) {
         const contentRange = response.headers.get("Content-Range");
@@ -234,12 +312,25 @@ export class ModelManager {
         } else {
           totalSize = parseInt(response.headers.get("Content-Length") ?? "0", 10);
         }
+        if (totalSize > MAX_MODEL_BYTES) {
+          throw new OctomilError(
+            "MODEL_LOAD_FAILED",
+            `Model exceeds maximum size of ${MAX_MODEL_BYTES} bytes`,
+          );
+        }
       }
 
-      // Stream the body, collecting chunks.
       if (!response.body) {
-        const buf = await response.arrayBuffer();
-        return buf;
+        const buf = new Uint8Array(await response.arrayBuffer());
+        if (loaded + buf.byteLength > MAX_MODEL_BYTES) {
+          throw new OctomilError(
+            "MODEL_LOAD_FAILED",
+            `Model exceeds maximum size of ${MAX_MODEL_BYTES} bytes`,
+          );
+        }
+        chunks.push(buf);
+        loaded += buf.byteLength;
+        break;
       }
 
       const reader = response.body.getReader();
@@ -252,6 +343,12 @@ export class ModelManager {
 
           chunks.push(value);
           loaded += value.byteLength;
+          if (loaded > MAX_MODEL_BYTES) {
+            throw new OctomilError(
+              "MODEL_LOAD_FAILED",
+              `Model exceeds maximum size of ${MAX_MODEL_BYTES} bytes`,
+            );
+          }
 
           this.onProgress?.({
             loaded,
@@ -260,6 +357,12 @@ export class ModelManager {
           });
         }
       } catch (err) {
+        try {
+          await reader.cancel();
+        } catch {
+          /* already errored */
+        }
+        if (err instanceof OctomilError) throw err;
         // Stream interrupted — retry with range request from where we left off.
         streamFailed = true;
         attempt++;
@@ -302,16 +405,6 @@ export class ModelManager {
       throw new OctomilError(
         "MODEL_LOAD_FAILED",
         "Downloaded model is empty (0 bytes).",
-      );
-    }
-
-    // ONNX protobuf files start with 0x08 (field 1, varint type).
-    // This is a lightweight sanity check, not a full format validation.
-    const header = new Uint8Array(data, 0, Math.min(4, data.byteLength));
-    if (header[0] !== 0x08) {
-      throw new OctomilError(
-        "MODEL_LOAD_FAILED",
-        "Downloaded file does not appear to be a valid ONNX model.",
       );
     }
   }

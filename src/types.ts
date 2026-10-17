@@ -264,6 +264,7 @@ export interface ModelMetadata {
   url?: string;
   download_url?: string;
   checksum?: string;
+  sha256?: string;
 }
 
 // ---------------------------------------------------------------------------
